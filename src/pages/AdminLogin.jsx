@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import { Eye, EyeOff, Lock, Mail, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail} from 'lucide-react';
 import { LogoSVG } from '../components/Navbar';
 import './styles/AdminLogin.css';
 
@@ -68,20 +68,6 @@ export function AdminLogin() {
           <p className="al-subtitle">
             Specify verified corporate representative credentials to gain access to processing controls and sync logs.
           </p>
-        </div>
-
-        {/* Demo Hints */}
-        <div className="al-hints">
-          <KeyRound className="al-hints-icon" />
-          <div className="al-hints-body">
-            <strong className="al-hints-heading">Seed Credentials For Vetting:</strong>
-            <div className="al-hints-row">
-              • Superadmin: <code className="al-code">superadmin@3dees.net</code> / Pass: <code className="al-code">Admin@3dees</code>
-            </div>
-            <div className="al-hints-row">
-              • Normal Admin: <code className="al-code">admin@3dees.net</code> / Pass: <code className="al-code">Admin@3dees</code>
-            </div>
-          </div>
         </div>
 
         {/* Form */}
