@@ -1,0 +1,230 @@
+/* ── Wrapper ── */
+.al-wrapper {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background-color: var(--color-brand-light);
+}
+
+/* ── Card ── */
+.al-card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-subtle);
+  border: 1px solid #e5e7eb;
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Header ── */
+.al-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.al-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  letter-spacing: -0.02em;
+  margin-top: 1.5rem;
+}
+
+.al-subtitle {
+  font-size: 0.65rem;
+  color: #6b7280;
+  max-width: 20rem;
+  margin-top: 0.375rem;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+/* ── Hints Box ── */
+.al-hints {
+  background-color: rgba(255, 247, 237, 0.7);
+  border: 1px solid #fed7aa;
+  padding: 0.875rem;
+  border-radius: 0.375rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.al-hints-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-brand-primary);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.al-hints-body {
+  font-size: 0.6rem;
+  color: var(--color-brand-dark);
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.al-hints-heading {
+  color: var(--color-brand-primary);
+  text-transform: uppercase;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.al-hints-row {
+  margin-top: 0.25rem;
+}
+
+.al-code {
+  font-family: monospace;
+  font-weight: 700;
+  background: #fff;
+  padding: 0.125rem 0.375rem;
+  border: 1px solid #fed7aa;
+  border-radius: 0.25rem;
+  font-size: 0.6rem;
+}
+
+/* ── Form ── */
+.al-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--color-brand-dark);
+}
+
+.al-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.al-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.al-input-wrap {
+  position: relative;
+}
+
+.al-input-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.875rem;
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.al-input {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.875rem 0.875rem 0.875rem 2.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  background-color: var(--color-brand-light);
+  outline: none;
+  transition: border-color 0.2s;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.al-input:focus {
+  border-color: var(--color-brand-primary);
+}
+
+.al-input-password {
+  padding-right: 2.625rem;
+}
+
+.al-toggle-pass {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.al-toggle-pass:hover {
+  color: var(--color-brand-primary);
+}
+
+.al-eye-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Submit */
+.al-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-weight: 600;
+  background-color: var(--color-brand-primary);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.875rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 0.75rem;
+  box-shadow: 0 4px 6px rgba(255, 102, 0, 0.15);
+}
+
+.al-submit-btn:hover:not(:disabled) {
+  background-color: var(--color-brand-secondary);
+}
+
+.al-submit-btn:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.al-spinner {
+  width: 1rem;
+  height: 1rem;
+  color: #fff;
+  animation: alSpin 1s linear infinite;
+}
+
+@keyframes alSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Footer ── */
+.al-footer {
+  text-align: center;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.6rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
