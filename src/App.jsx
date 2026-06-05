@@ -2,8 +2,6 @@ import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { PortalProvider } from './context/PortalContext';
 import { ToastContainer } from './components/Toast';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import './App.css';
@@ -34,18 +32,6 @@ function PanelLoaderPlaceholder() {
   );
 }
 
-function PublicBaseLayout() {
-  return (
-    <div className="public-base-layout">
-      <Navbar />
-      <main className="public-base-main">
-        <Outlet />
-      </main>
-      <Footer />
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <PortalProvider>
@@ -54,9 +40,8 @@ export default function App() {
 
         <Routes>
           {/* GENERAL GUEST DIRECTORIES CHANNELS */}
-          <Route element={<PublicBaseLayout />}>
-            <Route path="/admin/login" element={<AdminLogin />} />
-          </Route>
+
+          <Route path="/" element={<AdminLogin />} />
 
           {/* ADMIN OPERATIONS AREA SECURED GATES */}
           <Route

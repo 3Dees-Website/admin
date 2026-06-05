@@ -7,7 +7,7 @@ export function ProtectedRoute({ children, allowedRole = 'any' }) {
 
   // If not logged in, redirect to login
   if (!token || !currentUser) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   // If a specific role is demanded

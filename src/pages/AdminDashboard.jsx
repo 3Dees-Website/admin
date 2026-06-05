@@ -1,16 +1,15 @@
 import { useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
 import { useApplications } from '../hooks/useApplications';
 import { useAuth } from '../hooks/useAuth';
-import { Briefcase, FileText, CheckCircle, Clock, Ban, ChevronRight, PlusCircle, ArrowUpRight } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, Clock, Ban, PlusCircle, ArrowUpRight } from 'lucide-react';
 import './styles/AdminDashboard.css';
 
 export function AdminDashboard() {
   const { jobs } = useJobs();
   const { applications } = useApplications();
   const { currentUser } = useAuth();
-  const navigate = useNavigate();
 
   const stats = useMemo(() => {
     const totalJobs = jobs.length;

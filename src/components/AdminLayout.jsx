@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation} from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
@@ -11,7 +11,6 @@ import './styles/AdminLayout.css';
 export function AdminLayout({ children, role }) {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const adminMenu = [
@@ -41,7 +40,13 @@ export function AdminLayout({ children, role }) {
         {/* Sidebar Header */}
         <div className="sidebar-header">
           {!sidebarCollapsed ? (
-            <Link to="/">
+            <Link
+              to={
+                role === 'superadmin'
+                  ? '/superadmin/dashboard'
+                  : '/admin/dashboard'
+              }
+            >
               <LogoSVG light={true} />
             </Link>
           ) : (
