@@ -5,6 +5,7 @@ import { ToastContainer } from './components/Toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { OTPVerification } from './pages/OTPVerification';
+import { SuperadminAllVacancies } from './pages/SuperadminAllVacancies';
 import './App.css';
 
 // Public pages
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="dashboard" element={<SuperadminDashboard />} />
             <Route path="admins" element={<SuperadminManageAdmins />} />
             <Route path="applications" element={<SuperadminViewAllApplications />} />
+            <Route path="jobs" element={<SuperadminAllVacancies />} />
             <Route path="audit" element={<SuperadminAuditTrail />} />
           </Route>
 

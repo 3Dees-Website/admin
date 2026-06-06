@@ -1,0 +1,878 @@
+/* ── Wrapper ── */
+.sav-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Header Card ── */
+.sav-header-card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+@media (min-width: 640px) {
+  .sav-header-card {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.sav-security-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-brand-primary);
+  font-family: monospace;
+}
+
+.sav-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  letter-spacing: -0.02em;
+  margin-top: 0.125rem;
+}
+
+.sav-subtitle {
+  font-size: 0.65rem;
+  color: var(--color-brand-text);
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.sav-export-btn {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background-color: var(--color-brand-dark);
+  color: #fff;
+  border: 1px solid #374151;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.sav-export-btn:hover {
+  background-color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+}
+
+/* ── Metrics Row ── */
+.sav-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .sav-metrics-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.sav-metric {
+  background: #fff;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.sav-metric-label {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ca3af;
+}
+
+.sav-metric-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-brand-dark);
+  line-height: 1;
+}
+
+.sav-metric-green  { color: #15803d; }
+.sav-metric-muted  { color: #9ca3af; }
+.sav-metric-orange { color: var(--color-brand-primary); }
+
+/* ── Filters Card ── */
+.sav-filters-card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .sav-filters-card {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.sav-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sav-filter-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sav-search-wrapper {
+  position: relative;
+}
+
+.sav-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+}
+
+.sav-search-input {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.625rem 0.625rem 0.625rem 2.25rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  outline: none;
+  color: var(--color-brand-dark);
+  font-weight: 500;
+  box-sizing: border-box;
+}
+
+.sav-search-input:focus {
+  border-color: var(--color-brand-primary);
+}
+
+.sav-select {
+  font-size: 0.75rem;
+  padding: 0.625rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  outline: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+}
+
+.sav-select:focus {
+  border-color: var(--color-brand-primary);
+}
+
+/* ── Table Card ── */
+.sav-table-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+}
+
+.sav-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.sav-table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: var(--color-brand-dark);
+}
+
+.sav-thead-row {
+  background-color: rgba(245, 245, 245, 0.7);
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.sav-th {
+  padding: 1rem 1.5rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+}
+
+.sav-th-center { text-align: center; }
+.sav-th-right  { text-align: right;  }
+
+.sav-tbody tr + tr {
+  border-top: 1px solid #f3f4f6;
+}
+
+.sav-row {
+  transition: background-color 0.15s;
+  font-weight: 500;
+}
+
+.sav-row:hover {
+  background-color: rgba(245, 245, 245, 0.4);
+}
+
+.sav-td {
+  padding: 1rem 1.5rem;
+}
+
+.sav-td-center { text-align: center; }
+.sav-td-right  { text-align: right;  }
+
+/* Vacancy / Client cell */
+.sav-job-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sav-job-title {
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.sav-job-client {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-brand-primary);
+}
+
+.sav-job-location {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.1rem;
+}
+
+.sav-loc-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Sector cell */
+.sav-sector-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sav-category-badge {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: rgba(255, 102, 0, 0.07);
+  color: var(--color-brand-primary);
+  border: 1px solid rgba(255, 102, 0, 0.15);
+  display: inline-block;
+}
+
+.sav-type-label {
+  font-size: 0.6rem;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+/* Openings badge */
+.sav-openings-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.sav-openings-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #9ca3af;
+}
+
+/* Applicant counts */
+.sav-applicant-counts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.sav-total-apps {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.sav-approved-apps {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+/* Pipeline status badges */
+.sav-status-badge {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.25rem;
+  font-weight: 800;
+  display: inline-block;
+}
+
+.sav-status-active {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.sav-status-closed {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.sav-status-paused {
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+/* Closing date cell */
+.sav-closing-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.sav-closing-date {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+}
+
+.sav-closing-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+.sav-close-ok      { background: #f0fdf4; color: #15803d; }
+.sav-close-urgent  { background: #fefce8; color: #a16207; }
+.sav-close-expired { background: #fef2f2; color: #b91c1c; }
+
+/* Action button */
+.sav-action-group {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sav-audit-btn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  color: var(--color-brand-dark);
+}
+
+.sav-audit-btn:hover {
+  background-color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  color: #fff;
+}
+
+.sav-empty-row {
+  text-align: center;
+  padding: 3rem;
+  color: #9ca3af;
+}
+
+/* ── Drawer Overlay ── */
+.sav-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 10, 10, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  animation: savFadeIn 0.15s ease;
+}
+
+@keyframes savFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sav-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.sav-drawer {
+  background: #fff;
+  width: 100%;
+  max-width: 42rem;
+  height: 100%;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  color: var(--color-brand-dark);
+  animation: savSlideIn 0.2s ease;
+}
+
+@keyframes savSlideIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* Drawer Header */
+.sav-drawer-header {
+  min-height: 5rem;
+  border-bottom: 1px solid #f3f4f6;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.sav-drawer-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--color-brand-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-family: monospace;
+  display: block;
+}
+
+.sav-drawer-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  text-transform: uppercase;
+  margin-top: 0.25rem;
+  line-height: 1.3;
+}
+
+.sav-drawer-client {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+  margin-top: 0.125rem;
+  display: block;
+}
+
+.sav-drawer-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0.25rem;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.sav-drawer-close:hover {
+  color: var(--color-brand-primary);
+}
+
+.sav-close-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Drawer Body */
+.sav-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Warning Banner */
+.sav-warning-banner {
+  padding: 0.875rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  font-size: 0.6rem;
+  color: #1f1f1f;
+  line-height: 1.6;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sav-warning-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.sav-warning-title {
+  color: #b91c1c;
+  text-transform: uppercase;
+  display: block;
+}
+
+.sav-warning-text {
+  margin-top: 0.25rem;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+/* Details Grid */
+.sav-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  padding: 1rem;
+  border-radius: 0.375rem;
+}
+
+.sav-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sav-detail-key {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #9ca3af;
+}
+
+.sav-detail-val {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+}
+
+/* Applicant Summary */
+.sav-app-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sav-section-title {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-brand-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.sav-section-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-brand-primary);
+}
+
+.sav-app-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.sav-app-stat {
+  background: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.sav-app-stat-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-brand-dark);
+  line-height: 1;
+}
+
+.sav-app-stat-key {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #9ca3af;
+}
+
+.sav-stat-shortlisted { color: #4338ca; }
+.sav-stat-approved    { color: #15803d; }
+.sav-stat-rejected    { color: #b91c1c; }
+
+/* Description block */
+.sav-desc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sav-desc-text {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-brand-text);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.sav-req-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-left: 0.25rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.sav-req-item {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-brand-text);
+  line-height: 1.5;
+  padding-left: 0.5rem;
+}
+
+/* Drawer Footer */
+.sav-drawer-footer {
+  height: 5rem;
+  padding: 0 1.5rem;
+  border-top: 1px solid #f3f4f6;
+  background-color: var(--color-brand-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.sav-footer-meta {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.sav-footer-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.sav-footer-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sav-btn-delete {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #fff;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sav-btn-delete:hover { background-color: #fef2f2; }
+
+.sav-btn-close {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #fff;
+  color: #a16207;
+  border: 1px solid #fde68a;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sav-btn-close:hover { background-color: #fefce8; }
+
+.sav-btn-reopen {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background-color: var(--color-brand-primary);
+  color: #fff;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 4px 6px rgba(255, 102, 0, 0.1);
+}
+
+.sav-btn-reopen:hover { background-color: var(--color-brand-secondary); }
+
+/* ── Delete Confirm Modal ── */
+.sav-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: savFadeIn 0.1s ease;
+}
+
+.sav-confirm-modal {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 26rem;
+  border: 1px solid #fecaca;
+  animation: savZoomIn 0.1s ease;
+}
+
+@keyframes savZoomIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.sav-confirm-body {
+  display: flex;
+  gap: 0.875rem;
+  color: #dc2626;
+}
+
+.sav-confirm-icon {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.sav-confirm-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-dark);
+  margin: 0 0 0.375rem;
+}
+
+.sav-confirm-desc {
+  font-size: 0.65rem;
+  color: #6b7280;
+  line-height: 1.6;
+  font-weight: 600;
+  margin: 0;
+}
+
+.sav-confirm-bold {
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.sav-confirm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 1rem;
+  margin-top: 1.25rem;
+}
+
+.sav-confirm-cancel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  background: none;
+  border: 1px solid #e5e7eb;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.sav-confirm-cancel:hover { color: var(--color-brand-primary); }
+
+.sav-confirm-delete {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sav-confirm-delete:hover { background-color: #b91c1c; }

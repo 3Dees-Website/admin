@@ -22,7 +22,7 @@ export function AdminLayout({ children, role }) {
   const superAdminMenu = [
     { name: 'Super Console', path: '/superadmin/dashboard', icon: <LayoutDashboard size={16} /> },
     { name: 'Advisory Staff', path: '/superadmin/admins', icon: <Users size={16} /> },
-    { name: 'All Vacancies', path: '/admin/jobs', icon: <Briefcase size={16} /> },
+    { name: 'All Vacancies', path: '/superadmin/jobs', icon: <Briefcase size={16} /> },
     { name: 'All Applications', path: '/superadmin/applications', icon: <FileUser size={16} /> },
     { name: 'Compliance Audits', path: '/superadmin/audit', icon: <History size={16} /> },
   ];
