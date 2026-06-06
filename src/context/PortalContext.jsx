@@ -152,24 +152,58 @@ export function PortalProvider({ children }) {
     dispatch({ type: 'DISMISS_TOAST', payload: id });
   };
 
-  const login = async (email, passwordHash) => {
+  /**
+   * login
+   *
+   * When called with { deferCommit: true } (from AdminLogin before OTP):
+   *   - Validates credentials only
+   *   - Does NOT write to localStorage or dispatch SET_AUTH
+   *   - Returns { user, token } so AdminLogin can pass them to OTPVerification
+   *   - Returns null on bad credentials
+   *
+   * When called normally (deferCommit: false, the default):
+   *   - Original behaviour: commits session immediately, returns true/false
+   */
+  const login = async (email, password, options = {}) => {
+    const { deferCommit = false } = options;
     try {
-      const loginPayload = localStorageDb.loginUser(email, passwordHash);
-      if (loginPayload) {
-        localStorage.setItem('3dees_current_user', JSON.stringify(loginPayload.user));
-        localStorage.setItem('3dees_token', loginPayload.token);
-        dispatch({ type: 'SET_AUTH', payload: loginPayload });
-        addToast('success', 'Logged In Successfully', `Welcome back, ${loginPayload.user.name}`);
-        refreshLogsAndUsers();
-        return true;
-      } else {
-        addToast('error', 'Authentication Failed', 'Invalid credentials specified.');
-        return false;
+      const loginPayload = localStorageDb.loginUser(email, password);
+
+      if (!loginPayload) {
+        addToast('error', 'Authentication Failed', 'Invalid email address or security passcode.');
+        return deferCommit ? null : false;
       }
+
+      if (deferCommit) {
+        // Return raw payload — OTPVerification will call commitSession on success
+        return { user: loginPayload.user, token: loginPayload.token };
+      }
+
+      // Immediate commit (legacy path, kept for compatibility)
+      localStorage.setItem('3dees_current_user', JSON.stringify(loginPayload.user));
+      localStorage.setItem('3dees_token', loginPayload.token);
+      dispatch({ type: 'SET_AUTH', payload: loginPayload });
+      addToast('success', 'Logged In Successfully', `Welcome back, ${loginPayload.user.name}`);
+      refreshLogsAndUsers();
+      return true;
+
     } catch (err) {
       addToast('error', 'Authentication Error', err.message || 'Suspended or invalid account.');
-      return false;
+      return deferCommit ? null : false;
     }
+  };
+
+  /**
+   * commitSession
+   * Called by OTPVerification after the code is accepted.
+   * Persists the deferred credentials into localStorage and React state.
+   */
+  const commitSession = (user, token) => {
+    localStorage.setItem('3dees_current_user', JSON.stringify(user));
+    localStorage.setItem('3dees_token', token);
+    dispatch({ type: 'SET_AUTH', payload: { user, token } });
+    addToast('success', 'Session Opened', `Welcome back, ${user.name}.`);
+    refreshLogsAndUsers();
   };
 
   const logout = () => {
@@ -384,6 +418,7 @@ export function PortalProvider({ children }) {
       value={{
         ...state,
         login,
+        commitSession,
         logout,
         addToast,
         removeToast,

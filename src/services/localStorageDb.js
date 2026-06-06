@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 const USERS_KEY = '3dees_users';
 const JOBS_KEY = '3dees_jobs';
 const APPLICATIONS_KEY = '3dees_applications';

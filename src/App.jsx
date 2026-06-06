@@ -4,6 +4,7 @@ import { PortalProvider } from './context/PortalContext';
 import { ToastContainer } from './components/Toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
+import { OTPVerification } from './pages/OTPVerification';
 import './App.css';
 
 // Public pages
@@ -42,6 +43,7 @@ export default function App() {
           {/* GENERAL GUEST DIRECTORIES CHANNELS */}
 
           <Route path="/" element={<AdminLogin />} />
+          <Route path="/admin/verify" element={<OTPVerification />} />
 
           {/* ADMIN OPERATIONS AREA SECURED GATES */}
           <Route

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import { Eye, EyeOff, Lock, Mail} from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { LogoSVG } from '../components/Navbar';
 import './styles/AdminLogin.css';
 
@@ -12,9 +12,11 @@ export function AdminLogin() {
   const { addToast } = useToast();
   const navigate = useNavigate();
 
+  // If already authenticated, redirect immediately
   useEffect(() => {
     if (token && currentUser) {
-      const redirectPath = currentUser.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+      const redirectPath =
+        currentUser.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
       navigate(redirectPath, { replace: true });
     }
   }, [token, currentUser, navigate]);
@@ -28,25 +30,39 @@ export function AdminLogin() {
     e.preventDefault();
 
     if (!email.trim() || !password.trim()) {
-      addToast('error', 'Incomplete Credentials', 'Please write both your email address and security passcode.');
+      addToast(
+        'error',
+        'Incomplete Credentials',
+        'Please provide both your email address and security passcode.'
+      );
       return;
     }
 
     setIsAuthenticating(true);
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    const success = await login(email, password);
+    // login() returns { user, token } on success or null on failure.
+    // We temporarily bypass the useAuth hook's auto-persist so we can
+    // gate behind OTP first — pass a deferCommit flag if your hook supports
+    // it, otherwise call localStorageDb.loginUser directly here.
+    const result = await login(email, password, { deferCommit: true });
+
     setIsAuthenticating(false);
 
-    if (success) {
-      setTimeout(() => {
-        const persisted = localStorage.getItem('3dees_current_user');
-        if (persisted) {
-          const u = JSON.parse(persisted);
-          const destination = u.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
-          navigate(destination, { replace: true });
-        }
-      }, 100);
+    if (result) {
+      // result shape: { user, token }  (returned by the updated login fn below)
+      const { user, token: rawToken } = result;
+      const destination =
+        user.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+
+      navigate('/admin/verify', {
+        replace: true,
+        state: {
+          pendingUser: user,
+          token: rawToken,
+          destination,
+        },
+      });
     }
   };
 
@@ -66,7 +82,8 @@ export function AdminLogin() {
           <LogoSVG light={false} />
           <h2 className="al-title">Administrative Staff Portal</h2>
           <p className="al-subtitle">
-            Specify verified corporate representative credentials to gain access to processing controls and sync logs.
+            Specify verified corporate representative credentials to gain access to processing
+            controls and sync logs.
           </p>
         </div>
 
@@ -110,7 +127,11 @@ export function AdminLogin() {
                 className="al-toggle-pass"
                 aria-label="Toggle password view"
               >
-                {showPassword ? <EyeOff className="al-eye-icon" /> : <Eye className="al-eye-icon" />}
+                {showPassword ? (
+                  <EyeOff className="al-eye-icon" />
+                ) : (
+                  <Eye className="al-eye-icon" />
+                )}
               </button>
             </div>
           </div>
@@ -125,12 +146,15 @@ export function AdminLogin() {
               <>
                 <svg className="al-spinner" fill="none" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <path
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
                 </svg>
-                <span>Decrypting Lock...</span>
+                <span>Validating Credentials...</span>
               </>
             ) : (
-              <span>Decrypt & Open Session</span>
+              <span>Continue to Verification</span>
             )}
           </button>
         </form>
