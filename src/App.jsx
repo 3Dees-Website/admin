@@ -4,7 +4,7 @@ import { PortalProvider } from './context/PortalContext';
 import { ToastContainer } from './components/Toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
-import { OTPVerification } from './pages/OTPVerification';
+import { OTPVerification } from './pages/OTPVerification.jsx';
 import './App.css';
 
 // Public pages
