@@ -6,7 +6,8 @@
 import { useState, useEffect } from 'react';
 import {
   X, ShieldAlert, Upload, Trash2, FileText,
-  User, GraduationCap, FolderOpen, ClipboardList
+  User, GraduationCap, FolderOpen, ClipboardList,
+  Download, Eye, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import './styles/CandidateEditDrawer.css';
 
@@ -41,22 +42,216 @@ const NIGERIAN_STATES = [
   'Sokoto','Taraba','Yobe','Zamfara',
 ];
 
-export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClose, onSave, onStatusChange }) {
+/* ── URL type helpers ── */
+const isMockUrl   = (url) => !url || url.startsWith('#mock-') || url.startsWith('#uploaded-');
+const isBase64Url = (url) => typeof url === 'string' && url.startsWith('data:');
+const isRealUrl   = (url) => typeof url === 'string' && (url.startsWith('http') || url.startsWith('/') || url.startsWith('blob:'));
+
+/* A file is downloadable if it has a real or base64 URL */
+const isDownloadable = (url) => isBase64Url(url) || isRealUrl(url);
+
+const formatFileSize = (bytes) => {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+/* Read a picked File object → base64 data URL */
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+
+/* Open viewable types (PDF / images) in a new tab; download everything else */
+const viewFile = (doc) => {
+  const viewable = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  if (viewable.includes(doc.type)) {
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        `<html><head><title>${doc.name}</title></head>` +
+        `<body style="margin:0;background:#111">` +
+        `<iframe src="${doc.url}" style="width:100%;height:100vh;border:none"></iframe>` +
+        `</body></html>`
+      );
+      win.document.close();
+      return;
+    }
+  }
+  /* Fallback: trigger download via anchor */
+  triggerDownload(doc.url, doc.name);
+};
+
+/* Programmatic download — mirrors the <a download> pattern from AdminApplications */
+const triggerDownload = (url, filename) => {
+  const a = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   DocRow — one document slot
+   ═══════════════════════════════════════════════════════════ */
+function DocRow({ slotKey, label, doc, onUpload, onRemove, onMockDownloadAttempt }) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      onUpload(slotKey, {
+        name:       file.name,
+        size:       formatFileSize(file.size),
+        type:       file.type,
+        url:        dataUrl,
+        uploadedAt: new Date().toISOString(),
+      });
+    } catch {
+      /* silent */
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const canDownload = doc && isDownloadable(doc.url);
+  const isMock      = doc && isMockUrl(doc.url);
+  const hasDoc      = !!doc;
+
+  return (
+    <div className={`ced-doc-slot${canDownload ? ' ced-doc-slot--uploaded' : isMock ? ' ced-doc-slot--mock' : ''}`}>
+
+      {/* Left — icon + info */}
+      <div className="ced-doc-slot-left">
+        <FileText className={`ced-doc-file-icon${canDownload ? ' ced-doc-icon-real' : isMock ? ' ced-doc-icon-mock' : ''}`} />
+        <div className="ced-doc-slot-info">
+          <span className="ced-doc-slot-label">{label}</span>
+
+          {canDownload && (
+            <span className="ced-doc-slot-name">
+              <CheckCircle2 className="ced-doc-check" />
+              {doc.name}
+              <span className="ced-doc-slot-size"> · {doc.size}</span>
+            </span>
+          )}
+
+          {isMock && (
+            <span className="ced-doc-slot-mock-tag">
+              <AlertCircle className="ced-doc-mock-icon" />
+              {doc.name}
+              <span className="ced-doc-slot-size"> · {doc.size}</span>
+            </span>
+          )}
+
+          {!hasDoc && (
+            <span className="ced-doc-slot-empty">No file uploaded</span>
+          )}
+        </div>
+      </div>
+
+      {/* Right — actions */}
+      <div className="ced-doc-slot-actions">
+
+        {/* VIEW — real/base64 files only */}
+        {canDownload && (
+          <button
+            type="button"
+            onClick={() => viewFile(doc)}
+            className="ced-view-btn"
+            title="View document"
+          >
+            <Eye className="ced-action-icon" />
+            <span>View</span>
+          </button>
+        )}
+
+        {/*
+          DOWNLOAD — mirrors AdminApplications pattern exactly:
+          Use a native <a download> for real/base64 files.
+          For mock files, show the button but intercept with a toast.
+        */}
+        {hasDoc && (
+          canDownload ? (
+            /* Native anchor download — same as AdminApplications */
+            <a
+              href={doc.url}
+              download={doc.name}
+              className="ced-download-btn"
+              title={`Download ${doc.name}`}
+            >
+              <Download className="ced-action-icon" />
+              <span>Download</span>
+            </a>
+          ) : (
+            /* Mock file — button that explains why it can't download */
+            <button
+              type="button"
+              onClick={onMockDownloadAttempt}
+              className="ced-download-btn ced-download-btn--mock"
+              title="Demo file — replace to download"
+            >
+              <Download className="ced-action-icon" />
+              <span>Download</span>
+            </button>
+          )
+        )}
+
+        {/* UPLOAD / REPLACE */}
+        <label className={`ced-upload-btn${uploading ? ' ced-upload-btn--loading' : ''}`}>
+          <Upload className="ced-action-icon" />
+          <span>{uploading ? 'Reading…' : hasDoc ? 'Replace' : 'Upload'}</span>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={handleChange}
+            disabled={uploading}
+          />
+        </label>
+
+        {/* REMOVE */}
+        {hasDoc && (
+          <button
+            type="button"
+            onClick={() => onRemove(slotKey)}
+            className="ced-remove-btn"
+            title="Remove document"
+          >
+            <Trash2 className="ced-action-icon" />
+          </button>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Main Drawer
+   ═══════════════════════════════════════════════════════════ */
+export function CandidateEditDrawer({
+  app,
+  jobTitle,
+  isSuperadmin = false,
+  onClose,
+  onSave,
+  onStatusChange,
+  addToast,
+}) {
   const [activeTab, setActiveTab] = useState('personal');
-
-  /* ── Personal Info ── */
-  const [personal, setPersonal] = useState({ ...app.personalInfo });
-
-  /* ── Education Info ── */
+  const [personal,  setPersonal]  = useState({ ...app.personalInfo });
   const [education, setEducation] = useState({ ...app.educationInfo });
+  const [docs,      setDocs]      = useState({ ...app.documents });
+  const [notes,     setNotes]     = useState(app.notes || '');
 
-  /* ── Documents ── */
-  const [docs, setDocs] = useState({ ...app.documents });
-
-  /* ── Notes ── */
-  const [notes, setNotes] = useState(app.notes || '');
-
-  /* Keep in sync if parent passes updated app */
   useEffect(() => {
     setPersonal({ ...app.personalInfo });
     setEducation({ ...app.educationInfo });
@@ -64,52 +259,38 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
     setNotes(app.notes || '');
   }, [app.id]);
 
-  /* ── Helpers ── */
-  const handlePersonalChange = (field, value) =>
-    setPersonal((prev) => ({ ...prev, [field]: value }));
+  const handlePersonalChange  = (f, v) => setPersonal((p)  => ({ ...p, [f]: v }));
+  const handleEducationChange = (f, v) => setEducation((p) => ({ ...p, [f]: v }));
 
-  const handleEducationChange = (field, value) =>
-    setEducation((prev) => ({ ...prev, [field]: value }));
+  const handleUpload = (slotKey, fileObj) =>
+    setDocs((prev) => ({ ...prev, [slotKey]: fileObj }));
 
-  const handleFileUpload = (slotKey, e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    /* Store metadata only — no binary data in localStorage */
-    setDocs((prev) => ({
-      ...prev,
-      [slotKey]: {
-        name: file.name,
-        size: formatFileSize(file.size),
-        type: file.type,
-        url:  '#uploaded-' + Date.now(),
-        uploadedAt: new Date().toISOString(),
-      },
-    }));
+  const handleRemove = (slotKey) =>
+    setDocs((prev) => { const n = { ...prev }; delete n[slotKey]; return n; });
+
+  const handleSave = () =>
+    onSave({ ...app, personalInfo: personal, educationInfo: education, documents: docs, notes });
+
+  const handleMockDownloadAttempt = () => {
+    if (addToast) {
+      addToast('info', 'Demo File', 'This is a seed/demo file with no real content. Replace it by clicking "Replace" to enable download.');
+    }
   };
 
-  const handleRemoveDoc = (slotKey) => {
-    setDocs((prev) => {
-      const next = { ...prev };
-      delete next[slotKey];
-      return next;
-    });
-  };
+  /* Doc summary counts */
+  const docStats = DOC_SLOTS.reduce(
+    (acc, { key }) => {
+      const d = docs[key];
+      if (!d)                      acc.missing++;
+      else if (isDownloadable(d.url)) acc.real++;
+      else                         acc.mock++;
+      return acc;
+    },
+    { real: 0, mock: 0, missing: 0 }
+  );
 
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024)        return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const handleSave = () => {
-    onSave({
-      ...app,
-      personalInfo:  personal,
-      educationInfo: education,
-      documents:     docs,
-      notes,
-    });
-  };
+  /* Count all populated slots (for the tab badge) */
+  const totalDocs = Object.keys(docs).length;
 
   return (
     <div className="ced-overlay">
@@ -117,21 +298,21 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
 
       <div className="ced-drawer">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="ced-header">
           <div className="ced-header-left">
             <span className="ced-label">
               {isSuperadmin ? 'SUPERADMIN OVERRIDE · CANDIDATE FILE' : 'ADMIN · CANDIDATE FILE'}
             </span>
             <h2 className="ced-name">{app.personalInfo.fullName}</h2>
-            <span className="ced-meta">{jobTitle} &nbsp;·&nbsp; Ref: {app.referenceId}</span>
+            <span className="ced-meta">{jobTitle}&nbsp;·&nbsp;Ref:&nbsp;{app.referenceId}</span>
           </div>
           <button onClick={onClose} className="ced-close-btn">
             <X className="ced-close-icon" />
           </button>
         </div>
 
-        {/* ── Warning (superadmin only) ── */}
+        {/* Superadmin warning */}
         {isSuperadmin && (
           <div className="ced-warning">
             <ShieldAlert className="ced-warning-icon" />
@@ -142,7 +323,7 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
           </div>
         )}
 
-        {/* ── Tab Bar ── */}
+        {/* Tab Bar */}
         <div className="ced-tabs">
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
@@ -152,14 +333,19 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
             >
               <Icon className="ced-tab-icon" />
               {label}
+              {key === 'documents' && totalDocs > 0 && (
+                <span className={`ced-tab-badge${docStats.real > 0 ? ' ced-tab-badge--green' : ' ced-tab-badge--amber'}`}>
+                  {totalDocs}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* ── Tab Body ── */}
+        {/* Tab Body */}
         <div className="ced-body">
 
-          {/* PERSONAL TAB */}
+          {/* PERSONAL */}
           {activeTab === 'personal' && (
             <div className="ced-section">
               <div className="ced-grid-2">
@@ -178,9 +364,7 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
                 <Field label="Gender">
                   <select className="ced-select" value={personal.gender || ''} onChange={(e) => handlePersonalChange('gender', e.target.value)}>
                     <option value="">Select</option>
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Prefer not to say</option>
+                    <option>Male</option><option>Female</option><option>Prefer not to say</option>
                   </select>
                 </Field>
                 <Field label="State of Origin">
@@ -199,7 +383,7 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
             </div>
           )}
 
-          {/* EDUCATION TAB */}
+          {/* EDUCATION */}
           {activeTab === 'education' && (
             <div className="ced-section">
               <div className="ced-grid-2">
@@ -225,60 +409,48 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
             </div>
           )}
 
-          {/* DOCUMENTS TAB */}
+          {/* DOCUMENTS */}
           {activeTab === 'documents' && (
             <div className="ced-section">
+
+              {/* Summary bar */}
+              <div className="ced-doc-summary">
+                <div className="ced-doc-summary-item ced-doc-summary-real">
+                  <CheckCircle2 className="ced-doc-summary-icon" />
+                  <span><strong>{docStats.real}</strong> downloadable</span>
+                </div>
+                <div className="ced-doc-summary-item ced-doc-summary-mock">
+                  <AlertCircle className="ced-doc-summary-icon" />
+                  <span><strong>{docStats.mock}</strong> demo / seed</span>
+                </div>
+                <div className="ced-doc-summary-item ced-doc-summary-missing">
+                  <FileText className="ced-doc-summary-icon" />
+                  <span><strong>{docStats.missing}</strong> not uploaded</span>
+                </div>
+              </div>
+
               <p className="ced-doc-hint">
-                Upload or replace documents for this candidate. Supported: PDF, JPG, PNG, DOCX. All uploads are stored as metadata references.
+                Click <strong>View</strong> to open a file inline, or <strong>Download</strong> to save it.
+                Demo seed files (amber) cannot be downloaded — use <strong>Replace</strong> to swap them with real uploads.
               </p>
+
               <div className="ced-doc-list">
-                {DOC_SLOTS.map(({ key, label }) => {
-                  const existing = docs[key];
-                  return (
-                    <div key={key} className="ced-doc-slot">
-                      <div className="ced-doc-slot-left">
-                        <FileText className="ced-doc-file-icon" />
-                        <div className="ced-doc-slot-info">
-                          <span className="ced-doc-slot-label">{label}</span>
-                          {existing ? (
-                            <span className="ced-doc-slot-name">
-                              {existing.name}
-                              <span className="ced-doc-slot-size"> · {existing.size}</span>
-                            </span>
-                          ) : (
-                            <span className="ced-doc-slot-empty">No file uploaded</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="ced-doc-slot-actions">
-                        <label className="ced-upload-btn">
-                          <Upload className="ced-upload-icon" />
-                          {existing ? 'Replace' : 'Upload'}
-                          <input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.docx"
-                            style={{ display: 'none' }}
-                            onChange={(e) => handleFileUpload(key, e)}
-                          />
-                        </label>
-                        {existing && (
-                          <button
-                            onClick={() => handleRemoveDoc(key)}
-                            className="ced-remove-btn"
-                            title="Remove document"
-                          >
-                            <Trash2 className="ced-remove-icon" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {DOC_SLOTS.map(({ key, label }) => (
+                  <DocRow
+                    key={key}
+                    slotKey={key}
+                    label={label}
+                    doc={docs[key]}
+                    onUpload={handleUpload}
+                    onRemove={handleRemove}
+                    onMockDownloadAttempt={handleMockDownloadAttempt}
+                  />
+                ))}
               </div>
             </div>
           )}
 
-          {/* NOTES TAB */}
+          {/* NOTES */}
           {activeTab === 'notes' && (
             <div className="ced-section">
               <Field label="Internal Admin Notes">
@@ -301,7 +473,8 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
                         {' '}by <span className="ced-history-by">{h.changedBy}</span>
                       </span>
                       <span className="ced-history-time">
-                        {new Date(h.timestamp).toLocaleDateString()} {new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(h.timestamp).toLocaleDateString()}{' '}
+                        {new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   ))}
@@ -312,27 +485,28 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
 
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div className="ced-footer">
-          {/* Status actions */}
           <div className="ced-footer-status">
             <span className="ced-footer-current">
-              Current status: <span className={`ced-status-pill ced-status-${app.status.toLowerCase()}`}>{app.status}</span>
+              Current status:{' '}
+              <span className={`ced-status-pill ced-status-${app.status.toLowerCase()}`}>
+                {app.status}
+              </span>
             </span>
             {onStatusChange && (
               <div className="ced-status-btns">
-                <button onClick={() => onStatusChange('Rejected')}   className="ced-btn-reject">Reject</button>
-                <button onClick={() => onStatusChange('Shortlisted')} className="ced-btn-shortlist">Shortlist</button>
+                <button type="button" onClick={() => onStatusChange('Rejected')}    className="ced-btn-reject">Reject</button>
+                <button type="button" onClick={() => onStatusChange('Shortlisted')} className="ced-btn-shortlist">Shortlist</button>
                 {isSuperadmin && (
-                  <button onClick={() => onStatusChange('Approved')} className="ced-btn-approve">Approve & Sync</button>
+                  <button type="button" onClick={() => onStatusChange('Approved')}  className="ced-btn-approve">Approve & Sync</button>
                 )}
               </div>
             )}
           </div>
-          {/* Save / Cancel */}
           <div className="ced-footer-save">
-            <button onClick={onClose}  className="ced-btn-cancel">Cancel</button>
-            <button onClick={handleSave} className="ced-btn-save">Save Changes</button>
+            <button type="button" onClick={onClose}    className="ced-btn-cancel">Cancel</button>
+            <button type="button" onClick={handleSave} className="ced-btn-save">Save Changes</button>
           </div>
         </div>
 
@@ -341,7 +515,6 @@ export function CandidateEditDrawer({ app, jobTitle, isSuperadmin = false, onClo
   );
 }
 
-/* Small helper so Field markup stays clean */
 function Field({ label, children }) {
   return (
     <div className="ced-field">

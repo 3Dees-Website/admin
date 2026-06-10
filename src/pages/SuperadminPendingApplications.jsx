@@ -30,18 +30,21 @@ export function SuperadminPendingApplications() {
     return j ? j.title : 'Deleted Position';
   };
 
+  /* Only Pending  */
   const pendingApps = useMemo(() => {
     const q = searchTerm.toLowerCase();
-    return applications.filter((a) => {
-      if (a.status !== 'Pending') return false;
-      const matchesJob    = selectedJobId === 'All' || a.jobId === selectedJobId;
-      const matchesSearch =
-        a.personalInfo.fullName.toLowerCase().includes(q) ||
-        a.personalInfo.email.toLowerCase().includes(q)   ||
-        a.referenceId.toLowerCase().includes(q)          ||
-        getJobTitle(a.jobId).toLowerCase().includes(q);
-      return matchesJob && matchesSearch;
-    });
+    return applications
+      .filter((a) => {
+        if (a.status !== 'Pending') return false;
+        const matchesJob    = selectedJobId === 'All' || a.jobId === selectedJobId;
+        const matchesSearch =
+          a.personalInfo.fullName.toLowerCase().includes(q) ||
+          a.personalInfo.email.toLowerCase().includes(q)   ||
+          a.referenceId.toLowerCase().includes(q)          ||
+          getJobTitle(a.jobId).toLowerCase().includes(q);
+        return matchesJob && matchesSearch;
+      })
+      .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
   }, [applications, selectedJobId, searchTerm, jobs]);
 
   const stats = useMemo(() => {
@@ -319,6 +322,7 @@ export function SuperadminPendingApplications() {
           app={editingApp}
           jobTitle={getJobTitle(editingApp.jobId)}
           isSuperadmin={true}
+          addToast={addToast}
           onClose={() => setEditingApp(null)}
           onSave={handleSaveEdits}
           onStatusChange={handleStatusChange}
