@@ -5,7 +5,6 @@ import { ToastContainer } from './components/Toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { OTPVerification } from './pages/OTPVerification';
-import { SuperadminAllVacancies } from './pages/SuperadminAllVacancies';
 import './App.css';
 
 // Public pages
@@ -15,11 +14,14 @@ import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminJobs } from './pages/AdminJobs';
 import { AdminApplications } from './pages/AdminApplications';
+import { AdminPendingApplications } from './pages/AdminPendingApplications';
 
 // Superadmin panel pages
 import { SuperadminDashboard } from './pages/SuperadminDashboard';
 import { SuperadminManageAdmins } from './pages/SuperadminManageAdmins';
+import { SuperadminAllVacancies } from './pages/SuperadminAllVacancies';
 import { SuperadminViewAllApplications } from './pages/SuperadminViewAllApplications';
+import { SuperadminPendingApplications } from './pages/SuperadminPendingApplications';
 import { SuperadminAuditTrail } from './pages/SuperadminAuditTrail';
 
 function PanelLoaderPlaceholder() {
@@ -41,12 +43,11 @@ export default function App() {
         <ToastContainer />
 
         <Routes>
-          {/* GENERAL GUEST DIRECTORIES CHANNELS */}
-
+          {/* ── PUBLIC ── */}
           <Route path="/" element={<AdminLogin />} />
           <Route path="/admin/verify" element={<OTPVerification />} />
 
-          {/* ADMIN OPERATIONS AREA SECURED GATES */}
+          {/* ── ADMIN ── */}
           <Route
             path="/admin"
             element={
@@ -60,12 +61,13 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="jobs" element={<AdminJobs />} />
+            <Route path="dashboard"    element={<AdminDashboard />} />
+            <Route path="jobs"         element={<AdminJobs />} />
+            <Route path="pending"      element={<AdminPendingApplications />} />
             <Route path="applications" element={<AdminApplications />} />
           </Route>
 
-          {/* SUPERADMIN OVERSIGHT AREA SECURED MASTER CLEARANCES */}
+          {/* ── SUPERADMIN ── */}
           <Route
             path="/superadmin"
             element={
@@ -79,17 +81,18 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
-            <Route path="dashboard" element={<SuperadminDashboard />} />
-            <Route path="admins" element={<SuperadminManageAdmins />} />
+            <Route path="dashboard"    element={<SuperadminDashboard />} />
+            <Route path="pending"      element={<SuperadminPendingApplications />} />
             <Route path="applications" element={<SuperadminViewAllApplications />} />
-            <Route path="jobs" element={<SuperadminAllVacancies />} />
-            <Route path="audit" element={<SuperadminAuditTrail />} />
+            <Route path="jobs"         element={<SuperadminAllVacancies />} />
+            <Route path="admins"       element={<SuperadminManageAdmins />} />
+            <Route path="audit"        element={<SuperadminAuditTrail />} />
           </Route>
 
-          {/* CATCH ALL WILDCARDS */}
+          {/* ── CATCH ALL ── */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter> 
+      </BrowserRouter>
     </PortalProvider>
   );
 }

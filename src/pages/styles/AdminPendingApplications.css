@@ -1,0 +1,357 @@
+/* AdminPendingApplications.css — prefix: apa- */
+
+.apa-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.apa-header-card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+}
+
+.apa-page-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-brand-primary);
+  font-family: monospace;
+}
+
+.apa-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  letter-spacing: -0.02em;
+  margin-top: 0.125rem;
+}
+
+.apa-subtitle {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+  margin-top: 0.25rem;
+}
+
+/* Stats Row */
+.apa-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.apa-stat-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.apa-stat-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--color-brand-primary);
+  flex-shrink: 0;
+}
+
+.apa-icon-amber { color: #d97706; }
+.apa-icon-green { color: #15803d; }
+
+.apa-stat-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.apa-stat-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-brand-dark);
+  line-height: 1;
+}
+
+.apa-stat-key {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+}
+
+/* Controls Card */
+.apa-controls-card {
+  background: #fff;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.apa-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .apa-filters {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.apa-search-wrap { position: relative; }
+
+.apa-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+}
+
+.apa-search-input {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.625rem 0.625rem 0.625rem 2.25rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  outline: none;
+  color: var(--color-brand-dark);
+  font-weight: 500;
+  box-sizing: border-box;
+}
+.apa-search-input:focus { border-color: var(--color-brand-primary); }
+
+.apa-select {
+  font-size: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  outline: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+}
+.apa-select:focus { border-color: var(--color-brand-primary); }
+
+.apa-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  background-color: rgba(255, 102, 0, 0.05);
+  border: 1px solid rgba(255, 102, 0, 0.15);
+  border-radius: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.apa-bulk-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+  margin-right: 0.25rem;
+}
+
+.apa-bulk-shortlist {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #fff;
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.apa-bulk-shortlist:hover { background-color: #eef2ff; }
+
+.apa-bulk-reject {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #fff;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.apa-bulk-reject:hover { background-color: #fef2f2; }
+
+.apa-bulk-icon { width: 0.875rem; height: 0.875rem; }
+
+/* Table */
+.apa-table-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+}
+
+.apa-table-scroll { overflow-x: auto; width: 100%; }
+
+.apa-table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: var(--color-brand-dark);
+}
+
+.apa-thead-row {
+  background-color: rgba(245, 245, 245, 0.7);
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.apa-th {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+}
+
+.apa-th-check { padding: 0.875rem 0.75rem 0.875rem 1.25rem; width: 2.5rem; }
+.apa-th-center { text-align: center; }
+.apa-th-right  { text-align: right; }
+
+.apa-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-brand-primary);
+  cursor: pointer;
+}
+
+.apa-tbody tr + tr { border-top: 1px solid #f3f4f6; }
+
+.apa-row { transition: background-color 0.15s; font-weight: 500; }
+.apa-row:hover { background-color: rgba(245, 245, 245, 0.5); }
+.apa-row--selected { background-color: rgba(255, 102, 0, 0.04); }
+
+.apa-td { padding: 0.875rem 1.25rem; }
+.apa-td-check { padding: 0.875rem 0.75rem 0.875rem 1.25rem; }
+.apa-td-center { text-align: center; }
+.apa-td-right  { text-align: right; }
+
+.apa-candidate { display: flex; align-items: center; gap: 0.75rem; }
+
+.apa-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background-color: rgba(255, 102, 0, 0.1);
+  color: var(--color-brand-primary);
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.apa-candidate-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.apa-candidate-name { font-weight: 700; color: var(--color-brand-dark); }
+.apa-candidate-meta { font-size: 0.6rem; font-weight: 600; color: #6b7280; }
+.apa-ref { font-size: 0.55rem; font-family: monospace; font-weight: 700; color: #9ca3af; }
+
+.apa-role-cell { display: flex; flex-direction: column; gap: 0.15rem; }
+.apa-role-title { font-weight: 700; color: var(--color-brand-dark); }
+.apa-role-qual { font-size: 0.6rem; font-weight: 600; color: #9ca3af; }
+
+.apa-doc-count { font-size: 0.7rem; font-weight: 700; color: var(--color-brand-dark); }
+.apa-date { font-size: 0.7rem; font-weight: 600; color: #6b7280; }
+
+.apa-wait-badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  display: inline-block;
+}
+
+.apa-wait-ok    { background: #f0fdf4; color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+.apa-wait-warn  { background: #fefce8; color: #a16207; border: 1px solid rgba(234,179,8,0.25); }
+.apa-wait-alert { background: #fef2f2; color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+
+.apa-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.apa-quick-shortlist {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: #fff;
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
+  padding: 0.35rem 0.625rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+.apa-quick-shortlist:hover { background-color: #eef2ff; }
+
+.apa-open-btn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: var(--color-brand-light);
+  color: var(--color-brand-dark);
+  border: 1px solid #e5e7eb;
+  padding: 0.35rem 0.625rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.apa-open-btn:hover {
+  background-color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  color: #fff;
+}
+
+.apa-empty {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.apa-empty-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #d1d5db;
+  display: block;
+  margin: 0 auto 0.5rem;
+}

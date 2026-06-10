@@ -28,7 +28,6 @@ export async function sendToEGIPortal(applicant, jobTitle) {
   };
 
   console.log('Sending sync payload to EGI Portal:', payload);
-  // Simulate delay and success
   await new Promise((resolve) => setTimeout(resolve, 800));
   return true;
 }
@@ -210,6 +209,7 @@ const SEED_JOBS = [
 ];
 
 const SEED_APPLICATIONS = [
+  // ── existing: already attended to ──────────────────────────────────────────
   {
     id: 'app-seed-1',
     jobId: 'job-3',
@@ -319,6 +319,158 @@ const SEED_APPLICATIONS = [
     notes: 'Exceedingly excellent farm manager background. Synced to EGI Data Portal with 100% credentials verified.',
     egiSyncStatus: 'Synced',
     submittedAt: new Date('2026-05-31T09:00:00Z').toISOString()
+  },
+
+  // ── NEW pending applications ────────────────────────────────────────────────
+
+  {
+    id: 'app-seed-4',
+    jobId: 'job-2',
+    referenceId: '3DEES-260606-334D',
+    personalInfo: {
+      fullName: 'Emeka Chibuike Okafor',
+      email: 'emeka.okafor@yahoo.com',
+      phone: '+2348056781234',
+      dob: '1992-07-18',
+      gender: 'Male',
+      stateOfOrigin: 'Anambra',
+      lga: 'Onitsha North',
+      residentialAddress: '14 Adekunle Crescent, Surulere, Lagos'
+    },
+    educationInfo: {
+      highestQualification: 'B.Eng. Civil Engineering',
+      institution: 'University of Lagos',
+      yearOfGraduation: '2015',
+      yearsOfExperience: '8',
+      currentEmployer: 'Cappa & D\'Alberto PLC',
+      workSummary: 'Led structural design and on-site supervision for three major Lagos state highway expansion projects. Managed a 35-person civil works team and coordinated with government inspectors on compliance sign-off procedures.'
+    },
+    documents: {
+      cv: { name: 'Emeka_Okafor_Civil_CV.pdf', size: '1.9 MB', url: '#mock-cv', type: 'application/pdf' },
+      coverLetter: { name: 'Emeka_Okafor_CoverLetter.pdf', size: '780 KB', url: '#mock-cl', type: 'application/pdf' },
+      academicCert: { name: 'UNILAG_Civil_Engineering_Cert.pdf', size: '2.2 MB', url: '#mock-cert', type: 'application/pdf' },
+      nyscCert: { name: 'NYSC_Lagos_Discharge_Okafor.pdf', size: '1.0 MB', url: '#mock-nysc', type: 'application/pdf' },
+      nationalId: { name: 'Emeka_NIN_Slip.jpg', size: '390 KB', url: '#mock-nin', type: 'image/jpeg' }
+    },
+    status: 'Pending',
+    statusHistory: [
+      { status: 'Pending', changedBy: 'Self-Service Portal', timestamp: new Date('2026-06-06T08:22:00Z').toISOString() }
+    ],
+    notes: '',
+    egiSyncStatus: 'Pending',
+    submittedAt: new Date('2026-06-06T08:22:00Z').toISOString()
+  },
+
+  {
+    id: 'app-seed-5',
+    jobId: 'job-5',
+    referenceId: '3DEES-260607-518E',
+    personalInfo: {
+      fullName: 'Ngozi Adaeze Eze',
+      email: 'ngozi.eze@gmail.com',
+      phone: '+2349012345678',
+      dob: '1990-03-05',
+      gender: 'Female',
+      stateOfOrigin: 'Imo',
+      lga: 'Owerri Municipal',
+      residentialAddress: 'Plot 7, Cadastral Zone, Wuse 2, Abuja FCT'
+    },
+    educationInfo: {
+      highestQualification: 'B.Sc. Accounting',
+      institution: 'University of Nigeria, Enugu Campus',
+      yearOfGraduation: '2013',
+      yearsOfExperience: '10',
+      currentEmployer: 'KPMG Nigeria',
+      workSummary: 'Served as a Senior Audit Associate at KPMG for six years, leading financial statement audits for Tier-1 and Tier-2 Nigerian banks. ICAN-certified since 2016. Currently heading internal controls review for a mid-size asset management company.'
+    },
+    documents: {
+      cv: { name: 'Ngozi_Eze_Audit_CV.pdf', size: '2.4 MB', url: '#mock-cv', type: 'application/pdf' },
+      coverLetter: { name: 'Ngozi_Eze_CoverLetter.pdf', size: '910 KB', url: '#mock-cl', type: 'application/pdf' },
+      academicCert: { name: 'UNN_Accounting_Degree.pdf', size: '1.7 MB', url: '#mock-cert', type: 'application/pdf' },
+      nyscCert: { name: 'NYSC_Discharge_Eze.pdf', size: '1.1 MB', url: '#mock-nysc', type: 'application/pdf' },
+      nationalId: { name: 'Ngozi_NIN_Slip.jpg', size: '430 KB', url: '#mock-nin', type: 'image/jpeg' },
+      passportPhoto: { name: 'Ngozi_Passport_Photo.jpg', size: '310 KB', url: '#mock-photo', type: 'image/jpeg' }
+    },
+    status: 'Pending',
+    statusHistory: [
+      { status: 'Pending', changedBy: 'Self-Service Portal', timestamp: new Date('2026-06-07T14:05:00Z').toISOString() }
+    ],
+    notes: '',
+    egiSyncStatus: 'Pending',
+    submittedAt: new Date('2026-06-07T14:05:00Z').toISOString()
+  },
+
+  {
+    id: 'app-seed-6',
+    jobId: 'job-4',
+    referenceId: '3DEES-260608-729F',
+    personalInfo: {
+      fullName: 'Fatima Bello Garba',
+      email: 'fatima.garba@hotmail.com',
+      phone: '+2348098765432',
+      dob: '2000-11-14',
+      gender: 'Female',
+      stateOfOrigin: 'Kaduna',
+      lga: 'Kaduna North',
+      residentialAddress: '22B Ahmadu Bello Way, Wuse Zone 4, Abuja FCT'
+    },
+    educationInfo: {
+      highestQualification: 'HND Purchasing & Supply',
+      institution: 'Kaduna Polytechnic',
+      yearOfGraduation: '2022',
+      yearsOfExperience: '2',
+      currentEmployer: 'Sahara Stores Limited',
+      workSummary: 'Managed inbound stock records and coordinated with three dispatch riders for daily delivery runs at a fast-moving consumer goods distributor. Familiar with inventory software including Odoo and SAP Lite.'
+    },
+    documents: {
+      cv: { name: 'Fatima_Garba_Logistics_CV.pdf', size: '1.1 MB', url: '#mock-cv', type: 'application/pdf' },
+      nationalId: { name: 'Fatima_NIN_Card.jpg', size: '350 KB', url: '#mock-nin', type: 'image/jpeg' }
+    },
+    status: 'Pending',
+    statusHistory: [
+      { status: 'Pending', changedBy: 'Self-Service Portal', timestamp: new Date('2026-06-08T09:50:00Z').toISOString() }
+    ],
+    notes: '',
+    egiSyncStatus: 'Pending',
+    submittedAt: new Date('2026-06-08T09:50:00Z').toISOString()
+  },
+
+  {
+    id: 'app-seed-7',
+    jobId: 'job-1',
+    referenceId: '3DEES-260609-841G',
+    personalInfo: {
+      fullName: 'Oluwaseun Adeyemi Rasheed',
+      email: 'seun.rasheed@gmail.com',
+      phone: '+2348071234567',
+      dob: '1996-06-22',
+      gender: 'Male',
+      stateOfOrigin: 'Ogun',
+      lga: 'Abeokuta South',
+      residentialAddress: 'No. 5, Fajuyi Road, Idi-Aba, Abeokuta, Ogun State'
+    },
+    educationInfo: {
+      highestQualification: 'B.Sc. Agricultural Economics',
+      institution: 'Olabisi Onabanjo University',
+      yearOfGraduation: '2019',
+      yearsOfExperience: '4',
+      currentEmployer: 'Amo Byng Nigeria Limited',
+      workSummary: 'Supervised poultry and crop integration projects for a mid-scale agribusiness. Managed procurement schedules, farm input logistics, and weekly output reports to senior management. Led a team of 12 field operatives.'
+    },
+    documents: {
+      cv: { name: 'Seun_Rasheed_Agro_CV.pdf', size: '1.6 MB', url: '#mock-cv', type: 'application/pdf' },
+      academicCert: { name: 'OOU_AgroEcon_Degree.pdf', size: '1.5 MB', url: '#mock-cert', type: 'application/pdf' },
+      nyscCert: { name: 'NYSC_Ogun_Discharge_Rasheed.pdf', size: '980 KB', url: '#mock-nysc', type: 'application/pdf' },
+      nationalId: { name: 'Seun_NIN_Slip.jpg', size: '415 KB', url: '#mock-nin', type: 'image/jpeg' },
+      passportPhoto: { name: 'Seun_Passport.jpg', size: '295 KB', url: '#mock-photo', type: 'image/jpeg' }
+    },
+    status: 'Pending',
+    statusHistory: [
+      { status: 'Pending', changedBy: 'Self-Service Portal', timestamp: new Date('2026-06-09T07:30:00Z').toISOString() }
+    ],
+    notes: '',
+    egiSyncStatus: 'Pending',
+    submittedAt: new Date('2026-06-09T07:30:00Z').toISOString()
   }
 ];
 
@@ -422,7 +574,6 @@ export const localStorageDb = {
       throw new Error('Account suspended');
     }
 
-    // Capture last audit login
     user.lastLogin = new Date().toISOString();
     const updatedUsers = users.map((u) => (u.id === user.id ? user : u));
     saveData(USERS_KEY, updatedUsers);

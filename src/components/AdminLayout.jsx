@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useLocation} from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
-  History, LogOut, Bell, Menu, X, ShieldAlert
+  History, LogOut, Bell, Menu, X, ShieldAlert,
+  Inbox
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import './styles/AdminLayout.css';
@@ -14,17 +15,20 @@ export function AdminLayout({ children, role }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const adminMenu = [
-    { name: 'Console Home', path: '/admin/dashboard', icon: <LayoutDashboard size={16} /> },
-    { name: 'Manage Jobs', path: '/admin/jobs', icon: <Briefcase size={16} /> },
-    { name: 'Applications', path: '/admin/applications', icon: <FileUser size={16} /> },
+    { name: 'Console Home',   path: '/admin/dashboard',     icon: <LayoutDashboard size={16} /> },
+    { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
+    { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
+    { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
+    
   ];
 
   const superAdminMenu = [
-    { name: 'Super Console', path: '/superadmin/dashboard', icon: <LayoutDashboard size={16} /> },
-    { name: 'Advisory Staff', path: '/superadmin/admins', icon: <Users size={16} /> },
-    { name: 'All Vacancies', path: '/superadmin/jobs', icon: <Briefcase size={16} /> },
-    { name: 'All Applications', path: '/superadmin/applications', icon: <FileUser size={16} /> },
-    { name: 'Compliance Audits', path: '/superadmin/audit', icon: <History size={16} /> },
+    { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
+    { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
+    { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
+    { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
+    { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
+    { name: 'Compliance Audits',  path: '/superadmin/audit',         icon: <History size={16} /> },
   ];
 
   const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
@@ -42,8 +46,8 @@ export function AdminLayout({ children, role }) {
           {!sidebarCollapsed ? (
             <Link
               to={
-                role === 'superadmin'
-                  ? '/superadmin/dashboard'
+                role === 'superadmin' 
+                  ? '/superadmin/dashboard' 
                   : '/admin/dashboard'
               }
             >
@@ -82,7 +86,7 @@ export function AdminLayout({ children, role }) {
                 key={item.name}
                 to={item.path}
                 className={`sidebar-nav-link${isActive ? ' sidebar-nav-link--active' : ''}${sidebarCollapsed ? ' sidebar-nav-link--icon-only' : ''}`}
-                id={`sidebar-link-${item.name.toLowerCase().replace(' ', '-')}`}
+                id={`sidebar-link-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 {item.icon}
                 {!sidebarCollapsed && <span>{item.name}</span>}
@@ -113,6 +117,8 @@ export function AdminLayout({ children, role }) {
             <h2 className="admin-header-title">
               {location.pathname.includes('dashboard')
                 ? 'System Dashboards Control'
+                : location.pathname.includes('pending')
+                ? 'Pending Applications Queue'
                 : 'Operations Ledger'}
             </h2>
           </div>
