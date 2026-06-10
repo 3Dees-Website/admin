@@ -59,7 +59,7 @@ const SEED_JOBS = [
   {
     id: 'job-1',
     title: 'Agribusiness Operations Manager',
-    clientOrg: 'Ogun Premium Agro Farms',
+    clientOrg: 'Niger Eco Green Industrial City',
     category: 'Agriculture',
     type: 'Full-time',
     location: 'Ogun (Abeokuta North)',
@@ -89,7 +89,7 @@ const SEED_JOBS = [
   {
     id: 'job-2',
     title: 'Site Civil Engineer',
-    clientOrg: 'Lagos Infrastructure Builders',
+    clientOrg: 'Niger Eco Green Industrial City',
     category: 'Construction',
     type: 'Contract',
     location: 'Lagos (FESTAC)',
@@ -119,7 +119,7 @@ const SEED_JOBS = [
   {
     id: 'job-3',
     title: 'Executive Administrative Officer',
-    clientOrg: 'Apex Capital Partners',
+    clientOrg: 'Niger Eco Green Industrial City',
     category: 'Administration',
     type: 'Full-time',
     location: 'Abuja (Garki II)',
@@ -149,7 +149,7 @@ const SEED_JOBS = [
   {
     id: 'job-4',
     title: 'Inventory & Logistics Coordinator',
-    clientOrg: 'Efab Distribution Hub',
+    clientOrg: 'Niger Eco Green Industrial City',
     category: 'Logistics',
     type: 'Temporary',
     location: 'Abuja (Wuse II)',
