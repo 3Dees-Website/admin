@@ -508,18 +508,43 @@ const SEED_AUDIT_LOGS = [
 ];
 
 export function initializeDb() {
-  if (!localStorage.getItem(USERS_KEY)) {
-    localStorage.setItem(USERS_KEY, JSON.stringify([DEFAULT_SUPERADMIN, DEFAULT_ADMIN]));
-  }
-  if (!localStorage.getItem(JOBS_KEY)) {
-    localStorage.setItem(JOBS_KEY, JSON.stringify(SEED_JOBS));
-  }
-  if (!localStorage.getItem(APPLICATIONS_KEY)) {
-    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(SEED_APPLICATIONS));
-  }
-  if (!localStorage.getItem(AUDIT_LOG_KEY)) {
-    localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(SEED_AUDIT_LOGS));
-  }
+  // If keys do not exist, write seeds. If they exist, merge missing seeded records
+  // by `id` so previously stored data isn't overwritten but missing seed entries
+  // (for example newly added pending applicants) are injected.
+  const mergeById = (key, seeds) => {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(seeds));
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        localStorage.setItem(key, JSON.stringify(seeds));
+        return;
+      }
+      const map = new Map(parsed.map((it) => [it.id, it]));
+      let changed = false;
+      for (const s of seeds) {
+        if (!map.has(s.id)) {
+          map.set(s.id, s);
+          changed = true;
+        }
+      }
+      if (changed) {
+        const merged = Array.from(map.values());
+        localStorage.setItem(key, JSON.stringify(merged));
+      }
+    } catch (err) {
+      // If parsing fails, reset to seeds to recover a consistent shape
+      localStorage.setItem(key, JSON.stringify(seeds));
+    }
+  };
+
+  mergeById(USERS_KEY, [DEFAULT_SUPERADMIN, DEFAULT_ADMIN]);
+  mergeById(JOBS_KEY, SEED_JOBS);
+  mergeById(APPLICATIONS_KEY, SEED_APPLICATIONS);
+  mergeById(AUDIT_LOG_KEY, SEED_AUDIT_LOGS);
 }
 
 // Database Getters & Setters
