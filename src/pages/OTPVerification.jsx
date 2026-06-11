@@ -224,13 +224,7 @@ export function OTPVerification() {
           </p>
         </div>
 
-        {/* Dev hint banner */}
-        {!success && (
-          <div className="otp-dev-hint">
-            <AlertCircle size={13} className="otp-dev-hint-icon" />
-            <span>Development mode: check browser console for the OTP code.</span>
-          </div>
-        )}
+       
 
         {/* OTP Input Grid */}
         {!success && (
@@ -364,7 +358,6 @@ export function OTPVerification() {
         {/* Footer */}
         <div className="otp-footer">
           <span>All verification codes expire after single use.</span>
-          <span>Security Clearance Level 1-B Required</span>
         </div>
 
       </div>
