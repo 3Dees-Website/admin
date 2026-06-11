@@ -162,7 +162,7 @@ export function AdminLogin() {
         {/* Footer */}
         <div className="al-footer">
           <span>Security audits and session keys refresh automatically.</span>
-          <span>Security Clearance Level 1-B Required</span>
+          {/* <span>Security Clearance Level 1-B Required</span> */}
         </div>
 
       </div>
