@@ -8,7 +8,6 @@ import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
-import { localStorageDb } from '../services/localStorageDb';
 import {
   Search, Inbox, Clock, UserCheck, UserX,
   ShieldAlert, Zap
@@ -16,7 +15,7 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { applications, reviewApplication } = useApplications();
+  const { applications, reviewApplication, updateApplication } = useApplications();
   const { jobs } = useJobs();
   const { addToast } = useToast();
 
@@ -83,12 +82,17 @@ export function SuperadminPendingApplications() {
     addToast('success', 'Override Applied', `Candidate moved to ${status} via superadmin override.`);
   };
 
-  const handleSaveEdits = (updatedApp) => {
-    const allApps = localStorageDb.getApplications();
-    const merged  = allApps.map((a) => a.id === updatedApp.id ? { ...a, ...updatedApp } : a);
-    localStorageDb.saveApplications(merged);
-    addToast('success', 'Candidate File Updated', `${updatedApp.personalInfo.fullName}'s record saved to ledger.`);
-    setEditingApp(null);
+  const handleSaveEdits = async (updatedApp) => {
+    const result = await updateApplication(updatedApp.id, {
+      personalInfo: updatedApp.personalInfo,
+      educationInfo: updatedApp.educationInfo,
+      documents: updatedApp.documents,
+      notes: updatedApp.notes,
+    });
+    if (result) {
+      addToast('success', 'Candidate File Updated', `${updatedApp.personalInfo.fullName}'s record saved to ledger.`);
+      setEditingApp(null);
+    }
   };
 
   const bulkAction = async (status) => {

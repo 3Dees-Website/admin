@@ -53,6 +53,16 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
+  async updateApplication(id, { personalInfo, educationInfo, documents, notes }) {
+    const res = await apiClient.patch(`/api/admin/applications/${id}`, {
+      personalInfo,
+      educationInfo,
+      documents,
+      notes,
+    });
+    return normalizeApplication(res.data);
+  },
+
   async bulkUpdateStatus({ ids, status, changedBy }) {
     const res = await apiClient.patch('/api/admin/applications/bulk-status', {
       ids,

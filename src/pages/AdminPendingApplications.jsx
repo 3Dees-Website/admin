@@ -9,12 +9,11 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
-import { localStorageDb } from '../services/localStorageDb';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { applications, reviewApplication } = useApplications();
+  const { applications, reviewApplication, updateApplication } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -82,12 +81,17 @@ export function AdminPendingApplications() {
   };
 
   /* Save edits from drawer */
-  const handleSaveEdits = (updatedApp) => {
-    const allApps = localStorageDb.getApplications();
-    const merged  = allApps.map((a) => a.id === updatedApp.id ? { ...a, ...updatedApp } : a);
-    localStorageDb.saveApplications(merged);
-    addToast('success', 'Candidate Updated', `${updatedApp.personalInfo.fullName}'s file has been saved.`);
-    setEditingApp(null);
+  const handleSaveEdits = async (updatedApp) => {
+    const result = await updateApplication(updatedApp.id, {
+      personalInfo: updatedApp.personalInfo,
+      educationInfo: updatedApp.educationInfo,
+      documents: updatedApp.documents,
+      notes: updatedApp.notes,
+    });
+    if (result) {
+      addToast('success', 'Candidate Updated', `${updatedApp.personalInfo.fullName}'s file has been saved.`);
+      setEditingApp(null);
+    }
   };
 
   /* Bulk shortlist */

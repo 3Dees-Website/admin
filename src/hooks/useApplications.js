@@ -11,6 +11,7 @@ export function useApplications() {
     auditLogs: context.auditLogs,
     applyToJob: context.applyToJob,
     reviewApplication: context.reviewApplication,
+    updateApplication: context.updateApplication,
     bulkReviewApplications: context.bulkReviewApplications,
   };
 }

@@ -297,6 +297,17 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const updateApplication = async (appId, updates) => {
+    try {
+      const updated = await applicationService.updateApplication(appId, updates);
+      dispatch({ type: 'UPDATE_APPLICATION_STATUS', payload: updated });
+      return updated;
+    } catch (err) {
+      addToast('error', 'Update Failed', err?.message || 'Could not save candidate file.');
+      return null;
+    }
+  };
+
   const bulkReviewApplications = async (appIds, status) => {
     const adminUser = state.currentUser?.name || 'Admin';
     try {
@@ -400,6 +411,7 @@ export function PortalProvider({ children }) {
         removeJob,
         applyToJob,
         reviewApplication,
+        updateApplication,
         bulkReviewApplications,
         registerAdmin,
         toggleAdminSuspension,
