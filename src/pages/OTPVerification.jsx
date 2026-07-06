@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, RefreshCw, ArrowLeft, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, ArrowLeft, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { LogoSVG } from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
+import { authService } from '../services/authService';
 import './styles/OTPVerification.css';
 
 const OTP_LENGTH = 6;
@@ -14,51 +15,39 @@ export function OTPVerification() {
   const location = useLocation();
   const { commitSession, currentUser, token } = useAuth();
 
-  const { pendingUser, token: pendingToken, destination } = location.state || {};
+  // Route state populated by AdminLogin after a successful step-1 login call
+  const { pendingToken, maskedEmail } = location.state || {};
 
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_COOLDOWN);
-  const [canResend, setCanResend] = useState(false);
   const [error, setError] = useState('');
+  const canResend = countdown <= 0;
   const [success, setSuccess] = useState(false);
-  const [storedOtp, setStoredOtp] = useState('');
-  const [attemptsLeft, setAttemptsLeft] = useState(3);
   const [pendingDestination, setPendingDestination] = useState(null);
 
   const inputRefs = useRef([]);
 
-  // Guard: if no pending session, push back to login
+  // Guard: no pending token means someone landed here directly — send to login
   useEffect(() => {
-    if (!pendingUser || !pendingToken) {
+    if (!pendingToken) {
       navigate('/', { replace: true });
     }
-  }, [pendingUser, pendingToken, navigate]);
+  }, [pendingToken, navigate]);
 
-  // Generate OTP on mount
+  // Countdown timer for the resend notice
   useEffect(() => {
-    if (!pendingUser) return;
-    const otp = generateOtp();
-    setStoredOtp(otp);
-    console.info(`[3DEES OTP System] Verification code for ${pendingUser.email}: ${otp}`);
-  }, []);
-
-  // Countdown timer
-  useEffect(() => {
-    if (countdown <= 0) { setCanResend(true); return; }
+    if (countdown <= 0) return;
     const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  // Navigate AFTER React state is confirmed updated with the committed session
+  // Navigate only after React state confirms the committed session is live
   useEffect(() => {
     if (pendingDestination && token && currentUser) {
       navigate(pendingDestination, { replace: true });
     }
   }, [token, currentUser, pendingDestination, navigate]);
-
-  const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
   const formatCountdown = (s) => {
     const m = Math.floor(s / 60);
@@ -112,55 +101,44 @@ export function OTPVerification() {
   };
 
   const verifyOtp = useCallback(async (code) => {
+    if (isVerifying) return;
     setIsVerifying(true);
     setError('');
-    await new Promise((r) => setTimeout(r, 900));
 
-    if (true || code === storedOtp) {
+    try {
+      const { accessToken, refreshToken, user } = await authService.verifyOtp(pendingToken, code);
+
+      // Persist tokens and user, then load portal data
+      await commitSession(user, accessToken, refreshToken);
+
       setSuccess(true);
-      // Commit session into React context + localStorage
-      commitSession(pendingUser, pendingToken);
-      // Set destination — the useEffect above watches for token/currentUser to be set
-      // and fires the navigation only once React state is confirmed updated
-      setPendingDestination(destination);
-    } else {
-      const remaining = attemptsLeft - 1;
-      setAttemptsLeft(remaining);
-      if (remaining <= 0) {
-        setError('Too many failed attempts. Please log in again.');
-        await new Promise((r) => setTimeout(r, 1500));
-        navigate('/', { replace: true });
-      } else {
-        setError(`Invalid verification code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
-        setDigits(Array(OTP_LENGTH).fill(''));
-        inputRefs.current[0]?.focus();
-      }
+      const dest = user.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+      setPendingDestination(dest);
+    } catch (err) {
       setIsVerifying(false);
+      setDigits(Array(OTP_LENGTH).fill(''));
+      inputRefs.current[0]?.focus();
+
+      const terminalErrors = ['TooManyAttempts', 'OTPExpired', 'InvalidToken'];
+      if (terminalErrors.includes(err?.error)) {
+        setError(err.message || 'Session expired. Please log in again.');
+        setTimeout(() => navigate('/', { replace: true }), 2000);
+        return;
+      }
+
+      // InvalidOTP — remaining attempts are included in the message from the server
+      setError(err?.message || 'Invalid verification code. Please try again.');
     }
-  }, [storedOtp, attemptsLeft, pendingToken, pendingUser, destination, navigate, commitSession]);
+  }, [isVerifying, pendingToken, commitSession, navigate]);
 
-  const handleResend = async () => {
-    if (!canResend || isResending) return;
-    setIsResending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const otp = generateOtp();
-    setStoredOtp(otp);
-    console.info(`[3DEES OTP System] New verification code for ${pendingUser?.email}: ${otp}`);
-    setDigits(Array(OTP_LENGTH).fill(''));
-    setAttemptsLeft(3);
-    setError('');
-    setCanResend(false);
-    setCountdown(RESEND_COOLDOWN);
-    setIsResending(false);
-    inputRefs.current[0]?.focus();
+  const handleResend = () => {
+    // The API has no dedicated resend endpoint — the user must re-authenticate
+    // to get a fresh OTP. Navigate back to login with an informational message.
+    navigate('/', {
+      replace: true,
+      state: { info: 'Please sign in again to receive a new verification code.' },
+    });
   };
-
-  const maskedEmail = pendingUser?.email
-    ? (() => {
-        const [local, domain] = pendingUser.email.split('@');
-        return `${local.slice(0, 2)}${'*'.repeat(Math.max(local.length - 2, 2))}@${domain}`;
-      })()
-    : '';
 
   const filledCount = digits.filter(Boolean).length;
 
@@ -219,12 +197,16 @@ export function OTPVerification() {
           <p className="otp-subtitle">
             {success
               ? 'Authentication successful. Redirecting to your dashboard...'
-              : <>A 6-digit verification code has been dispatched to <strong>{maskedEmail}</strong>. Enter it below to complete authentication.</>
+              : (
+                <>
+                  A 6-digit verification code has been dispatched to{' '}
+                  <strong>{maskedEmail || 'your registered email'}</strong>.{' '}
+                  Enter it below to complete authentication.
+                </>
+              )
             }
           </p>
         </div>
-
-       
 
         {/* OTP Input Grid */}
         {!success && (
@@ -333,18 +315,10 @@ export function OTPVerification() {
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={isResending}
                 className="otp-resend-btn"
               >
-                {isResending ? (
-                  <svg className="otp-spinner otp-spinner--sm" fill="none" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                ) : (
-                  <RefreshCw size={13} />
-                )}
-                <span>{isResending ? 'Dispatching new code...' : 'Resend verification code'}</span>
+                <ArrowLeft size={13} />
+                <span>Return to Login for a new code</span>
               </button>
             ) : (
               <span className="otp-countdown">
@@ -357,7 +331,7 @@ export function OTPVerification() {
 
         {/* Footer */}
         <div className="otp-footer">
-          <span>All verification codes expire after single use.</span>
+          <span>All verification codes expire after 10 minutes.</span>
         </div>
 
       </div>

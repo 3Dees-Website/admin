@@ -1,5 +1,10 @@
-import { createContext, useReducer, useEffect } from 'react';
-import { localStorageDb, sendToEGIPortal } from '../services/localStorageDb';
+import { createContext, useReducer, useEffect, useCallback } from 'react';
+import { authService } from '../services/authService';
+import { jobService } from '../services/jobService';
+import { applicationService } from '../services/applicationService';
+import { userService } from '../services/userService';
+import { auditService } from '../services/auditService';
+import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
 const initialState = {
   currentUser: null,
@@ -22,75 +27,47 @@ function portalReducer(state, action) {
     case 'SET_INITIAL_DATA':
       return {
         ...state,
-        jobs: action.payload.jobs,
-        applications: action.payload.applications,
-        admins: action.payload.admins,
-        auditLogs: action.payload.auditLogs,
+        jobs: action.payload.jobs ?? state.jobs,
+        applications: action.payload.applications ?? state.applications,
+        admins: action.payload.admins ?? state.admins,
+        auditLogs: action.payload.auditLogs ?? state.auditLogs,
       };
     case 'ADD_JOB':
       return { ...state, jobs: [...state.jobs, action.payload] };
     case 'UPDATE_JOB':
       return {
         ...state,
-        jobs: state.jobs.map((job) => (job.id === action.payload.id ? action.payload : job)),
+        jobs: state.jobs.map((j) => (j.id === action.payload.id ? action.payload : j)),
       };
     case 'DELETE_JOB':
-      return {
-        ...state,
-        jobs: state.jobs.filter((job) => job.id !== action.payload),
-      };
+      return { ...state, jobs: state.jobs.filter((j) => j.id !== action.payload) };
     case 'ADD_APPLICATION':
       return { ...state, applications: [...state.applications, action.payload] };
     case 'UPDATE_APPLICATION_STATUS':
       return {
         ...state,
         applications: state.applications.map((app) =>
-          app.id === action.payload.appId
-            ? {
-                ...app,
-                status: action.payload.status,
-                egiSyncStatus: action.payload.egiSyncStatus,
-                statusHistory: action.payload.history,
-                notes: action.payload.notes !== undefined ? action.payload.notes : app.notes,
-              }
-            : app
+          app.id === action.payload.id ? action.payload : app
         ),
       };
-    case 'BULK_UPDATE_APPLICATIONS':
+    case 'BULK_UPDATE_APPLICATIONS': {
+      const { updatedApps } = action.payload;
+      const updatedMap = new Map(updatedApps.map((a) => [a.id, a]));
       return {
         ...state,
-        applications: state.applications.map((app) =>
-          action.payload.ids.includes(app.id)
-            ? {
-                ...app,
-                status: action.payload.status,
-                statusHistory: action.payload.historyUpdates[app.id] || app.statusHistory,
-              }
-            : app
-        ),
+        applications: state.applications.map((app) => updatedMap.get(app.id) || app),
       };
+    }
     case 'ADD_ADMIN':
       return { ...state, admins: [...state.admins, action.payload] };
-    case 'UPDATE_ADMIN_STATUS':
+    case 'UPDATE_ADMIN':
       return {
         ...state,
-        admins: state.admins.map((adm) =>
-          adm.id === action.payload.adminId ? { ...adm, status: action.payload.status } : adm
-        ),
-      };
-    case 'RESET_ADMIN_PASSWORD':
-      return {
-        ...state,
-        admins: state.admins.map((adm) =>
-          adm.id === action.payload.adminId ? { ...adm, passwordHash: action.payload.passwordHash } : adm
-        ),
+        admins: state.admins.map((adm) => (adm.id === action.payload.id ? action.payload : adm)),
       };
     case 'DELETE_ADMIN':
-      return {
-        ...state,
-        admins: state.admins.filter((adm) => adm.id !== action.payload),
-      };
-    case 'RELOAD_AUDIT_LOGS':
+      return { ...state, admins: state.admins.filter((adm) => adm.id !== action.payload) };
+    case 'SET_AUDIT_LOGS':
       return { ...state, auditLogs: action.payload };
     case 'ADD_TOAST':
       return { ...state, toasts: [...state.toasts, action.payload] };
@@ -106,312 +83,308 @@ export const PortalContext = createContext(undefined);
 export function PortalProvider({ children }) {
   const [state, dispatch] = useReducer(portalReducer, initialState);
 
-  // Load initial data from localStorage
-  useEffect(() => {
-    const persistedUser = localStorage.getItem('3dees_current_user');
-    const persistedToken = localStorage.getItem('3dees_token');
-    if (persistedUser && persistedToken) {
-      dispatch({
-        type: 'SET_AUTH',
-        payload: { user: JSON.parse(persistedUser), token: persistedToken },
-      });
-    }
+  // ── Toast helpers ─────────────────────────────────────────────────────────
 
-    const jobs = localStorageDb.getJobs();
-    const applications = localStorageDb.getApplications();
-    const users = localStorageDb.getUsers().filter((u) => u.role === 'admin');
-    const auditLogs = localStorageDb.getAuditLogs();
-
-    dispatch({
-      type: 'SET_INITIAL_DATA',
-      payload: { jobs, applications, admins: users, auditLogs },
-    });
-  }, []);
-
-  const refreshLogsAndUsers = () => {
-    const freshLogs = localStorageDb.getAuditLogs();
-    const freshAdmins = localStorageDb.getUsers().filter((u) => u.role === 'admin');
-    dispatch({ type: 'RELOAD_AUDIT_LOGS', payload: freshLogs });
-    dispatch({
-      type: 'SET_INITIAL_DATA',
-      payload: {
-        jobs: localStorageDb.getJobs(),
-        applications: localStorageDb.getApplications(),
-        admins: freshAdmins,
-        auditLogs: freshLogs,
-      },
-    });
-  };
-
-  const addToast = (type, title, message) => {
+  const addToast = useCallback((type, title, message) => {
     const id = Math.random().toString(36).substring(2, 9);
     dispatch({ type: 'ADD_TOAST', payload: { id, type, title, message } });
-  };
+  }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     dispatch({ type: 'DISMISS_TOAST', payload: id });
-  };
+  }, []);
+
+  // ── API error helper ──────────────────────────────────────────────────────
+
+  const handleApiError = useCallback((err, fallbackTitle, fallbackMsg) => {
+    const message = err?.message || fallbackMsg || 'An unexpected error occurred.';
+    addToast('error', fallbackTitle, message);
+  }, [addToast]);
+
+  // ── Data loaders ──────────────────────────────────────────────────────────
+
+  const loadInitialData = useCallback(async (user) => {
+    try {
+      const [jobs, applications, auditLogs] = await Promise.all([
+        jobService.getAdminJobs(),
+        applicationService.getApplications(),
+        auditService.getAuditLogs(),
+      ]);
+
+      let admins = [];
+      // Only superadmins can fetch the users list
+      if (user?.role === 'superadmin') {
+        admins = await userService.getUsers();
+      }
+
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: { jobs, applications, admins, auditLogs },
+      });
+    } catch (err) {
+      handleApiError(err, 'Data Load Error', 'Could not load portal data from the server.');
+    }
+  }, [handleApiError]);
+
+  const refreshAuditLogs = useCallback(async () => {
+    try {
+      const logs = await auditService.getAuditLogs();
+      dispatch({ type: 'SET_AUDIT_LOGS', payload: logs });
+    } catch {
+      // Silent — audit logs are secondary
+    }
+  }, []);
+
+  // ── Session restoration on mount ─────────────────────────────────────────
+
+  useEffect(() => {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEYS.user);
+    const accessToken = localStorage.getItem(TOKEN_STORAGE_KEYS.access);
+
+    if (raw && accessToken) {
+      const user = JSON.parse(raw);
+      dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
+      loadInitialData(user);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Authentication ────────────────────────────────────────────────────────
 
   /**
-   * login
-   *
-   * When called with { deferCommit: true } (from AdminLogin before OTP):
-   *   - Validates credentials only
-   *   - Does NOT write to localStorage or dispatch SET_AUTH
-   *   - Returns { user, token } so AdminLogin can pass them to OTPVerification
-   *   - Returns null on bad credentials
-   *
-   * When called normally (deferCommit: false, the default):
-   *   - Original behaviour: commits session immediately, returns true/false
+   * Step 1 — Validates credentials and triggers the OTP email.
+   * Returns { pendingToken, destination } on success, null on failure.
+   * The caller (AdminLogin) navigates to the OTP page with this data.
    */
-  const login = async (email, password, options = {}) => {
-    const { deferCommit = false } = options;
+  const login = async (email, password) => {
     try {
-      const loginPayload = localStorageDb.loginUser(email, password);
-
-      if (!loginPayload) {
-        addToast('error', 'Authentication Failed', 'Invalid email address or security passcode.');
-        return deferCommit ? null : false;
-      }
-
-      if (deferCommit) {
-        // Return raw payload — OTPVerification will call commitSession on success
-        return { user: loginPayload.user, token: loginPayload.token };
-      }
-
-      // Immediate commit (legacy path, kept for compatibility)
-      localStorage.setItem('3dees_current_user', JSON.stringify(loginPayload.user));
-      localStorage.setItem('3dees_token', loginPayload.token);
-      dispatch({ type: 'SET_AUTH', payload: loginPayload });
-      addToast('success', 'Logged In Successfully', `Welcome back, ${loginPayload.user.name}`);
-      refreshLogsAndUsers();
-      return true;
-
+      const data = await authService.login(email, password);
+      return data; // { pendingToken, destination }
     } catch (err) {
-      addToast('error', 'Authentication Error', err.message || 'Suspended or invalid account.');
-      return deferCommit ? null : false;
+      const errorMap = {
+        InvalidCredentials: 'Invalid email address or security passcode.',
+        Suspended: 'This account has been suspended. Contact the system administrator.',
+        TooManyRequests: 'Too many login attempts. Please wait 15 minutes before trying again.',
+        ValidationError: 'Please provide a valid email address and password.',
+      };
+      const message = errorMap[err?.error] || err?.message || 'Authentication failed.';
+      addToast('error', 'Authentication Failed', message);
+      return null;
     }
   };
 
   /**
-   * commitSession
-   * Called by OTPVerification after the code is accepted.
-   * Persists the deferred credentials into localStorage and React state.
+   * Step 2 — Called by OTPVerification after the backend confirms the OTP.
+   * Persists the session and loads all portal data.
    */
-  const commitSession = (user, token) => {
-    localStorage.setItem('3dees_current_user', JSON.stringify(user));
-    localStorage.setItem('3dees_token', token);
-    dispatch({ type: 'SET_AUTH', payload: { user, token } });
+  const commitSession = async (user, accessToken, refreshToken) => {
+    localStorage.setItem(TOKEN_STORAGE_KEYS.access, accessToken);
+    localStorage.setItem(TOKEN_STORAGE_KEYS.refresh, refreshToken);
+    localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify(user));
+    dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
     addToast('success', 'Session Opened', `Welcome back, ${user.name}.`);
-    refreshLogsAndUsers();
+    await loadInitialData(user);
   };
 
-  const logout = () => {
-    localStorage.removeItem('3dees_current_user');
-    localStorage.removeItem('3dees_token');
+  const logout = async () => {
+    const refreshToken = localStorage.getItem(TOKEN_STORAGE_KEYS.refresh);
+    authService.logout(refreshToken); // fire-and-forget revocation
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.access);
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh);
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
     dispatch({ type: 'SET_AUTH', payload: null });
+    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], applications: [], admins: [], auditLogs: [] } });
     addToast('info', 'Logged Out', 'You have been securely logged out.');
   };
 
-  const postJob = (jobData) => {
-    const newJob = {
-      ...jobData,
-      id: 'job-' + Math.random().toString(36).substring(2, 9),
-      createdAt: new Date().toISOString(),
-      postedBy: state.currentUser ? state.currentUser.name : 'System Admin',
-    };
-    const updatedJobs = [...state.jobs, newJob];
-    localStorageDb.saveJobs(updatedJobs);
-    dispatch({ type: 'ADD_JOB', payload: newJob });
-    addToast('success', 'Job Posted', `"${newJob.title}" has been successfully published.`);
-    refreshLogsAndUsers();
+  // ── Job management ────────────────────────────────────────────────────────
+
+  const postJob = async (jobData) => {
+    try {
+      const payload = {
+        ...jobData,
+        postedBy: state.currentUser?.name || 'System Admin',
+      };
+      const newJob = await jobService.createJob(payload);
+      dispatch({ type: 'ADD_JOB', payload: newJob });
+      addToast('success', 'Job Posted', `"${newJob.title}" has been successfully published.`);
+      return newJob;
+    } catch (err) {
+      handleApiError(err, 'Job Post Failed', 'Could not create the job posting.');
+      return null;
+    }
   };
 
-  const editJob = (updatedJob) => {
-    const updatedJobs = state.jobs.map((j) => (j.id === updatedJob.id ? updatedJob : j));
-    localStorageDb.saveJobs(updatedJobs);
-    dispatch({ type: 'UPDATE_JOB', payload: updatedJob });
-    addToast('success', 'Job Updated', `Changes to "${updatedJob.title}" saved.`);
-    refreshLogsAndUsers();
+  const editJob = async (updatedJobData) => {
+    try {
+      const updated = await jobService.updateJob(updatedJobData.id, updatedJobData);
+      dispatch({ type: 'UPDATE_JOB', payload: updated });
+      addToast('success', 'Job Updated', `Changes to "${updated.title}" saved.`);
+      return updated;
+    } catch (err) {
+      handleApiError(err, 'Job Update Failed', 'Could not save job changes.');
+      return null;
+    }
   };
 
-  const removeJob = (jobId) => {
+  const removeJob = async (jobId) => {
     const targetJob = state.jobs.find((j) => j.id === jobId);
-    const updatedJobs = state.jobs.filter((j) => j.id !== jobId);
-    localStorageDb.saveJobs(updatedJobs);
-    dispatch({ type: 'DELETE_JOB', payload: jobId });
-    addToast('info', 'Job Deleted', `"${targetJob?.title || 'Job'}" was removed.`);
-    refreshLogsAndUsers();
+    try {
+      await jobService.deleteJob(jobId);
+      dispatch({ type: 'DELETE_JOB', payload: jobId });
+      addToast('info', 'Job Deleted', `"${targetJob?.title || 'Job'}" was removed.`);
+    } catch (err) {
+      const message =
+        err?.error === 'HasApplications'
+          ? 'This job cannot be deleted because it has associated applications.'
+          : err?.message || 'Could not delete job.';
+      addToast('error', 'Delete Failed', message);
+    }
   };
 
-  const applyToJob = (appData) => {
-    const referenceId = `3DEES-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    const newApp = {
-      ...appData,
-      id: 'app-' + Math.random().toString(36).substring(2, 9),
-      referenceId,
-      status: 'Pending',
-      egiSyncStatus: 'Pending',
-      statusHistory: [{ status: 'Pending', changedBy: 'Self-Service Applicant', timestamp: new Date().toISOString() }],
-      submittedAt: new Date().toISOString(),
-    };
-    const updatedApps = [...state.applications, newApp];
-    localStorageDb.saveApplications(updatedApps);
-    dispatch({ type: 'ADD_APPLICATION', payload: newApp });
+  // ── Application management ────────────────────────────────────────────────
 
-    const targetJob = state.jobs.find((j) => j.id === appData.jobId);
-    localStorageDb.addAuditEntry(
-      newApp.id,
-      newApp.personalInfo.fullName,
-      targetJob?.title || 'Unknown Role',
-      'New',
-      'Pending',
-      'Self-Service Portal'
-    );
-
-    addToast('success', 'Application Submitted', `Application successfully received. Ref: ${referenceId}`);
-    refreshLogsAndUsers();
-    return referenceId;
+  /**
+   * Public-facing submission. Used if this admin app also hosts a public
+   * application form. Pass a pre-built FormData object.
+   */
+  const applyToJob = async (formData) => {
+    try {
+      const result = await applicationService.submitApplication(formData);
+      addToast(
+        'success',
+        'Application Submitted',
+        `Application received. Reference: ${result.referenceId}`
+      );
+      return result.referenceId;
+    } catch (err) {
+      const errorMap = {
+        JobClosed: 'This job is no longer accepting applications.',
+        DeadlinePassed: 'The application deadline for this job has passed.',
+        MissingDocument: 'A required document was not uploaded.',
+      };
+      const message = errorMap[err?.error] || err?.message || 'Could not submit application.';
+      addToast('error', 'Submission Failed', message);
+      return null;
+    }
   };
 
   const reviewApplication = async (appId, status, notes) => {
     const app = state.applications.find((a) => a.id === appId);
     if (!app) return;
 
-    const previousStatus = app.status;
-    const adminUser = state.currentUser ? state.currentUser.name : 'Unknown Admin';
-    const timestamp = new Date().toISOString();
+    const adminUser = state.currentUser?.name || 'Admin';
+    try {
+      const updated = await applicationService.updateStatus(appId, {
+        status,
+        notes,
+        changedBy: adminUser,
+      });
+      dispatch({ type: 'UPDATE_APPLICATION_STATUS', payload: updated });
+      addToast('info', 'Status Updated', `Applicant status set to ${status}.`);
 
-    const updatedHistory = [
-      ...app.statusHistory,
-      { status, changedBy: adminUser, timestamp },
-    ];
-
-    let finalSyncStatus = app.egiSyncStatus;
-    const targetJob = state.jobs.find((j) => j.id === app.jobId);
-    const roleTitle = targetJob ? targetJob.title : 'Undefined Job';
-
-    if (status === 'Approved') {
-      finalSyncStatus = 'Synced';
-      try {
-        await sendToEGIPortal({ ...app, status, statusHistory: updatedHistory, notes }, roleTitle);
-        addToast('success', 'Client Sync Successful', 'Candidate synced to client portal (EGI).');
-      } catch (err) {
-        addToast('error', 'Sync Failed', 'Could not transmit status update to client portal.');
-        finalSyncStatus = 'Pending';
+      if (status === 'Approved') {
+        addToast('success', 'Client Sync Initiated', 'Candidate synced to EGI portal by the server.');
       }
+
+      await refreshAuditLogs();
+    } catch (err) {
+      const message =
+        err?.error === 'InvalidTransition'
+          ? `Cannot change status from ${app.status} to ${status}.`
+          : err?.message || 'Could not update application status.';
+      addToast('error', 'Status Update Failed', message);
     }
-
-    const updatedApps = state.applications.map((a) =>
-      a.id === appId
-        ? { ...a, status, statusHistory: updatedHistory, egiSyncStatus: finalSyncStatus, notes: notes !== undefined ? notes : a.notes }
-        : a
-    );
-    localStorageDb.saveApplications(updatedApps);
-    localStorageDb.addAuditEntry(appId, app.personalInfo.fullName, roleTitle, previousStatus, status, adminUser);
-
-    dispatch({
-      type: 'UPDATE_APPLICATION_STATUS',
-      payload: { appId, status, egiSyncStatus: finalSyncStatus, history: updatedHistory, notes },
-    });
-
-    addToast('info', 'Status Updated', `Applicant status set to ${status}.`);
-    refreshLogsAndUsers();
   };
 
-  const bulkReviewApplications = (appIds, status) => {
-    const adminUser = state.currentUser ? state.currentUser.name : 'Unknown Admin';
-    const timestamp = new Date().toISOString();
-    const historyUpdates = {};
+  const bulkReviewApplications = async (appIds, status) => {
+    const adminUser = state.currentUser?.name || 'Admin';
+    try {
+      const result = await applicationService.bulkUpdateStatus({
+        ids: appIds,
+        status,
+        changedBy: adminUser,
+      });
 
-    const updatedApps = state.applications.map((app) => {
-      if (appIds.includes(app.id)) {
-        const updatedHist = [...app.statusHistory, { status, changedBy: adminUser, timestamp }];
-        historyUpdates[app.id] = updatedHist;
+      // Re-fetch applications to get the authoritative updated state from the server
+      const freshApplications = await applicationService.getApplications();
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: { applications: freshApplications },
+      });
 
-        const targetJob = state.jobs.find((j) => j.id === app.jobId);
-        localStorageDb.addAuditEntry(
-          app.id,
-          app.personalInfo.fullName,
-          targetJob?.title || 'Unknown Role',
-          app.status,
-          status,
-          adminUser
+      const successCount = result.success?.length ?? appIds.length;
+      const failCount = result.failed?.length ?? 0;
+
+      if (failCount > 0) {
+        addToast(
+          'warning',
+          'Partial Bulk Update',
+          `${successCount} updated; ${failCount} could not transition to ${status}.`
         );
-
-        return { ...app, status, statusHistory: updatedHist };
+      } else {
+        addToast(
+          'success',
+          'Bulk Action Complete',
+          `Successfully marked ${successCount} applicant${successCount !== 1 ? 's' : ''} as ${status}.`
+        );
       }
-      return app;
-    });
 
-    localStorageDb.saveApplications(updatedApps);
-    dispatch({ type: 'BULK_UPDATE_APPLICATIONS', payload: { ids: appIds, status, historyUpdates } });
-    addToast('success', 'Bulk Action Complete', `Successfully bulk-marked ${appIds.length} applicants as ${status}.`);
-    refreshLogsAndUsers();
+      await refreshAuditLogs();
+    } catch (err) {
+      handleApiError(err, 'Bulk Update Failed', 'Could not complete bulk status update.');
+    }
   };
 
-  const registerAdmin = (name, email, passwordHash) => {
-    const allUsers = localStorageDb.getUsers();
-    if (allUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      addToast('error', 'Registration Error', `Admin email ${email} is already in use.`);
+  // ── Admin user management (superadmin only) ───────────────────────────────
+
+  const registerAdmin = async (name, email, password) => {
+    try {
+      const newAdmin = await userService.createUser({ name, email, password, role: 'admin' });
+      dispatch({ type: 'ADD_ADMIN', payload: newAdmin });
+      addToast('success', 'Admin Account Created', `Representative ${name} has been added.`);
+      return true;
+    } catch (err) {
+      const message =
+        err?.error === 'DuplicateEmail'
+          ? `The email ${email} is already registered.`
+          : err?.message || 'Could not create admin account.';
+      addToast('error', 'Registration Error', message);
       return false;
     }
-
-    const newAdmin = {
-      id: 'u-' + Math.random().toString(36).substring(2, 9),
-      name,
-      email,
-      passwordHash,
-      role: 'admin',
-      status: 'Active',
-      createdAt: new Date().toISOString(),
-    };
-
-    allUsers.push(newAdmin);
-    localStorageDb.saveUsers(allUsers);
-    dispatch({ type: 'ADD_ADMIN', payload: newAdmin });
-    addToast('success', 'Admin Account Created', `Representative ${name} has been added.`);
-    refreshLogsAndUsers();
-    return true;
   };
 
-  const toggleAdminSuspension = (adminId) => {
-    const allUsers = localStorageDb.getUsers();
-    const targetUser = allUsers.find((u) => u.id === adminId);
-    if (!targetUser) return;
-
-    const newStatus = targetUser.status === 'Active' ? 'Suspended' : 'Active';
-    targetUser.status = newStatus;
-    localStorageDb.saveUsers(allUsers);
-
-    dispatch({ type: 'UPDATE_ADMIN_STATUS', payload: { adminId, status: newStatus } });
-    addToast('info', 'Status Changed', `${targetUser.name}'s account is now ${newStatus}.`);
-    refreshLogsAndUsers();
+  const toggleAdminSuspension = async (adminId) => {
+    try {
+      const updated = await userService.toggleStatus(adminId);
+      dispatch({ type: 'UPDATE_ADMIN', payload: updated });
+      addToast('info', 'Status Changed', `${updated.name}'s account is now ${updated.status}.`);
+    } catch (err) {
+      handleApiError(err, 'Status Change Failed', 'Could not update user status.');
+    }
   };
 
-  const resetAdminPass = (adminId, newPass) => {
-    const allUsers = localStorageDb.getUsers();
-    const targetUser = allUsers.find((u) => u.id === adminId);
-    if (!targetUser) return;
-
-    targetUser.passwordHash = newPass;
-    localStorageDb.saveUsers(allUsers);
-
-    dispatch({ type: 'RESET_ADMIN_PASSWORD', payload: { adminId, passwordHash: newPass } });
-    addToast('success', 'Password Updated', `Representative ${targetUser.name}'s credential has been reassigned.`);
-    refreshLogsAndUsers();
+  const resetAdminPass = async (adminId, newPassword) => {
+    try {
+      await userService.resetPassword(adminId, newPassword);
+      addToast('success', 'Password Updated', 'The representative\'s credential has been reassigned.');
+    } catch (err) {
+      handleApiError(err, 'Password Reset Failed', 'Could not reset the password.');
+    }
   };
 
-  const removeAdmin = (adminId) => {
-    const allUsers = localStorageDb.getUsers();
-    const targetUser = allUsers.find((u) => u.id === adminId);
-    const filteredUsers = allUsers.filter((u) => u.id !== adminId);
-    localStorageDb.saveUsers(filteredUsers);
-
-    dispatch({ type: 'DELETE_ADMIN', payload: adminId });
-    addToast('info', 'Admin Deleted', `Advisory account for ${targetUser?.name || 'Admin'} was deleted.`);
-    refreshLogsAndUsers();
+  const removeAdmin = async (adminId) => {
+    const targetAdmin = state.admins.find((a) => a.id === adminId);
+    try {
+      await userService.deleteUser(adminId);
+      dispatch({ type: 'DELETE_ADMIN', payload: adminId });
+      addToast('info', 'Admin Deleted', `Advisory account for ${targetAdmin?.name || 'Admin'} was deleted.`);
+    } catch (err) {
+      handleApiError(err, 'Delete Failed', 'Could not delete admin account.');
+    }
   };
+
+  // ── Context value ─────────────────────────────────────────────────────────
 
   return (
     <PortalContext.Provider

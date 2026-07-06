@@ -39,29 +39,20 @@ export function AdminLogin() {
     }
 
     setIsAuthenticating(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // login() returns { user, token } on success or null on failure.
-    // We temporarily bypass the useAuth hook's auto-persist so we can
-    // gate behind OTP first — pass a deferCommit flag if your hook supports
-    // it, otherwise call localStorageDb.loginUser directly here.
-    const result = await login(email, password, { deferCommit: true });
+    // login() calls POST /api/auth/login and returns { pendingToken, destination }
+    // on success. The OTP email is sent by the backend at this point.
+    const result = await login(email, password);
 
     setIsAuthenticating(false);
 
     if (result) {
-      // result shape: { user, token }  (returned by the updated login fn below)
-      const { user, token: rawToken } = result;
-      const destination =
-        user.role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+      // destination is the masked email shown on the OTP page (e.g. "ad***@3dees.com")
+      const { pendingToken, destination: maskedEmail } = result;
 
       navigate('/admin/verify', {
         replace: true,
-        state: {
-          pendingUser: user,
-          token: rawToken,
-          destination,
-        },
+        state: { pendingToken, maskedEmail },
       });
     }
   };

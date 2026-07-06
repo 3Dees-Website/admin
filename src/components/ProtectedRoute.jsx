@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
 export function ProtectedRoute({ children, allowedRole = 'any' }) {
   const { currentUser, token } = useAuth();
@@ -9,11 +10,11 @@ export function ProtectedRoute({ children, allowedRole = 'any' }) {
   // (e.g. immediately after OTP success). Fall back to localStorage directly
   // so the route never incorrectly bounces a freshly committed session.
   const resolvedToken =
-    token || localStorage.getItem('3dees_token');
+    token || localStorage.getItem(TOKEN_STORAGE_KEYS.access);
 
   const resolvedUser = (() => {
     if (currentUser) return currentUser;
-    const raw = localStorage.getItem('3dees_current_user');
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEYS.user);
     return raw ? JSON.parse(raw) : null;
   })();
 
