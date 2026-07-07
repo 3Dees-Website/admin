@@ -54,7 +54,9 @@ export function AdminLayout({ children, role }) {
               <LogoSVG light={true} />
             </Link>
           ) : (
-            <div className="sidebar-collapsed-logo">3D</div>
+            <div className="sidebar-collapsed-logo">
+              <img src="/3dees_Logo.png" alt="3dees" width={28} />
+            </div>
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}

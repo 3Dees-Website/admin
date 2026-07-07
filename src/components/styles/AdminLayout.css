@@ -46,11 +46,26 @@
   flex-shrink: 0;
 }
 
+.sidebar-header .logo-wrap img {
+  width: auto;
+  height: 2.75rem;
+  margin-left: 0.35rem;
+}
+
+.admin-sidebar--collapsed .sidebar-header {
+  padding: 0 0.5rem;
+}
+
 .sidebar-collapsed-logo {
-  margin: 0 auto;
-  color: var(--color-brand-primary);
-  font-weight: 700;
-  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-collapsed-logo img {
+  width: 38px;
+  margin-left: 0.35rem;
+  height: auto;
 }
 
 .sidebar-collapse-btn {
