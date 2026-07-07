@@ -1,0 +1,189 @@
+.enm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.enm-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(4px);
+  animation: enmFadeIn 0.1s ease;
+}
+
+@keyframes enmFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.enm-modal {
+  position: relative;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 26rem;
+  color: var(--color-brand-dark);
+  animation: enmZoomIn 0.1s ease;
+}
+
+@keyframes enmZoomIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.enm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.enm-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.enm-subtitle {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+.enm-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.enm-close-btn:hover {
+  color: var(--color-brand-primary);
+}
+
+.enm-close-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.enm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.enm-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.enm-required {
+  color: var(--color-brand-primary);
+}
+
+.enm-textarea {
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  background-color: var(--color-brand-light);
+  outline: none;
+  color: var(--color-brand-dark);
+  resize: vertical;
+}
+
+.enm-textarea:focus {
+  border-color: var(--color-brand-primary);
+}
+
+.enm-textarea--error {
+  border-color: #dc2626;
+}
+
+.enm-error-text {
+  font-size: 0.7rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.enm-hint {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.enm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 1rem;
+  margin-top: 1.25rem;
+}
+
+.enm-cancel-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  background: none;
+  border: 1px solid #e5e7eb;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.enm-cancel-btn:hover {
+  color: var(--color-brand-primary);
+}
+
+.enm-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.enm-confirm-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--color-brand-primary);
+  color: #fff;
+  border: none;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.enm-confirm-btn:hover {
+  opacity: 0.9;
+}
+
+.enm-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.enm-btn-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}

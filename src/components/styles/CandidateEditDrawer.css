@@ -553,11 +553,60 @@
 }
 
 .ced-history-list {
-  display: flex; 
-  flex-direction: column; 
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  padding-left: 0.75rem; 
+  padding-left: 0.75rem;
   border-left: 2px solid #e5e7eb;
+}
+
+/* EGI sync panel */
+.ced-egi-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.875rem;
+}
+
+.ced-egi-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+}
+
+.ced-egi-note {
+  font-size: 0.7rem;
+  color: var(--color-brand-dark);
+}
+
+.ced-egi-note strong {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.ced-egi-note p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ced-egi-note--declined p {
+  color: #b91c1c;
+}
+
+.ced-egi-meta {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #9ca3af;
 }
 
 .ced-history-item {

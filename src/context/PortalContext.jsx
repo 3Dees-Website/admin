@@ -269,7 +269,7 @@ export function PortalProvider({ children }) {
     }
   };
 
-  const reviewApplication = async (appId, status, notes) => {
+  const reviewApplication = async (appId, status, notes, egiNote) => {
     const app = state.applications.find((a) => a.id === appId);
     if (!app) return;
 
@@ -278,6 +278,7 @@ export function PortalProvider({ children }) {
       const updated = await applicationService.updateStatus(appId, {
         status,
         notes,
+        egiNote,
         changedBy: adminUser,
       });
       dispatch({ type: 'UPDATE_APPLICATION_STATUS', payload: updated });
@@ -308,12 +309,13 @@ export function PortalProvider({ children }) {
     }
   };
 
-  const bulkReviewApplications = async (appIds, status) => {
+  const bulkReviewApplications = async (appIds, status, egiNote) => {
     const adminUser = state.currentUser?.name || 'Admin';
     try {
       const result = await applicationService.bulkUpdateStatus({
         ids: appIds,
         status,
+        egiNote,
         changedBy: adminUser,
       });
 

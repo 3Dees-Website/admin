@@ -21,7 +21,13 @@ function normalizeApplication(app) {
     status: app.status,
     statusHistory: app.status_history,
     notes: app.notes,
+    egiNote: app.egi_note,
     egiSyncStatus: app.egi_sync_status,
+    egiDecision: app.egi_decision,
+    egiDecisionNote: app.egi_decision_note,
+    egiDecisionBy: app.egi_decision_by,
+    egiDecisionAt: app.egi_decision_at,
+    egiReferenceId: app.egi_reference_id,
     submittedAt: app.submitted_at,
     // Joined fields present on list/single endpoints
     jobTitle: app.job_title,
@@ -44,10 +50,11 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  async updateStatus(id, { status, notes, changedBy }) {
+  async updateStatus(id, { status, notes, egiNote, changedBy }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/status`, {
       status,
       notes,
+      ...(egiNote !== undefined ? { egiNote } : {}),
       changedBy,
     });
     return normalizeApplication(res.data);
@@ -63,10 +70,11 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  async bulkUpdateStatus({ ids, status, changedBy }) {
+  async bulkUpdateStatus({ ids, status, egiNote, changedBy }) {
     const res = await apiClient.patch('/api/admin/applications/bulk-status', {
       ids,
       status,
+      ...(egiNote !== undefined ? { egiNote } : {}),
       changedBy,
     });
     return res.data; // { success: [...ids], failed: [{ id, reason }] }

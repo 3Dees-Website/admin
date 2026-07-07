@@ -9,6 +9,8 @@ import {
   User, GraduationCap, FolderOpen, ClipboardList,
   Download, Eye, AlertCircle, CheckCircle2
 } from 'lucide-react';
+import { EgiNoteModal } from './EgiNoteModal';
+import { EgiSyncBadge, EgiDecisionBadge } from './EgiBadges';
 import './styles/CandidateEditDrawer.css';
 
 const TABS = [
@@ -251,6 +253,8 @@ export function CandidateEditDrawer({
   const [education, setEducation] = useState({ ...app.educationInfo });
   const [docs,      setDocs]      = useState({ ...app.documents });
   const [notes,     setNotes]     = useState(app.notes || '');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     setPersonal({ ...app.personalInfo });
@@ -275,6 +279,13 @@ export function CandidateEditDrawer({
     if (addToast) {
       addToast('info', 'Demo File', 'This is a seed/demo file with no real content. Replace it by clicking "Replace" to enable download.');
     }
+  };
+
+  const handleApproveConfirm = async (egiNote) => {
+    setApproving(true);
+    await onStatusChange('Approved', egiNote);
+    setApproving(false);
+    setShowApproveModal(false);
   };
 
   /* Doc summary counts */
@@ -463,6 +474,41 @@ export function CandidateEditDrawer({
                 />
               </Field>
               <div className="ced-notes-history">
+                <span className="ced-notes-history-label">EGI Sync Status</span>
+                <div className="ced-egi-panel">
+                  <div className="ced-egi-row">
+                    <span>Delivery to EGI</span>
+                    <EgiSyncBadge status={app.egiSyncStatus} />
+                  </div>
+                  <div className="ced-egi-row">
+                    <span>EGI Decision</span>
+                    <EgiDecisionBadge decision={app.egiDecision} />
+                  </div>
+                  {app.egiNote && (
+                    <div className="ced-egi-note">
+                      <strong>Note sent to EGI:</strong>
+                      <p>{app.egiNote}</p>
+                    </div>
+                  )}
+                  {app.egiDecision === 'Declined' && app.egiDecisionNote && (
+                    <div className="ced-egi-note ced-egi-note--declined">
+                      <strong>EGI's decline reason:</strong>
+                      <p>{app.egiDecisionNote}</p>
+                    </div>
+                  )}
+                  {app.egiDecisionBy && (
+                    <span className="ced-egi-meta">
+                      Decided by {app.egiDecisionBy}
+                      {app.egiDecisionAt && ` on ${new Date(app.egiDecisionAt).toLocaleDateString()}`}
+                    </span>
+                  )}
+                  {app.egiReferenceId && (
+                    <span className="ced-egi-meta">EGI reference: {app.egiReferenceId}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="ced-notes-history">
                 <span className="ced-notes-history-label">Evaluation History</span>
                 <div className="ced-history-list">
                   {app.statusHistory.map((h, i) => (
@@ -499,7 +545,7 @@ export function CandidateEditDrawer({
                 <button type="button" onClick={() => onStatusChange('Rejected')}    className="ced-btn-reject">Reject</button>
                 <button type="button" onClick={() => onStatusChange('Shortlisted')} className="ced-btn-shortlist">Shortlist</button>
                 {isSuperadmin && (
-                  <button type="button" onClick={() => onStatusChange('Approved')}  className="ced-btn-approve">Approve & Sync</button>
+                  <button type="button" onClick={() => setShowApproveModal(true)}  className="ced-btn-approve">Approve & Sync</button>
                 )}
               </div>
             )}
@@ -511,6 +557,14 @@ export function CandidateEditDrawer({
         </div>
 
       </div>
+
+      <EgiNoteModal
+        open={showApproveModal}
+        busy={approving}
+        description={`Approving ${app.personalInfo.fullName} sends this note to EGI along with the candidate record.`}
+        onCancel={() => setShowApproveModal(false)}
+        onConfirm={handleApproveConfirm}
+      />
     </div>
   );
 }

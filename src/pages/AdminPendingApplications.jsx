@@ -73,9 +73,9 @@ export function AdminPendingApplications() {
   };
 
   /* Single status change from drawer */
-  const handleStatusChange = async (status) => {
+  const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, editingApp.notes || '');
+    await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
     setEditingApp(null);
     addToast('success', 'Status Updated', `Applicant moved to ${status}.`);
   };

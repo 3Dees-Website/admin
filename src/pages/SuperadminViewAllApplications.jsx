@@ -9,6 +9,8 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
+import { EgiNoteModal } from '../components/EgiNoteModal';
+import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
 import './styles/SuperadminViewAllApplications.css';
 
 export function SuperadminViewAllApplications() {
@@ -22,17 +24,14 @@ export function SuperadminViewAllApplications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   const statusClasses = {
     Pending: 'status-pending',
     Shortlisted: 'status-shortlisted',
     Approved: 'status-approved',
     Rejected: 'status-rejected',
-  };
-
-  const syncClasses = {
-    Synced: 'sync-synced',
-    Pending: 'sync-pending',
   };
 
   const getJobTitle = (jobId) => {
@@ -60,10 +59,10 @@ export function SuperadminViewAllApplications() {
     setAdminNotes(app.notes || '');
   }
 
-  const handleUpdateApplicantStatus = async (status) => {
+  const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return;
     addToast('info', 'Execute Oversight Trigger', `Writing compliance check to ${status}...`);
-    await reviewApplication(activeApp.id, status, adminNotes);
+    await reviewApplication(activeApp.id, status, adminNotes, egiNote);
     const updatedModel = applications.find((a) => a.id === activeApp.id);
     if (updatedModel) {
       setActiveApp(updatedModel);
@@ -72,14 +71,23 @@ export function SuperadminViewAllApplications() {
     }
   };
 
+  const handleApproveConfirm = async (egiNote) => {
+    setApproving(true);
+    await handleUpdateApplicantStatus('Approved', egiNote);
+    setApproving(false);
+    setShowApproveModal(false);
+  };
+
   const handleExportCSV = () => {
     if (filteredApps.length === 0) return;
     try {
-      const hStr = 'ReferenceStamp,ApplicantName,Email,Phone,RoleApplied,HighestQualification,Status,SyncState,SubmissionDate';
+      const hStr = 'ReferenceStamp,ApplicantName,Email,Phone,RoleApplied,HighestQualification,Status,SyncState,EGI Decision,EGI Decision Note,SubmissionDate';
       const rows = filteredApps.map((a) => [
         `"${a.referenceId}"`, `"${a.personalInfo.fullName}"`, `"${a.personalInfo.email}"`,
         `"${a.personalInfo.phone}"`, `"${getJobTitle(a.jobId)}"`, `"${a.educationInfo.highestQualification}"`,
-        `"${a.status}"`, `"${a.egiSyncStatus}"`, `"${new Date(a.submittedAt).toLocaleDateString()}"`
+        `"${a.status}"`, `"${a.egiSyncStatus}"`,
+        `"${a.egiDecision || ''}"`, `"${(a.egiDecisionNote || '').replace(/"/g, '""')}"`,
+        `"${new Date(a.submittedAt).toLocaleDateString()}"`
       ]);
       const csvContent = [hStr, ...rows.map((r) => r.join(','))].join('\n');
       const bObj = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -169,6 +177,7 @@ export function SuperadminViewAllApplications() {
                 <th className="sva-th">Candidacy State</th>
                 <th className="sva-th sva-th-center">Reference Stamp</th>
                 <th className="sva-th sva-th-center">Sync Gateway</th>
+                <th className="sva-th sva-th-center">EGI Decision</th>
                 <th className="sva-th sva-th-right">Operation Audit</th>
               </tr>
             </thead>
@@ -189,9 +198,10 @@ export function SuperadminViewAllApplications() {
                   </td>
                   <td className="sva-td sva-td-center sva-ref-id">{a.referenceId}</td>
                   <td className="sva-td sva-td-center">
-                    <span className={`sva-sync-badge ${syncClasses[a.egiSyncStatus]}`}>
-                      {a.egiSyncStatus === 'Synced' ? 'Synced to EGI' : 'Sync Pending'}
-                    </span>
+                    <EgiSyncBadge status={a.egiSyncStatus} />
+                  </td>
+                  <td className="sva-td sva-td-center">
+                    <EgiDecisionBadge decision={a.egiDecision} />
                   </td>
                   <td className="sva-td sva-td-right">
                     <button
@@ -206,7 +216,7 @@ export function SuperadminViewAllApplications() {
               ))}
               {filteredApps.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="sva-empty-row">
+                  <td colSpan={7} className="sva-empty-row">
                     No placement dossiers correspond with currently active queries.
                   </td>
                 </tr>
@@ -255,6 +265,34 @@ export function SuperadminViewAllApplications() {
                 <div><strong>Client Sponsoring:</strong> <span className="sva-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
 
+              {/* EGI Sync & Decision */}
+              <div className="sva-egi-group">
+                <label className="sva-filter-label">EGI Sync &amp; Decision</label>
+                <div className="sva-egi-row">
+                  <span>Delivery to EGI</span>
+                  <EgiSyncBadge status={activeApp.egiSyncStatus} />
+                </div>
+                <div className="sva-egi-row">
+                  <span>EGI Decision</span>
+                  <EgiDecisionBadge decision={activeApp.egiDecision} />
+                </div>
+                {activeApp.egiNote && (
+                  <p className="sva-egi-note"><strong>Note sent to EGI:</strong> {activeApp.egiNote}</p>
+                )}
+                {activeApp.egiDecision === 'Declined' && activeApp.egiDecisionNote && (
+                  <p className="sva-egi-note sva-egi-note--declined"><strong>EGI's decline reason:</strong> {activeApp.egiDecisionNote}</p>
+                )}
+                {activeApp.egiDecisionBy && (
+                  <span className="sva-egi-meta">
+                    Decided by {activeApp.egiDecisionBy}
+                    {activeApp.egiDecisionAt && ` on ${new Date(activeApp.egiDecisionAt).toLocaleDateString()}`}
+                  </span>
+                )}
+                {activeApp.egiReferenceId && (
+                  <span className="sva-egi-meta">EGI reference: {activeApp.egiReferenceId}</span>
+                )}
+              </div>
+
               {/* Notes */}
               <div className="sva-notes-group">
                 <label className="sva-filter-label">Compliance Override Annotations</label>
@@ -295,7 +333,7 @@ export function SuperadminViewAllApplications() {
                 <button onClick={() => handleUpdateApplicantStatus('Shortlisted')} className="sva-btn-shortlist">
                   Force Shortlist
                 </button>
-                <button onClick={() => handleUpdateApplicantStatus('Approved')} className="sva-btn-approve">
+                <button onClick={() => setShowApproveModal(true)} className="sva-btn-approve">
                   Approve & Portal Sync
                 </button>
               </div>
@@ -303,6 +341,14 @@ export function SuperadminViewAllApplications() {
           </div>
         </div>
       )}
+
+      <EgiNoteModal
+        open={showApproveModal}
+        busy={approving}
+        description={activeApp ? `Approving ${activeApp.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        onCancel={() => setShowApproveModal(false)}
+        onConfirm={handleApproveConfirm}
+      />
     </div>
   );
 }

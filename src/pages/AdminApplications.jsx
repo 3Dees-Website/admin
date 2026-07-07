@@ -4,6 +4,8 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, Download, Eye, Check, X, RefreshCw } from 'lucide-react';
+import { EgiNoteModal } from '../components/EgiNoteModal';
+import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
 import './styles/AdminApplications.css';
 
 export function AdminApplications() {
@@ -18,17 +20,14 @@ export function AdminApplications() {
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [activeApp, setActiveApp] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   const statusBadgeClass = {
     Pending: 'badge badge-pending',
     Shortlisted: 'badge badge-shortlisted',
     Approved: 'badge badge-approved',
     Rejected: 'badge badge-rejected',
-  };
-
-  const syncBadgeClass = {
-    Synced: 'badge badge-sync-synced',
-    Pending: 'badge badge-sync-pending',
   };
 
   const getJobTitle = (jobId) => {
@@ -81,16 +80,23 @@ export function AdminApplications() {
     setAdminNotes(app.notes || '');
   };
 
-  const handleUpdateApplicantStatus = async (status) => {
+  const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return;
     addToast('info', 'Status Queued', 'Running credential checks & starting portal sync...');
-    await reviewApplication(activeApp.id, status, adminNotes);
+    await reviewApplication(activeApp.id, status, adminNotes, egiNote);
     const updatedModel = applications.find((a) => a.id === activeApp.id);
     if (updatedModel) {
       setActiveApp(updatedModel);
     } else {
       setActiveApp(null);
     }
+  };
+
+  const handleApproveConfirm = async (egiNote) => {
+    setApproving(true);
+    await handleUpdateApplicantStatus('Approved', egiNote);
+    setApproving(false);
+    setShowApproveModal(false);
   };
 
   const handleExportCSV = () => {
@@ -101,7 +107,8 @@ export function AdminApplications() {
     try {
       const headers = [
         'ReferenceStamp', 'ApplicantName', 'Email', 'Phone', 'RoleApplied',
-        'Qualification', 'WorkExperienceYears', 'Status', 'SyncState', 'SubmissionDate'
+        'Qualification', 'WorkExperienceYears', 'Status', 'SyncState',
+        'EGI Decision', 'EGI Decision Note', 'SubmissionDate'
       ];
       const rows = filteredApps.map((a) => [
         `"${a.referenceId}"`,
@@ -113,6 +120,8 @@ export function AdminApplications() {
         `"${a.educationInfo.yearsOfExperience || '0'}"`,
         `"${a.status}"`,
         `"${a.egiSyncStatus}"`,
+        `"${a.egiDecision || ''}"`,
+        `"${(a.egiDecisionNote || '').replace(/"/g, '""')}"`,
         `"${new Date(a.submittedAt).toLocaleDateString()}"`,
       ]);
       const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
@@ -232,6 +241,7 @@ export function AdminApplications() {
                 <th>Review State</th>
                 <th className="text-center">Reference Stamp</th>
                 <th className="text-center">Sync Gateway</th>
+                <th className="text-center">EGI Decision</th>
                 <th className="text-right">Action</th>
               </tr>
             </thead>
@@ -260,9 +270,10 @@ export function AdminApplications() {
                     </td>
                     <td className="ref-cell text-center">{a.referenceId}</td>
                     <td className="text-center">
-                      <span className={syncBadgeClass[a.egiSyncStatus]}>
-                        {a.egiSyncStatus === 'Synced' ? 'Synced to EGI' : 'Sync Pending'}
-                      </span>
+                      <EgiSyncBadge status={a.egiSyncStatus} />
+                    </td>
+                    <td className="text-center">
+                      <EgiDecisionBadge decision={a.egiDecision} />
                     </td>
                     <td className="text-right">
                       <button
@@ -279,7 +290,7 @@ export function AdminApplications() {
               })}
               {filteredApps.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="table-empty">
+                  <td colSpan={8} className="table-empty">
                     No active candidacies match your currently selected filters.
                   </td>
                 </tr>
@@ -318,6 +329,39 @@ export function AdminApplications() {
                 <div className="widget-right">
                   <span className="widget-label">Vetting Evaluation State</span>
                   <span className={statusBadgeClass[activeApp.status]}>{activeApp.status}</span>
+                </div>
+              </div>
+
+              {/* EGI Sync & Decision */}
+              <div className="drawer-section">
+                <h3 className="drawer-section-title">EGI Sync &amp; Decision</h3>
+                <div className="info-grid">
+                  <div><strong>Delivery to EGI:</strong> <EgiSyncBadge status={activeApp.egiSyncStatus} /></div>
+                  <div><strong>EGI Decision:</strong> <EgiDecisionBadge decision={activeApp.egiDecision} /></div>
+                  {activeApp.egiNote && (
+                    <div className="col-span-2">
+                      <strong>Note sent to EGI:</strong>
+                      <p className="info-address">{activeApp.egiNote}</p>
+                    </div>
+                  )}
+                  {activeApp.egiDecision === 'Declined' && activeApp.egiDecisionNote && (
+                    <div className="col-span-2">
+                      <strong>EGI's decline reason:</strong>
+                      <p className="info-address">{activeApp.egiDecisionNote}</p>
+                    </div>
+                  )}
+                  {activeApp.egiDecisionBy && (
+                    <div>
+                      <strong>Decided by:</strong>{' '}
+                      <span className="info-value">
+                        {activeApp.egiDecisionBy}
+                        {activeApp.egiDecisionAt && ` on ${new Date(activeApp.egiDecisionAt).toLocaleDateString()}`}
+                      </span>
+                    </div>
+                  )}
+                  {activeApp.egiReferenceId && (
+                    <div><strong>EGI reference:</strong> <span className="info-value">{activeApp.egiReferenceId}</span></div>
+                  )}
                 </div>
               </div>
 
@@ -450,7 +494,7 @@ export function AdminApplications() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUpdateApplicantStatus('Approved')}
+                  onClick={() => setShowApproveModal(true)}
                   className="btn btn-approve"
                 >
                   <Check size={16} />
@@ -461,6 +505,14 @@ export function AdminApplications() {
           </div>
         </div>
       )}
+
+      <EgiNoteModal
+        open={showApproveModal}
+        busy={approving}
+        description={activeApp ? `Approving ${activeApp.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        onCancel={() => setShowApproveModal(false)}
+        onConfirm={handleApproveConfirm}
+      />
     </div>
   );
 }

@@ -1,0 +1,31 @@
+.egi-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.egi-badge--gray {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.egi-badge--blue {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.egi-badge--green {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.egi-badge--red {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}

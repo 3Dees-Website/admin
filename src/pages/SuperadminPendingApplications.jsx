@@ -8,6 +8,7 @@ import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
+import { EgiNoteModal } from '../components/EgiNoteModal';
 import {
   Search, Inbox, Clock, UserCheck, UserX,
   ShieldAlert, Zap
@@ -15,7 +16,7 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { applications, reviewApplication, updateApplication } = useApplications();
+  const { applications, reviewApplication, bulkReviewApplications, updateApplication } = useApplications();
   const { jobs } = useJobs();
   const { addToast } = useToast();
 
@@ -23,6 +24,9 @@ export function SuperadminPendingApplications() {
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [editingApp,    setEditingApp]    = useState(null);
   const [selectedIds,   setSelectedIds]   = useState(new Set());
+  const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
+  const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
+  const [approveBusy, setApproveBusy] = useState(false);
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);
@@ -75,9 +79,9 @@ export function SuperadminPendingApplications() {
     }
   };
 
-  const handleStatusChange = async (status) => {
+  const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, editingApp.notes || '');
+    await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
     setEditingApp(null);
     addToast('success', 'Override Applied', `Candidate moved to ${status} via superadmin override.`);
   };
@@ -102,6 +106,23 @@ export function SuperadminPendingApplications() {
       if (app) await reviewApplication(id, status, app.notes || '');
     }
     addToast('success', `Bulk ${status}`, `${selectedIds.size} applicant(s) set to ${status}.`);
+    setSelectedIds(new Set());
+  };
+
+  const handleQuickApproveConfirm = async (egiNote) => {
+    if (!approveTarget) return;
+    setApproveBusy(true);
+    await reviewApplication(approveTarget.id, 'Approved', approveTarget.notes || '', egiNote);
+    setApproveBusy(false);
+    setApproveTarget(null);
+  };
+
+  const handleBulkApproveConfirm = async (egiNote) => {
+    if (selectedIds.size === 0) return;
+    setApproveBusy(true);
+    await bulkReviewApplications(Array.from(selectedIds), 'Approved', egiNote);
+    setApproveBusy(false);
+    setBulkApproveOpen(false);
     setSelectedIds(new Set());
   };
 
@@ -198,7 +219,7 @@ export function SuperadminPendingApplications() {
             <button onClick={() => bulkAction('Shortlisted')} className="spa-bulk-shortlist">
               <UserCheck className="spa-bulk-icon" /> Bulk Shortlist
             </button>
-            <button onClick={() => bulkAction('Approved')} className="spa-bulk-approve">
+            <button onClick={() => setBulkApproveOpen(true)} className="spa-bulk-approve">
               <UserCheck className="spa-bulk-icon" /> Bulk Approve & Sync
             </button>
             <button onClick={() => bulkAction('Rejected')} className="spa-bulk-reject">
@@ -290,7 +311,7 @@ export function SuperadminPendingApplications() {
                           Shortlist
                         </button>
                         <button
-                          onClick={() => reviewApplication(app.id, 'Approved', app.notes || '')}
+                          onClick={() => setApproveTarget(app)}
                           className="spa-quick-approve"
                         >
                           Approve
@@ -332,6 +353,26 @@ export function SuperadminPendingApplications() {
           onStatusChange={handleStatusChange}
         />
       )}
+
+      {/* Quick-approve (row action) */}
+      <EgiNoteModal
+        open={!!approveTarget}
+        busy={approveBusy}
+        description={approveTarget ? `Approving ${approveTarget.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        onCancel={() => setApproveTarget(null)}
+        onConfirm={handleQuickApproveConfirm}
+      />
+
+      {/* Bulk approve */}
+      <EgiNoteModal
+        open={bulkApproveOpen}
+        busy={approveBusy}
+        title="Bulk Approve & Notify EGI"
+        confirmLabel="Bulk Approve & Sync"
+        description={`One shared note will be sent to EGI for all ${selectedIds.size} selected applicant(s).`}
+        onCancel={() => setBulkApproveOpen(false)}
+        onConfirm={handleBulkApproveConfirm}
+      />
 
     </div>
   );

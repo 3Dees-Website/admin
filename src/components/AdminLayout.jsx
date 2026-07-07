@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
   History, LogOut, Bell, Menu, X, ShieldAlert,
-  Inbox
+  Inbox, RefreshCw
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import './styles/AdminLayout.css';
@@ -29,6 +29,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
     { name: 'Compliance Audits',  path: '/superadmin/audit',         icon: <History size={16} /> },
+    { name: 'EGI Sync',         path: '/superadmin/egi-sync',      icon: <RefreshCw size={16} /> },
   ];
 
   const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
@@ -121,6 +122,8 @@ export function AdminLayout({ children, role }) {
                 ? 'System Dashboards Control'
                 : location.pathname.includes('pending')
                 ? 'Pending Applications Queue'
+                : location.pathname.includes('egi-sync')
+                ? 'EGI Sync Queue'
                 : 'Operations Ledger'}
             </h2>
           </div>

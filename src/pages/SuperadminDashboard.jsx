@@ -3,18 +3,40 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
 import { useApplications } from '../hooks/useApplications';
 import { useToast } from '../hooks/useToast';
 import { Briefcase, Users, FileLock2, History, ShieldAlert, Activity } from 'lucide-react';
+import { egiService } from '../services/egiService';
 import './styles/SuperadminDashboard.css';
 
 export function SuperadminDashboard() {
   const { jobs } = useJobs();
   const { applications, auditLogs } = useApplications();
   const { addToast } = useToast();
+
+  const [egiStats, setEgiStats] = useState(null);
+  const [egiStatsLoading, setEgiStatsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    egiService.getQueueStats()
+      .then((stats) => { if (!cancelled) setEgiStats(stats); })
+      .catch(() => { if (!cancelled) addToast('error', 'EGI Sync Health', 'Could not load EGI queue stats.'); })
+      .finally(() => { if (!cancelled) setEgiStatsLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const egiCounts = useMemo(() => {
+    const byStatus = { Pending: 0, Queued: 0, Synced: 0, Failed: 0 };
+    (egiStats || []).forEach((s) => { byStatus[s.status] = s.count; });
+    const total = byStatus.Pending + byStatus.Queued + byStatus.Synced + byStatus.Failed;
+    const failureRate = total > 0 ? (byStatus.Failed / total) * 100 : 0;
+    return { ...byStatus, total, failureRate };
+  }, [egiStats]);
 
   const admins = useMemo(() => {
     try {
@@ -169,25 +191,37 @@ export function SuperadminDashboard() {
         {/* Sync Health Card */}
         <div className="sd-health-card">
           <div>
-            <h3 className="sd-health-title">Sync Check Health</h3>
+            <h3 className="sd-health-title">EGI Sync Health</h3>
 
             <div className="sd-health-rows">
               <div className="sd-health-row">
-                <span>EGI Gate Endpoint status</span>
-                <span className="sd-health-online">ONLINE</span>
+                <span>Queue status</span>
+                {egiStatsLoading ? (
+                  <span className="sd-health-count">Loading…</span>
+                ) : egiCounts.Failed > 0 ? (
+                  <span className="sd-health-failed">{egiCounts.Failed} FAILED</span>
+                ) : (
+                  <span className="sd-health-online">HEALTHY</span>
+                )}
               </div>
               <div className="sd-health-row">
-                <span>Total DB Synchronized (Approved)</span>
-                <span className="sd-health-count">
-                  {applications.filter((a) => a.egiSyncStatus === 'Synced').length} Records
-                </span>
+                <span>Total Synced to EGI</span>
+                <span className="sd-health-count">{egiStatsLoading ? '—' : egiCounts.Synced} Records</span>
+              </div>
+              <div className="sd-health-row">
+                <span>Awaiting delivery (Pending/Queued)</span>
+                <span className="sd-health-count">{egiStatsLoading ? '—' : egiCounts.Pending + egiCounts.Queued}</span>
               </div>
               <div className="sd-health-row">
                 <span>Sync Failure rate</span>
-                <span className="sd-health-rate">0.00%</span>
+                <span className="sd-health-rate">{egiStatsLoading ? '—' : `${egiCounts.failureRate.toFixed(2)}%`}</span>
               </div>
             </div>
           </div>
+
+          <Link to="/superadmin/egi-sync" className="sd-health-link">
+            View Failed EGI Deliveries →
+          </Link>
 
           <div className="sd-health-warning">
             <strong className="sd-health-warning-title">Critical Security Oversight:</strong>
