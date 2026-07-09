@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
@@ -13,7 +13,7 @@ import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { applications, reviewApplication, updateApplication } = useApplications();
+  const { applications, reviewApplication, updateApplication, refreshApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -22,6 +22,11 @@ export function AdminPendingApplications() {
   const [selectedJobId,  setSelectedJobId]  = useState('All');
   const [editingApp,     setEditingApp]     = useState(null);
   const [selectedIds,    setSelectedIds]    = useState(new Set());
+
+  useEffect(() => {
+    refreshApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);

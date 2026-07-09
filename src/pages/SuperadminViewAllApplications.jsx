@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
@@ -13,8 +13,10 @@ import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
 import './styles/SuperadminViewAllApplications.css';
 
+const POLL_INTERVAL_MS = 60000;
+
 export function SuperadminViewAllApplications() {
-  const { applications, reviewApplication } = useApplications();
+  const { applications, reviewApplication, refreshApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -26,6 +28,29 @@ export function SuperadminViewAllApplications() {
   const [adminNotes, setAdminNotes] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    const ok = await refreshApplications();
+    setIsRefreshing(false);
+    if (!ok) {
+      addToast('error', 'Refresh Failed', 'Could not refresh applications from the server.');
+    }
+  }, [refreshApplications, addToast]);
+
+  useEffect(() => {
+    refreshApplications();
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshApplications();
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const statusClasses = {
     Pending: 'status-pending',
@@ -113,9 +138,20 @@ export function SuperadminViewAllApplications() {
           <h1 className="sva-title">Central Placements Ledger (All Sectors)</h1>
           <p className="sva-subtitle">Universal overview targeting cross-departmental agronomy, engineering, finance and logistics slots.</p>
         </div>
-        <button onClick={handleExportCSV} className="sva-export-btn">
-          Export Universal Tabular Report
-        </button>
+        <div className="sva-header-actions">
+          <button
+            onClick={handleManualRefresh}
+            className="sva-refresh-btn"
+            id="btn-refresh-applications"
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'sva-spin-icon' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button onClick={handleExportCSV} className="sva-export-btn">
+            Export Universal Tabular Report
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

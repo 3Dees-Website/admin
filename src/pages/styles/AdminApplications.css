@@ -33,6 +33,12 @@
   margin: 0;
 }
 
+.aa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .aa-header-subtitle {
   font-size: 0.65rem;
   color: var(--color-brand-text);

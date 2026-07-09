@@ -1,4 +1,4 @@
-import { createContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { authService } from '../services/authService';
 import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
@@ -82,6 +82,7 @@ export const PortalContext = createContext(undefined);
 
 export function PortalProvider({ children }) {
   const [state, dispatch] = useReducer(portalReducer, initialState);
+  const refreshInFlightRef = useRef(false);
 
   // ── Toast helpers ─────────────────────────────────────────────────────────
 
@@ -132,6 +133,29 @@ export function PortalProvider({ children }) {
       dispatch({ type: 'SET_AUDIT_LOGS', payload: logs });
     } catch {
       // Silent — audit logs are secondary
+    }
+  }, []);
+
+  /**
+   * Re-fetches applications (and audit logs) so server-side changes — e.g.
+   * egi_decision / egi_sync_status updated via webhook — show up without a
+   * re-login. Safe to call repeatedly; skips if a refresh is already running.
+   * Does not toast on failure — callers decide whether to surface errors.
+   */
+  const refreshApplications = useCallback(async () => {
+    if (refreshInFlightRef.current) return false;
+    refreshInFlightRef.current = true;
+    try {
+      const [applications, auditLogs] = await Promise.all([
+        applicationService.getApplications(),
+        auditService.getAuditLogs(),
+      ]);
+      dispatch({ type: 'SET_INITIAL_DATA', payload: { applications, auditLogs } });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlightRef.current = false;
     }
   }, []);
 
@@ -415,6 +439,7 @@ export function PortalProvider({ children }) {
         reviewApplication,
         updateApplication,
         bulkReviewApplications,
+        refreshApplications,
         registerAdmin,
         toggleAdminSuspension,
         resetAdminPass,

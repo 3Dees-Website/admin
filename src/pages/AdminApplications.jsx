@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
@@ -8,8 +8,10 @@ import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
 import './styles/AdminApplications.css';
 
+const POLL_INTERVAL_MS = 60000;
+
 export function AdminApplications() {
-  const { applications, reviewApplication, bulkReviewApplications } = useApplications();
+  const { applications, reviewApplication, bulkReviewApplications, refreshApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -22,6 +24,29 @@ export function AdminApplications() {
   const [adminNotes, setAdminNotes] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    const ok = await refreshApplications();
+    setIsRefreshing(false);
+    if (!ok) {
+      addToast('error', 'Refresh Failed', 'Could not refresh applications from the server.');
+    }
+  }, [refreshApplications, addToast]);
+
+  useEffect(() => {
+    refreshApplications();
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshApplications();
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const statusBadgeClass = {
     Pending: 'badge badge-pending',
@@ -150,10 +175,21 @@ export function AdminApplications() {
             Independently audit applicant qualifications, verify legal declaration checks, and review sync statuses.
           </p>
         </div>
-        <button onClick={handleExportCSV} className="btn btn-dark" id="btn-export-dossiers">
-          <Download size={16} className="icon-primary" />
-          <span>Export filtered CSV report</span>
-        </button>
+        <div className="aa-header-actions">
+          <button
+            onClick={handleManualRefresh}
+            className="btn btn-ghost"
+            id="btn-refresh-applications"
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'spin-icon' : ''} />
+            <span>Refresh</span>
+          </button>
+          <button onClick={handleExportCSV} className="btn btn-dark" id="btn-export-dossiers">
+            <Download size={16} className="icon-primary" />
+            <span>Export filtered CSV report</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}

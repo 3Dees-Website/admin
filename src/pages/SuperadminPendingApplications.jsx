@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApplications } from '../hooks/useApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
@@ -16,7 +16,7 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { applications, reviewApplication, bulkReviewApplications, updateApplication } = useApplications();
+  const { applications, reviewApplication, bulkReviewApplications, updateApplication, refreshApplications } = useApplications();
   const { jobs } = useJobs();
   const { addToast } = useToast();
 
@@ -27,6 +27,11 @@ export function SuperadminPendingApplications() {
   const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
+
+  useEffect(() => {
+    refreshApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);

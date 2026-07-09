@@ -13,5 +13,6 @@ export function useApplications() {
     reviewApplication: context.reviewApplication,
     updateApplication: context.updateApplication,
     bulkReviewApplications: context.bulkReviewApplications,
+    refreshApplications: context.refreshApplications,
   };
 }
