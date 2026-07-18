@@ -1,18 +1,15 @@
-import { createContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import { createContext, useReducer, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
-import { auditService } from '../services/auditService';
 import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
 const initialState = {
   currentUser: null,
   token: null,
   jobs: [],
-  applications: [],
   admins: [],
-  auditLogs: [],
   toasts: [],
 };
 
@@ -28,9 +25,7 @@ function portalReducer(state, action) {
       return {
         ...state,
         jobs: action.payload.jobs ?? state.jobs,
-        applications: action.payload.applications ?? state.applications,
         admins: action.payload.admins ?? state.admins,
-        auditLogs: action.payload.auditLogs ?? state.auditLogs,
       };
     case 'ADD_JOB':
       return { ...state, jobs: [...state.jobs, action.payload] };
@@ -41,23 +36,6 @@ function portalReducer(state, action) {
       };
     case 'DELETE_JOB':
       return { ...state, jobs: state.jobs.filter((j) => j.id !== action.payload) };
-    case 'ADD_APPLICATION':
-      return { ...state, applications: [...state.applications, action.payload] };
-    case 'UPDATE_APPLICATION_STATUS':
-      return {
-        ...state,
-        applications: state.applications.map((app) =>
-          app.id === action.payload.id ? action.payload : app
-        ),
-      };
-    case 'BULK_UPDATE_APPLICATIONS': {
-      const { updatedApps } = action.payload;
-      const updatedMap = new Map(updatedApps.map((a) => [a.id, a]));
-      return {
-        ...state,
-        applications: state.applications.map((app) => updatedMap.get(app.id) || app),
-      };
-    }
     case 'ADD_ADMIN':
       return { ...state, admins: [...state.admins, action.payload] };
     case 'UPDATE_ADMIN':
@@ -67,8 +45,6 @@ function portalReducer(state, action) {
       };
     case 'DELETE_ADMIN':
       return { ...state, admins: state.admins.filter((adm) => adm.id !== action.payload) };
-    case 'SET_AUDIT_LOGS':
-      return { ...state, auditLogs: action.payload };
     case 'ADD_TOAST':
       return { ...state, toasts: [...state.toasts, action.payload] };
     case 'DISMISS_TOAST':
@@ -82,7 +58,6 @@ export const PortalContext = createContext(undefined);
 
 export function PortalProvider({ children }) {
   const [state, dispatch] = useReducer(portalReducer, initialState);
-  const refreshInFlightRef = useRef(false);
 
   // ── Toast helpers ─────────────────────────────────────────────────────────
 
@@ -106,11 +81,7 @@ export function PortalProvider({ children }) {
 
   const loadInitialData = useCallback(async (user) => {
     try {
-      const [jobs, applications, auditLogs] = await Promise.all([
-        jobService.getAdminJobs(),
-        applicationService.getApplications(),
-        auditService.getAuditLogs(),
-      ]);
+      const jobs = await jobService.getAdminJobs();
 
       let admins = [];
       // Only superadmins can fetch the users list
@@ -120,44 +91,12 @@ export function PortalProvider({ children }) {
 
       dispatch({
         type: 'SET_INITIAL_DATA',
-        payload: { jobs, applications, admins, auditLogs },
+        payload: { jobs, admins },
       });
     } catch (err) {
       handleApiError(err, 'Data Load Error', 'Could not load portal data from the server.');
     }
   }, [handleApiError]);
-
-  const refreshAuditLogs = useCallback(async () => {
-    try {
-      const logs = await auditService.getAuditLogs();
-      dispatch({ type: 'SET_AUDIT_LOGS', payload: logs });
-    } catch {
-      // Silent — audit logs are secondary
-    }
-  }, []);
-
-  /**
-   * Re-fetches applications (and audit logs) so server-side changes — e.g.
-   * egi_decision / egi_sync_status updated via webhook — show up without a
-   * re-login. Safe to call repeatedly; skips if a refresh is already running.
-   * Does not toast on failure — callers decide whether to surface errors.
-   */
-  const refreshApplications = useCallback(async () => {
-    if (refreshInFlightRef.current) return false;
-    refreshInFlightRef.current = true;
-    try {
-      const [applications, auditLogs] = await Promise.all([
-        applicationService.getApplications(),
-        auditService.getAuditLogs(),
-      ]);
-      dispatch({ type: 'SET_INITIAL_DATA', payload: { applications, auditLogs } });
-      return true;
-    } catch {
-      return false;
-    } finally {
-      refreshInFlightRef.current = false;
-    }
-  }, []);
 
   // ── Session restoration on mount ─────────────────────────────────────────
 
@@ -217,7 +156,7 @@ export function PortalProvider({ children }) {
     localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh);
     localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
     dispatch({ type: 'SET_AUTH', payload: null });
-    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], applications: [], admins: [], auditLogs: [] } });
+    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [] } });
     addToast('info', 'Logged Out', 'You have been securely logged out.');
   };
 
@@ -293,10 +232,13 @@ export function PortalProvider({ children }) {
     }
   };
 
+  /**
+   * Returns the updated application on success (or null on failure) so the
+   * calling page can update its local view without a global applications
+   * array. Callers are responsible for refetching their current page/stats
+   * afterward.
+   */
   const reviewApplication = async (appId, status, notes, egiNote) => {
-    const app = state.applications.find((a) => a.id === appId);
-    if (!app) return;
-
     const adminUser = state.currentUser?.name || 'Admin';
     try {
       const updated = await applicationService.updateStatus(appId, {
@@ -305,27 +247,22 @@ export function PortalProvider({ children }) {
         egiNote,
         changedBy: adminUser,
       });
-      dispatch({ type: 'UPDATE_APPLICATION_STATUS', payload: updated });
       addToast('info', 'Status Updated', `Applicant status set to ${status}.`);
 
       if (status === 'Approved') {
         addToast('success', 'Client Sync Initiated', 'Candidate synced to EGI portal by the server.');
       }
 
-      await refreshAuditLogs();
+      return updated;
     } catch (err) {
-      const message =
-        err?.error === 'InvalidTransition'
-          ? `Cannot change status from ${app.status} to ${status}.`
-          : err?.message || 'Could not update application status.';
-      addToast('error', 'Status Update Failed', message);
+      addToast('error', 'Status Update Failed', err?.message || 'Could not update application status.');
+      return null;
     }
   };
 
   const updateApplication = async (appId, updates) => {
     try {
       const updated = await applicationService.updateApplication(appId, updates);
-      dispatch({ type: 'UPDATE_APPLICATION_STATUS', payload: updated });
       return updated;
     } catch (err) {
       addToast('error', 'Update Failed', err?.message || 'Could not save candidate file.');
@@ -333,6 +270,10 @@ export function PortalProvider({ children }) {
     }
   };
 
+  /**
+   * Returns the backend's { success, failed } result (or null on failure) so
+   * the calling page can decide how to refetch its current page/stats.
+   */
   const bulkReviewApplications = async (appIds, status, egiNote) => {
     const adminUser = state.currentUser?.name || 'Admin';
     try {
@@ -341,13 +282,6 @@ export function PortalProvider({ children }) {
         status,
         egiNote,
         changedBy: adminUser,
-      });
-
-      // Re-fetch applications to get the authoritative updated state from the server
-      const freshApplications = await applicationService.getApplications();
-      dispatch({
-        type: 'SET_INITIAL_DATA',
-        payload: { applications: freshApplications },
       });
 
       const successCount = result.success?.length ?? appIds.length;
@@ -367,9 +301,10 @@ export function PortalProvider({ children }) {
         );
       }
 
-      await refreshAuditLogs();
+      return result;
     } catch (err) {
       handleApiError(err, 'Bulk Update Failed', 'Could not complete bulk status update.');
+      return null;
     }
   };
 
@@ -439,7 +374,6 @@ export function PortalProvider({ children }) {
         reviewApplication,
         updateApplication,
         bulkReviewApplications,
-        refreshApplications,
         registerAdmin,
         toggleAdminSuspension,
         resetAdminPass,

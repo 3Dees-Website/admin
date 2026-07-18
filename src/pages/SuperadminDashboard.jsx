@@ -6,19 +6,26 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
-import { useApplications } from '../hooks/useApplications';
+import { useAuth } from '../hooks/useAuth';
+import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useToast } from '../hooks/useToast';
 import { Briefcase, Users, FileLock2, History, ShieldAlert, Activity } from 'lucide-react';
 import { egiService } from '../services/egiService';
+import { auditService } from '../services/auditService';
 import './styles/SuperadminDashboard.css';
+
+const RECENT_AUDITS_SIZE = 8;
 
 export function SuperadminDashboard() {
   const { jobs } = useJobs();
-  const { applications, auditLogs } = useApplications();
+  const { admins } = useAuth();
   const { addToast } = useToast();
+  const { stats: globalStats } = useApplicationStats();
 
   const [egiStats, setEgiStats] = useState(null);
   const [egiStatsLoading, setEgiStatsLoading] = useState(true);
+  const [recentAudits, setRecentAudits] = useState([]);
+  const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +37,18 @@ export function SuperadminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    auditService.getAuditLogsPage({ page: 1, pageSize: RECENT_AUDITS_SIZE })
+      .then(({ items, total }) => {
+        if (cancelled) return;
+        setRecentAudits(items);
+        setTotalAuditLogs(total);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const egiCounts = useMemo(() => {
     const byStatus = { Pending: 0, Queued: 0, Synced: 0, Failed: 0 };
     (egiStats || []).forEach((s) => { byStatus[s.status] = s.count; });
@@ -38,31 +57,12 @@ export function SuperadminDashboard() {
     return { ...byStatus, total, failureRate };
   }, [egiStats]);
 
-  const admins = useMemo(() => {
-    try {
-      const dbStr = localStorage.getItem('3dees_local_db');
-      if (dbStr) {
-        const parsed = JSON.parse(dbStr);
-        return parsed.users || [];
-      }
-    } catch (e) {
-      // fallback
-    }
-    return [];
-  }, [applications]);
-
   const adminStats = useMemo(() => {
     const totalAdmins = admins.filter((u) => u.role === 'admin').length;
     const activeAdmins = admins.filter((u) => u.role === 'admin' && u.status === 'Active').length;
     const suspendedAdmins = admins.filter((u) => u.role === 'admin' && u.status === 'Suspended').length;
     return { totalAdmins, activeAdmins, suspendedAdmins };
   }, [admins]);
-
-  const recentAudits = useMemo(() => {
-    return [...auditLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 8);
-  }, [auditLogs]);
 
   return (
     <div className="sd-wrapper" id="superadmin-dashboard-page">
@@ -122,7 +122,7 @@ export function SuperadminDashboard() {
             <FileLock2 className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{applications.length}</p>
+            <p className="sd-metric-value">{globalStats?.total ?? 0}</p>
             <span className="sd-metric-sub">Synced to local environment</span>
           </div>
         </div>
@@ -133,7 +133,7 @@ export function SuperadminDashboard() {
             <History className="sd-metric-icon sd-metric-icon-green" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{auditLogs.length}</p>
+            <p className="sd-metric-value">{totalAuditLogs}</p>
             <span className="sd-metric-sub">Immutable audits index</span>
           </div>
         </div>
@@ -163,16 +163,13 @@ export function SuperadminDashboard() {
                     <span className="sd-audit-changed-by">{l.changedBy}</span>
                     {' '}action:{' '}
                     <span className="sd-audit-status-pill">
-                      {l.previousStatus} ➔ {l.status}
+                      {l.prevStatus} ➔ {l.newStatus}
                     </span>
                   </div>
                   <span className="sd-audit-meta">
                     Applicant: <strong className="sd-audit-bold">{l.applicantName}</strong>
                     {' '}• Job ID Ref: <span className="sd-audit-ref">{l.applicationId.slice(0, 8)}</span>
                   </span>
-                  {l.notes && (
-                    <span className="sd-audit-note">"Note: {l.notes}"</span>
-                  )}
                 </div>
                 <span className="sd-audit-time">
                   {new Date(l.timestamp).toLocaleDateString()}{' '}

@@ -4,37 +4,54 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useApplications } from '../hooks/useApplications';
-import { Search } from 'lucide-react';
+import { usePaginatedAuditLogs } from '../hooks/usePaginatedAuditLogs';
+import { useToast } from '../hooks/useToast';
+import { Search, Download } from 'lucide-react';
+import { PaginationControls } from '../components/PaginationControls';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { auditService } from '../services/auditService';
+import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminAuditTrail.css';
 
 export function SuperadminAuditTrail() {
-  const { auditLogs } = useApplications();
+  const { addToast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActor, setSelectedActor] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [isExporting, setIsExporting] = useState(false);
 
+  const filters = {
+    officer: selectedActor !== 'All' ? selectedActor : undefined,
+    status: selectedStatus !== 'All' ? selectedStatus : undefined,
+    search: searchTerm,
+  };
+
+  const {
+    items: logs, total, page, pageSize, setPage, setPageSize, isLoading,
+  } = usePaginatedAuditLogs(filters);
+
+  // The officer filter can no longer be derived from every log (that would
+  // mean fetching all of them). It's populated from officers seen on the
+  // current page only, so it grows as you browse rather than listing everyone
+  // up front — a known degradation of paginating this list.
   const actorsList = useMemo(() => {
-    const list = auditLogs.map((l) => l.changedBy);
+    const list = logs.map((l) => l.changedBy);
     return ['All', ...Array.from(new Set(list))];
-  }, [auditLogs]);
+  }, [logs]);
 
-  const filteredLogs = useMemo(() => {
-    return [...auditLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .filter((l) => {
-        const matchesActor = selectedActor === 'All' || l.changedBy === selectedActor;
-        const matchesStatus = selectedStatus === 'All' || l.newStatus === selectedStatus;
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-          l.applicantName.toLowerCase().includes(searchLower) ||
-          l.jobTitle.toLowerCase().includes(searchLower) ||
-          l.changedBy.toLowerCase().includes(searchLower) ||
-          l.id.toLowerCase().includes(searchLower);
-        return matchesActor && matchesStatus && matchesSearch;
-      });
-  }, [auditLogs, searchTerm, selectedActor, selectedStatus]);
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await auditService.exportCsv(filters);
+      downloadBlob(blob, `3DEES_Audit_Trail_${new Date().toISOString().slice(0, 10)}.csv`);
+      addToast('success', 'Audit Log Exported', 'Your filtered audit trail has downloaded.');
+    } catch (err) {
+      addToast('error', 'Export Failed', err?.message || 'Could not export the audit trail.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const stateClasses = {
     Pending:    'sat-badge-pending',
@@ -59,7 +76,17 @@ export function SuperadminAuditTrail() {
             Unified regulatory checklist logging all administrative status handshakes, passcode updates, and EGI syncs.
           </p>
         </div>
-        <div className="sat-secure-tag">SECURE LOG INDEXING ACTIVE</div>
+        <div className="sat-header-actions">
+          <span className="sat-secure-tag">SECURE LOG INDEXING ACTIVE</span>
+          <button
+            onClick={handleExportCSV}
+            className="sat-export-btn"
+            disabled={isExporting}
+          >
+            <Download size={16} />
+            <span>{isExporting ? 'Exporting…' : 'Export filtered CSV'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -123,7 +150,8 @@ export function SuperadminAuditTrail() {
               </tr>
             </thead>
             <tbody className="sat-tbody">
-              {filteredLogs.map((log) => (
+              {isLoading && <TableLoadingRows colSpan={5} />}
+              {!isLoading && logs.map((log) => (
                 <tr key={log.id} className="sat-row">
 
                   {/* Timestamp */}
@@ -165,7 +193,7 @@ export function SuperadminAuditTrail() {
 
                 </tr>
               ))}
-              {filteredLogs.length === 0 && (
+              {!isLoading && logs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="sat-empty-row">
                     No matching compliance logs exist under currently specified query terms.
@@ -175,6 +203,13 @@ export function SuperadminAuditTrail() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
     </div>

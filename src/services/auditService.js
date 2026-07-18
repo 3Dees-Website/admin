@@ -14,9 +14,14 @@ function normalizeLog(log) {
 }
 
 export const auditService = {
-  async getAuditLogs(filters = {}) {
-    const res = await apiClient.get('/api/admin/audit-logs', filters);
-    return res.data.map(normalizeLog);
+  async getAuditLogsPage({ page, pageSize, ...filters } = {}) {
+    const res = await apiClient.get('/api/admin/audit-logs', { ...filters, page, pageSize });
+    return {
+      items: res.data.items.map(normalizeLog),
+      total: res.data.total,
+      page: res.data.page,
+      pageSize: res.data.pageSize,
+    };
   },
 
   async exportCsv(filters = {}) {

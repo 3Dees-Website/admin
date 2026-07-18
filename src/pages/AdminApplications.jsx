@@ -1,23 +1,30 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApplications } from '../hooks/useApplications';
+import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, Download, Eye, Check, X, RefreshCw } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
+import { PaginationControls } from '../components/PaginationControls';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { applicationService } from '../services/applicationService';
+import { downloadBlob } from '../utils/downloadBlob';
 import './styles/AdminApplications.css';
 
 const POLL_INTERVAL_MS = 60000;
 
 export function AdminApplications() {
-  const { applications, reviewApplication, bulkReviewApplications, refreshApplications } = useApplications();
+  const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedEgiDecision, setSelectedEgiDecision] = useState('All');
+  const [selectedEgiSyncStatus, setSelectedEgiSyncStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [activeApp, setActiveApp] = useState(null);
@@ -25,22 +32,42 @@ export function AdminApplications() {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const filters = {
+    jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
+    status: selectedStatus !== 'All' ? selectedStatus : undefined,
+    egiDecision: selectedEgiDecision !== 'All' ? selectedEgiDecision : undefined,
+    egiSyncStatus: selectedEgiSyncStatus !== 'All' ? selectedEgiSyncStatus : undefined,
+    search: searchTerm,
+  };
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+    isLoading,
+    refetch,
+  } = usePaginatedApplications(filters);
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    const ok = await refreshApplications();
-    setIsRefreshing(false);
-    if (!ok) {
+    try {
+      await refetch();
+    } catch {
       addToast('error', 'Refresh Failed', 'Could not refresh applications from the server.');
+    } finally {
+      setIsRefreshing(false);
     }
-  }, [refreshApplications, addToast]);
+  }, [refetch, addToast]);
 
   useEffect(() => {
-    refreshApplications();
-
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        refreshApplications();
+        refetch();
       }
     }, POLL_INTERVAL_MS);
 
@@ -60,26 +87,11 @@ export function AdminApplications() {
     return found ? found.title : 'Deleted Position';
   };
 
-  const filteredApps = useMemo(() => {
-    return applications.filter((app) => {
-      const matchesJob = selectedJobId === 'All' || app.jobId === selectedJobId;
-      const matchesStatus = selectedStatus === 'All' || app.status === selectedStatus;
-      const searchLower = searchTerm.toLowerCase();
-      const jobTitle = getJobTitle(app.jobId).toLowerCase();
-      const matchesSearch =
-        app.personalInfo.fullName.toLowerCase().includes(searchLower) ||
-        app.personalInfo.email.toLowerCase().includes(searchLower) ||
-        app.referenceId.toLowerCase().includes(searchLower) ||
-        jobTitle.includes(searchLower);
-      return matchesJob && matchesStatus && matchesSearch;
-    });
-  }, [applications, selectedJobId, selectedStatus, searchTerm, jobs]);
-
   const handleToggleSelectAll = () => {
-    if (selectedAppIds.length === filteredApps.length) {
+    if (selectedAppIds.length === items.length) {
       setSelectedAppIds([]);
     } else {
-      setSelectedAppIds(filteredApps.map((a) => a.id));
+      setSelectedAppIds(items.map((a) => a.id));
     }
   };
 
@@ -91,13 +103,14 @@ export function AdminApplications() {
     }
   };
 
-  const handleBulkAction = (status) => {
+  const handleBulkAction = async (status) => {
     if (selectedAppIds.length === 0) {
       addToast('info', 'Bulk Action Null', 'No applicants were selected in the active list.');
       return;
     }
-    bulkReviewApplications(selectedAppIds, status);
+    await bulkReviewApplications(selectedAppIds, status);
     setSelectedAppIds([]);
+    refetch();
   };
 
   const handleInitiateReview = (app) => {
@@ -108,13 +121,9 @@ export function AdminApplications() {
   const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return;
     addToast('info', 'Status Queued', 'Running credential checks & starting portal sync...');
-    await reviewApplication(activeApp.id, status, adminNotes, egiNote);
-    const updatedModel = applications.find((a) => a.id === activeApp.id);
-    if (updatedModel) {
-      setActiveApp(updatedModel);
-    } else {
-      setActiveApp(null);
-    }
+    const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
+    setActiveApp(updated);
+    refetch();
   };
 
   const handleApproveConfirm = async (egiNote) => {
@@ -124,43 +133,16 @@ export function AdminApplications() {
     setShowApproveModal(false);
   };
 
-  const handleExportCSV = () => {
-    if (filteredApps.length === 0) {
-      addToast('error', 'CSV Export Null', 'The matching applicant list carries no active rows.');
-      return;
-    }
+  const handleExportCSV = async () => {
+    setIsExporting(true);
     try {
-      const headers = [
-        'ReferenceStamp', 'ApplicantName', 'Email', 'Phone', 'RoleApplied',
-        'Qualification', 'WorkExperienceYears', 'Status', 'SyncState',
-        'EGI Decision', 'EGI Decision Note', 'SubmissionDate'
-      ];
-      const rows = filteredApps.map((a) => [
-        `"${a.referenceId}"`,
-        `"${a.personalInfo.fullName}"`,
-        `"${a.personalInfo.email}"`,
-        `"${a.personalInfo.phone}"`,
-        `"${getJobTitle(a.jobId)}"`,
-        `"${a.educationInfo.highestQualification}"`,
-        `"${a.educationInfo.yearsOfExperience || '0'}"`,
-        `"${a.status}"`,
-        `"${a.egiSyncStatus}"`,
-        `"${a.egiDecision || ''}"`,
-        `"${(a.egiDecisionNote || '').replace(/"/g, '""')}"`,
-        `"${new Date(a.submittedAt).toLocaleDateString()}"`,
-      ]);
-      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `3DEES_Candidates_Vetting_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      addToast('success', 'CSV Statement Exported', `Generated report with ${filteredApps.length} rows.`);
+      const blob = await applicationService.exportCsv(filters);
+      downloadBlob(blob, `3DEES_Candidates_Vetting_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+      addToast('success', 'CSV Statement Exported', 'Your filtered report has downloaded.');
     } catch (err) {
-      addToast('error', 'CSV Compilation Issue', 'Could not assemble tabular files.');
+      addToast('error', 'CSV Compilation Issue', err?.message || 'Could not assemble tabular files.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -185,9 +167,14 @@ export function AdminApplications() {
             <RefreshCw size={16} className={isRefreshing ? 'spin-icon' : ''} />
             <span>Refresh</span>
           </button>
-          <button onClick={handleExportCSV} className="btn btn-dark" id="btn-export-dossiers">
+          <button
+            onClick={handleExportCSV}
+            className="btn btn-dark"
+            id="btn-export-dossiers"
+            disabled={isExporting}
+          >
             <Download size={16} className="icon-primary" />
-            <span>Export filtered CSV report</span>
+            <span>{isExporting ? 'Exporting…' : 'Export filtered CSV report'}</span>
           </button>
         </div>
       </div>
@@ -236,6 +223,33 @@ export function AdminApplications() {
             <option value="Rejected">Compliance Rejected</option>
           </select>
         </div>
+        <div className="filter-group">
+          <label className="filter-label">EGI Decision</label>
+          <select
+            value={selectedEgiDecision}
+            onChange={(e) => setSelectedEgiDecision(e.target.value)}
+            className="filter-select"
+          >
+            <option value="All">All EGI Decisions</option>
+            <option value="Pending">Awaiting EGI</option>
+            <option value="Accepted">Accepted by EGI</option>
+            <option value="Declined">Declined by EGI</option>
+          </select>
+        </div>
+        <div className="filter-group">
+          <label className="filter-label">Sync Status</label>
+          <select
+            value={selectedEgiSyncStatus}
+            onChange={(e) => setSelectedEgiSyncStatus(e.target.value)}
+            className="filter-select"
+          >
+            <option value="All">All Sync States</option>
+            <option value="Pending">Not sent</option>
+            <option value="Queued">Sending…</option>
+            <option value="Synced">Sent</option>
+            <option value="Failed">Delivery failed</option>
+          </select>
+        </div>
       </div>
 
       {/* Bulk Operations HUD */}
@@ -267,7 +281,7 @@ export function AdminApplications() {
                 <th className="text-center col-checkbox">
                   <input
                     type="checkbox"
-                    checked={filteredApps.length > 0 && selectedAppIds.length === filteredApps.length}
+                    checked={items.length > 0 && selectedAppIds.length === items.length}
                     onChange={handleToggleSelectAll}
                     className="checkbox"
                   />
@@ -282,7 +296,8 @@ export function AdminApplications() {
               </tr>
             </thead>
             <tbody>
-              {filteredApps.map((a) => {
+              {isLoading && <TableLoadingRows colSpan={8} />}
+              {!isLoading && items.map((a) => {
                 const isSelected = selectedAppIds.includes(a.id);
                 return (
                   <tr key={a.id} className={`table-body-row${isSelected ? ' row-selected' : ''}`}>
@@ -324,7 +339,7 @@ export function AdminApplications() {
                   </tr>
                 );
               })}
-              {filteredApps.length === 0 && (
+              {!isLoading && items.length === 0 && (
                 <tr>
                   <td colSpan={8} className="table-empty">
                     No active candidacies match your currently selected filters.
@@ -334,6 +349,13 @@ export function AdminApplications() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Slide-out Drawer */}

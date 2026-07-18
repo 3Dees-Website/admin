@@ -1,32 +1,37 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
-import { useApplications } from '../hooks/useApplications';
+import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useAuth } from '../hooks/useAuth';
+import { applicationService } from '../services/applicationService';
 import { Briefcase, FileText, CheckCircle, Clock, Ban, PlusCircle, ArrowUpRight } from 'lucide-react';
 import './styles/AdminDashboard.css';
 
+const RECENT_FEED_SIZE = 10;
+
 export function AdminDashboard() {
   const { jobs } = useJobs();
-  const { applications } = useApplications();
   const { currentUser } = useAuth();
+  const { stats: globalStats } = useApplicationStats();
 
-  const stats = useMemo(() => {
-    const totalJobs = jobs.length;
-    const totalApps = applications.length;
-    const pending = applications.filter((a) => a.status === 'Pending').length;
-    const shortlisted = applications.filter((a) => a.status === 'Shortlisted').length;
-    const approved = applications.filter((a) => a.status === 'Approved').length;
-    const rejected = applications.filter((a) => a.status === 'Rejected').length;
+  const [recentApplications, setRecentApplications] = useState([]);
 
-    return { totalJobs, totalApps, pending, shortlisted, approved, rejected };
-  }, [jobs, applications]);
+  useEffect(() => {
+    let cancelled = false;
+    applicationService.getApplicationsPage({ page: 1, pageSize: RECENT_FEED_SIZE })
+      .then(({ items }) => { if (!cancelled) setRecentApplications(items); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
-  const recentApplications = useMemo(() => {
-    return [...applications]
-      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-      .slice(0, 10);
-  }, [applications]);
+  const stats = {
+    totalJobs: jobs.length,
+    totalApps: globalStats?.total ?? 0,
+    pending: globalStats?.byStatus?.Pending ?? 0,
+    shortlisted: globalStats?.byStatus?.Shortlisted ?? 0,
+    approved: globalStats?.byStatus?.Approved ?? 0,
+    rejected: globalStats?.byStatus?.Rejected ?? 0,
+  };
 
   const statusBadgeClass = {
     Pending: 'badge badge-pending',

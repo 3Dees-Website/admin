@@ -3,48 +3,75 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApplications } from '../hooks/useApplications';
+import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
+import { PaginationControls } from '../components/PaginationControls';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { applicationService } from '../services/applicationService';
+import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminViewAllApplications.css';
 
 const POLL_INTERVAL_MS = 60000;
 
 export function SuperadminViewAllApplications() {
-  const { applications, reviewApplication, refreshApplications } = useApplications();
+  const { reviewApplication } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedEgiDecision, setSelectedEgiDecision] = useState('All');
+  const [selectedEgiSyncStatus, setSelectedEgiSyncStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const filters = {
+    jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
+    status: selectedStatus !== 'All' ? selectedStatus : undefined,
+    egiDecision: selectedEgiDecision !== 'All' ? selectedEgiDecision : undefined,
+    egiSyncStatus: selectedEgiSyncStatus !== 'All' ? selectedEgiSyncStatus : undefined,
+    search: searchTerm,
+  };
+
+  const {
+    items,
+    total,
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+    isLoading,
+    refetch,
+  } = usePaginatedApplications(filters);
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    const ok = await refreshApplications();
-    setIsRefreshing(false);
-    if (!ok) {
+    try {
+      await refetch();
+    } catch {
       addToast('error', 'Refresh Failed', 'Could not refresh applications from the server.');
+    } finally {
+      setIsRefreshing(false);
     }
-  }, [refreshApplications, addToast]);
+  }, [refetch, addToast]);
 
   useEffect(() => {
-    refreshApplications();
-
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        refreshApplications();
+        refetch();
       }
     }, POLL_INTERVAL_MS);
 
@@ -64,21 +91,6 @@ export function SuperadminViewAllApplications() {
     return found ? found.title : 'Deleted Position';
   };
 
-  const filteredApps = useMemo(() => {
-    return applications.filter((app) => {
-      const matchesJob = selectedJobId === 'All' || app.jobId === selectedJobId;
-      const matchesStatus = selectedStatus === 'All' || app.status === selectedStatus;
-      const searchLower = searchTerm.toLowerCase();
-      const jobTitle = getJobTitle(app.jobId).toLowerCase();
-      const matchesSearch =
-        app.personalInfo.fullName.toLowerCase().includes(searchLower) ||
-        app.personalInfo.email.toLowerCase().includes(searchLower) ||
-        app.referenceId.toLowerCase().includes(searchLower) ||
-        jobTitle.includes(searchLower);
-      return matchesJob && matchesStatus && matchesSearch;
-    });
-  }, [applications, selectedJobId, selectedStatus, searchTerm, jobs]);
-
   function handleInitiateReview(app) {
     setActiveApp(app);
     setAdminNotes(app.notes || '');
@@ -87,13 +99,9 @@ export function SuperadminViewAllApplications() {
   const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return;
     addToast('info', 'Execute Oversight Trigger', `Writing compliance check to ${status}...`);
-    await reviewApplication(activeApp.id, status, adminNotes, egiNote);
-    const updatedModel = applications.find((a) => a.id === activeApp.id);
-    if (updatedModel) {
-      setActiveApp(updatedModel);
-    } else {
-      setActiveApp(null);
-    }
+    const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
+    setActiveApp(updated);
+    refetch();
   };
 
   const handleApproveConfirm = async (egiNote) => {
@@ -103,28 +111,16 @@ export function SuperadminViewAllApplications() {
     setShowApproveModal(false);
   };
 
-  const handleExportCSV = () => {
-    if (filteredApps.length === 0) return;
+  const handleExportCSV = async () => {
+    setIsExporting(true);
     try {
-      const hStr = 'ReferenceStamp,ApplicantName,Email,Phone,RoleApplied,HighestQualification,Status,SyncState,EGI Decision,EGI Decision Note,SubmissionDate';
-      const rows = filteredApps.map((a) => [
-        `"${a.referenceId}"`, `"${a.personalInfo.fullName}"`, `"${a.personalInfo.email}"`,
-        `"${a.personalInfo.phone}"`, `"${getJobTitle(a.jobId)}"`, `"${a.educationInfo.highestQualification}"`,
-        `"${a.status}"`, `"${a.egiSyncStatus}"`,
-        `"${a.egiDecision || ''}"`, `"${(a.egiDecisionNote || '').replace(/"/g, '""')}"`,
-        `"${new Date(a.submittedAt).toLocaleDateString()}"`
-      ]);
-      const csvContent = [hStr, ...rows.map((r) => r.join(','))].join('\n');
-      const bObj = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const lnk = document.createElement('a');
-      lnk.setAttribute('href', URL.createObjectURL(bObj));
-      lnk.setAttribute('download', '3DEES_All_Sponsor_Dossiers_Evaluations.csv');
-      document.body.appendChild(lnk);
-      lnk.click();
-      document.body.removeChild(lnk);
+      const blob = await applicationService.exportCsv(filters);
+      downloadBlob(blob, '3DEES_All_Sponsor_Dossiers_Evaluations.csv');
       addToast('success', 'Master Ledger Exported', 'Generated superadmin summary report.');
-    } catch {
-      addToast('error', 'CSV Crash', 'Encountered compilation failure.');
+    } catch (err) {
+      addToast('error', 'CSV Crash', err?.message || 'Encountered compilation failure.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -148,8 +144,8 @@ export function SuperadminViewAllApplications() {
             <RefreshCw size={16} className={isRefreshing ? 'sva-spin-icon' : ''} />
             <span>Refresh</span>
           </button>
-          <button onClick={handleExportCSV} className="sva-export-btn">
-            Export Universal Tabular Report
+          <button onClick={handleExportCSV} className="sva-export-btn" disabled={isExporting}>
+            {isExporting ? 'Exporting…' : 'Export Universal Tabular Report'}
           </button>
         </div>
       </div>
@@ -200,6 +196,35 @@ export function SuperadminViewAllApplications() {
             <option value="Rejected">Compliance Rejected</option>
           </select>
         </div>
+
+        <div className="sva-filter-group">
+          <label className="sva-filter-label">EGI Decision</label>
+          <select
+            value={selectedEgiDecision}
+            onChange={(e) => setSelectedEgiDecision(e.target.value)}
+            className="sva-select"
+          >
+            <option value="All">All EGI Decisions</option>
+            <option value="Pending">Awaiting EGI</option>
+            <option value="Accepted">Accepted by EGI</option>
+            <option value="Declined">Declined by EGI</option>
+          </select>
+        </div>
+
+        <div className="sva-filter-group">
+          <label className="sva-filter-label">Sync Status</label>
+          <select
+            value={selectedEgiSyncStatus}
+            onChange={(e) => setSelectedEgiSyncStatus(e.target.value)}
+            className="sva-select"
+          >
+            <option value="All">All Sync States</option>
+            <option value="Pending">Not sent</option>
+            <option value="Queued">Sending…</option>
+            <option value="Synced">Sent</option>
+            <option value="Failed">Delivery failed</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -218,7 +243,8 @@ export function SuperadminViewAllApplications() {
               </tr>
             </thead>
             <tbody className="sva-tbody">
-              {filteredApps.map((a) => (
+              {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && items.map((a) => (
                 <tr key={a.id} className="sva-row">
                   <td className="sva-td">
                     <div className="sva-applicant-info">
@@ -250,7 +276,7 @@ export function SuperadminViewAllApplications() {
                   </td>
                 </tr>
               ))}
-              {filteredApps.length === 0 && (
+              {!isLoading && items.length === 0 && (
                 <tr>
                   <td colSpan={7} className="sva-empty-row">
                     No placement dossiers correspond with currently active queries.
@@ -260,6 +286,13 @@ export function SuperadminViewAllApplications() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Drawer Overlay */}

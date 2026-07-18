@@ -3,12 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useApplications } from '../hooks/useApplications';
+import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
+import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { EgiNoteModal } from '../components/EgiNoteModal';
+import { PaginationControls } from '../components/PaginationControls';
+import { TableLoadingRows } from '../components/TableLoadingRows';
 import {
   Search, Inbox, Clock, UserCheck, UserX,
   ShieldAlert, Zap
@@ -16,7 +20,7 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { applications, reviewApplication, bulkReviewApplications, updateApplication, refreshApplications } = useApplications();
+  const { reviewApplication, bulkReviewApplications, updateApplication } = useApplications();
   const { jobs } = useJobs();
   const { addToast } = useToast();
 
@@ -28,45 +32,50 @@ export function SuperadminPendingApplications() {
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
 
-  useEffect(() => {
-    refreshApplications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const {
+    items, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, refetch,
+  } = usePaginatedApplications({
+    status: 'Pending',
+    jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
+    search: searchTerm,
+  });
+  const { stats: globalStats, refetch: refetchStats } = useApplicationStats();
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);
     return j ? j.title : 'Deleted Position';
   };
 
-  /* Only Pending  */
-  const pendingApps = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return applications
-      .filter((a) => {
-        if (a.status !== 'Pending') return false;
-        const matchesJob    = selectedJobId === 'All' || a.jobId === selectedJobId;
-        const matchesSearch =
-          a.personalInfo.fullName.toLowerCase().includes(q) ||
-          a.personalInfo.email.toLowerCase().includes(q)   ||
-          a.referenceId.toLowerCase().includes(q)          ||
-          getJobTitle(a.jobId).toLowerCase().includes(q);
-        return matchesJob && matchesSearch;
-      })
-      .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
-  }, [applications, selectedJobId, searchTerm, jobs]);
+  // Oldest-first within the current page only — the list endpoint doesn't
+  // support a sort/order param, so global oldest-first ordering across pages
+  // isn't available without a backend change.
+  const pendingApps = useMemo(
+    () => [...items].sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt)),
+    [items]
+  );
 
-  const stats = useMemo(() => {
-    const pending = applications.filter((a) => a.status === 'Pending').length;
-    const today   = applications.filter((a) => {
-      if (a.status !== 'Pending') return false;
-      return new Date(a.submittedAt).toDateString() === new Date().toDateString();
-    }).length;
-    const overdue = applications.filter((a) => {
-      if (a.status !== 'Pending') return false;
-      return Date.now() - new Date(a.submittedAt).getTime() >= 7 * 24 * 60 * 60 * 1000;
-    }).length;
-    return { pending, today, overdue };
-  }, [applications]);
+  // Selection only ever applies to the current page's rows: reset it
+  // during render (rather than an effect) when the page or filters change.
+  const pageKey = `${page}|${pageSize}|${selectedJobId}|${searchTerm}`;
+  const [prevPageKey, setPrevPageKey] = useState(pageKey);
+  if (pageKey !== prevPageKey) {
+    setPrevPageKey(pageKey);
+    setSelectedIds(new Set());
+  }
+
+  const stats = {
+    // Global counts from the stats endpoint.
+    pending: globalStats?.byStatus?.Pending ?? 0,
+    // submittedToday is all-status (the stats endpoint doesn't break down by
+    // status + date); close enough since same-day submissions are rarely
+    // triaged same-day, but not an exact "Pending received today" count.
+    today: globalStats?.submittedToday ?? 0,
+    // Overdue has no backend aggregate — this only reflects the current
+    // page's rows, not the full pending queue.
+    overdue: pendingApps.filter(
+      (a) => Date.now() - new Date(a.submittedAt).getTime() >= 7 * 24 * 60 * 60 * 1000
+    ).length,
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -89,6 +98,8 @@ export function SuperadminPendingApplications() {
     await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
     setEditingApp(null);
     addToast('success', 'Override Applied', `Candidate moved to ${status} via superadmin override.`);
+    refetch();
+    refetchStats();
   };
 
   const handleSaveEdits = async (updatedApp) => {
@@ -101,17 +112,26 @@ export function SuperadminPendingApplications() {
     if (result) {
       addToast('success', 'Candidate File Updated', `${updatedApp.personalInfo.fullName}'s record saved to ledger.`);
       setEditingApp(null);
+      refetch();
     }
+  };
+
+  const handleQuickShortlist = async (app) => {
+    await reviewApplication(app.id, 'Shortlisted', app.notes || '');
+    refetch();
+    refetchStats();
   };
 
   const bulkAction = async (status) => {
     if (selectedIds.size === 0) return;
     for (const id of selectedIds) {
-      const app = applications.find((a) => a.id === id);
+      const app = pendingApps.find((a) => a.id === id);
       if (app) await reviewApplication(id, status, app.notes || '');
     }
     addToast('success', `Bulk ${status}`, `${selectedIds.size} applicant(s) set to ${status}.`);
     setSelectedIds(new Set());
+    refetch();
+    refetchStats();
   };
 
   const handleQuickApproveConfirm = async (egiNote) => {
@@ -120,6 +140,8 @@ export function SuperadminPendingApplications() {
     await reviewApplication(approveTarget.id, 'Approved', approveTarget.notes || '', egiNote);
     setApproveBusy(false);
     setApproveTarget(null);
+    refetch();
+    refetchStats();
   };
 
   const handleBulkApproveConfirm = async (egiNote) => {
@@ -128,6 +150,8 @@ export function SuperadminPendingApplications() {
     await bulkReviewApplications(Array.from(selectedIds), 'Approved', egiNote);
     setApproveBusy(false);
     setBulkApproveOpen(false);
+    refetch();
+    refetchStats();
     setSelectedIds(new Set());
   };
 
@@ -257,7 +281,8 @@ export function SuperadminPendingApplications() {
               </tr>
             </thead>
             <tbody className="spa-tbody">
-              {pendingApps.map((app) => {
+              {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && pendingApps.map((app) => {
                 const job = jobs.find((j) => j.id === app.jobId);
                 return (
                   <tr key={app.id} className={`spa-row${selectedIds.has(app.id) ? ' spa-row--selected' : ''}`}>
@@ -310,7 +335,7 @@ export function SuperadminPendingApplications() {
                     <td className="spa-td spa-td-right">
                       <div className="spa-row-actions">
                         <button
-                          onClick={() => reviewApplication(app.id, 'Shortlisted', app.notes || '')}
+                          onClick={() => handleQuickShortlist(app)}
                           className="spa-quick-shortlist"
                         >
                           Shortlist
@@ -333,7 +358,7 @@ export function SuperadminPendingApplications() {
                   </tr>
                 );
               })}
-              {pendingApps.length === 0 && (
+              {!isLoading && pendingApps.length === 0 && (
                 <tr>
                   <td colSpan={7} className="spa-empty">
                     <Inbox className="spa-empty-icon" />
@@ -344,6 +369,13 @@ export function SuperadminPendingApplications() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={totalItems}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Candidate Edit Drawer — superadmin mode */}

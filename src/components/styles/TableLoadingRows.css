@@ -1,0 +1,16 @@
+.tlr-row td {
+  padding: 12px 16px;
+}
+
+.tlr-bar {
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eceff1 25%, #f5f6f7 37%, #eceff1 63%);
+  background-size: 400% 100%;
+  animation: tlr-shimmer 1.4s ease infinite;
+}
+
+@keyframes tlr-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}

@@ -3,17 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useApplications } from '../hooks/useApplications';
+import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
+import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
+import { PaginationControls } from '../components/PaginationControls';
+import { TableLoadingRows } from '../components/TableLoadingRows';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { applications, reviewApplication, updateApplication, refreshApplications } = useApplications();
+  const { reviewApplication, updateApplication } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -23,42 +27,45 @@ export function AdminPendingApplications() {
   const [editingApp,     setEditingApp]     = useState(null);
   const [selectedIds,    setSelectedIds]    = useState(new Set());
 
-  useEffect(() => {
-    refreshApplications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const {
+    items, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, refetch,
+  } = usePaginatedApplications({
+    status: 'Pending',
+    jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
+    search: searchTerm,
+  });
+  const { stats: globalStats, refetch: refetchStats } = useApplicationStats();
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);
     return j ? j.title : 'Deleted Position';
   };
 
-  /* Only Pending */
-  const pendingApps = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return applications
-      .filter((a) => {
-        if (a.status !== 'Pending') return false;
-        const matchesJob    = selectedJobId === 'All' || a.jobId === selectedJobId;
-        const matchesSearch =
-          a.personalInfo.fullName.toLowerCase().includes(q) ||
-          a.personalInfo.email.toLowerCase().includes(q)   ||
-          a.referenceId.toLowerCase().includes(q)          ||
-          getJobTitle(a.jobId).toLowerCase().includes(q);
-        return matchesJob && matchesSearch;
-      })
-      .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
-  }, [applications, selectedJobId, searchTerm, jobs]);
+  // Oldest-first within the current page only — the list endpoint doesn't
+  // support a sort/order param, so global oldest-first ordering across pages
+  // isn't available without a backend change.
+  const pendingApps = useMemo(
+    () => [...items].sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt)),
+    [items]
+  );
 
-  /* Stats */
-  const stats = useMemo(() => {
-    const total = applications.filter((a) => a.status === 'Pending').length;
-    const today = applications.filter((a) => {
-      if (a.status !== 'Pending') return false;
-      return new Date(a.submittedAt).toDateString() === new Date().toDateString();
-    }).length;
-    return { total, today };
-  }, [applications]);
+  // Selection only ever applies to the current page's rows: reset it
+  // during render (rather than an effect) when the page or filters change.
+  const pageKey = `${page}|${pageSize}|${selectedJobId}|${searchTerm}`;
+  const [prevPageKey, setPrevPageKey] = useState(pageKey);
+  if (pageKey !== prevPageKey) {
+    setPrevPageKey(pageKey);
+    setSelectedIds(new Set());
+  }
+
+  /* Stats — from the global stats endpoint, not the page's rows */
+  const stats = {
+    total: globalStats?.byStatus?.Pending ?? 0,
+    // submittedToday is all-status (the stats endpoint doesn't break down by
+    // status + date); close enough since same-day submissions are rarely
+    // triaged same-day, but not an exact "Pending received today" count.
+    today: globalStats?.submittedToday ?? 0,
+  };
 
   /* Checkbox selection */
   const toggleSelect = (id) => {
@@ -83,6 +90,8 @@ export function AdminPendingApplications() {
     await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
     setEditingApp(null);
     addToast('success', 'Status Updated', `Applicant moved to ${status}.`);
+    refetch();
+    refetchStats();
   };
 
   /* Save edits from drawer */
@@ -96,29 +105,41 @@ export function AdminPendingApplications() {
     if (result) {
       addToast('success', 'Candidate Updated', `${updatedApp.personalInfo.fullName}'s file has been saved.`);
       setEditingApp(null);
+      refetch();
     }
   };
 
-  /* Bulk shortlist */
+  /* Quick single-row shortlist */
+  const handleQuickShortlist = async (app) => {
+    await reviewApplication(app.id, 'Shortlisted', app.notes || '');
+    refetch();
+    refetchStats();
+  };
+
+  /* Bulk shortlist — applies only to rows selected on the current page */
   const handleBulkShortlist = async () => {
     if (selectedIds.size === 0) return;
     for (const id of selectedIds) {
-      const app = applications.find((a) => a.id === id);
+      const app = pendingApps.find((a) => a.id === id);
       if (app) await reviewApplication(id, 'Shortlisted', app.notes || '');
     }
     addToast('success', 'Bulk Shortlist Done', `${selectedIds.size} application(s) moved to Shortlisted.`);
     setSelectedIds(new Set());
+    refetch();
+    refetchStats();
   };
 
-  /* Bulk reject */
+  /* Bulk reject — applies only to rows selected on the current page */
   const handleBulkReject = async () => {
     if (selectedIds.size === 0) return;
     for (const id of selectedIds) {
-      const app = applications.find((a) => a.id === id);
+      const app = pendingApps.find((a) => a.id === id);
       if (app) await reviewApplication(id, 'Rejected', app.notes || '');
     }
     addToast('info', 'Bulk Reject Done', `${selectedIds.size} application(s) rejected.`);
     setSelectedIds(new Set());
+    refetch();
+    refetchStats();
   };
 
   /* Days waiting helper */
@@ -234,7 +255,8 @@ export function AdminPendingApplications() {
               </tr>
             </thead>
             <tbody className="apa-tbody">
-              {pendingApps.map((app) => (
+              {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && pendingApps.map((app) => (
                 <tr key={app.id} className={`apa-row${selectedIds.has(app.id) ? ' apa-row--selected' : ''}`}>
 
                   <td className="apa-td apa-td-check">
@@ -287,7 +309,7 @@ export function AdminPendingApplications() {
                   <td className="apa-td apa-td-right">
                     <div className="apa-row-actions">
                       <button
-                        onClick={() => reviewApplication(app.id, 'Shortlisted', app.notes || '')}
+                        onClick={() => handleQuickShortlist(app)}
                         className="apa-quick-shortlist"
                         title="Quick shortlist"
                       >
@@ -305,7 +327,7 @@ export function AdminPendingApplications() {
 
                 </tr>
               ))}
-              {pendingApps.length === 0 && (
+              {!isLoading && pendingApps.length === 0 && (
                 <tr>
                   <td colSpan={7} className="apa-empty">
                     <Inbox className="apa-empty-icon" />
@@ -316,6 +338,13 @@ export function AdminPendingApplications() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={totalItems}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Candidate Edit Drawer */}

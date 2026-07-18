@@ -5,7 +5,7 @@
 
 import { useState, useMemo } from 'react';
 import { useJobs } from '../hooks/useJobs';
-import { useApplications } from '../hooks/useApplications';
+import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
@@ -15,7 +15,7 @@ const STATUSES   = ['All', 'Active', 'Closed', 'Paused'];
 
 export function SuperadminAllVacancies() {
   const { jobs, removeJob, editJob } = useJobs();
-  const { applications } = useApplications();
+  const { statsByJob } = useJobStats();
   const { addToast } = useToast();
 
   const [searchTerm,      setSearchTerm]      = useState('');
@@ -25,11 +25,10 @@ export function SuperadminAllVacancies() {
   const [confirmDelete,   setConfirmDelete]   = useState(null);
 
   /* ── Derived counts ── */
-  const appCountFor = (jobId) =>
-    applications.filter((a) => a.jobId === jobId).length;
-
-  const approvedCountFor = (jobId) =>
-    applications.filter((a) => a.jobId === jobId && a.status === 'Approved').length;
+  const appCountFor = (jobId) => statsByJob[jobId]?.total || 0;
+  const approvedCountFor = (jobId) => statsByJob[jobId]?.approved || 0;
+  const shortlistedCountFor = (jobId) => statsByJob[jobId]?.shortlisted || 0;
+  const rejectedCountFor = (jobId) => statsByJob[jobId]?.rejected || 0;
 
   /* ── Filtered list ── */
   const filteredJobs = useMemo(() => {
@@ -383,7 +382,7 @@ export function SuperadminAllVacancies() {
                   </div>
                   <div className="sav-app-stat">
                     <span className="sav-app-stat-val sav-stat-shortlisted">
-                      {applications.filter((a) => a.jobId === activeJob.id && a.status === 'Shortlisted').length}
+                      {shortlistedCountFor(activeJob.id)}
                     </span>
                     <span className="sav-app-stat-key">Shortlisted</span>
                   </div>
@@ -395,7 +394,7 @@ export function SuperadminAllVacancies() {
                   </div>
                   <div className="sav-app-stat">
                     <span className="sav-app-stat-val sav-stat-rejected">
-                      {applications.filter((a) => a.jobId === activeJob.id && a.status === 'Rejected').length}
+                      {rejectedCountFor(activeJob.id)}
                     </span>
                     <span className="sav-app-stat-key">Rejected</span>
                   </div>

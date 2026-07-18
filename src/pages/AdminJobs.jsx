@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
-import { useApplications } from '../hooks/useApplications';
+import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, X, ShieldAlert, Check } from 'lucide-react';
 import './styles/AdminJobs.css';
@@ -42,7 +42,7 @@ const DEFAULT_FIELDS = {
 
 export function AdminJobs() {
   const { jobs, postJob, editJob, removeJob } = useJobs();
-  const { applications } = useApplications();
+  const { statsByJob } = useJobStats();
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -118,13 +118,6 @@ export function AdminJobs() {
     }
   };
 
-  const appCounts = useMemo(() => {
-    return applications.reduce((acc, app) => {
-      acc[app.jobId] = (acc[app.jobId] || 0) + 1;
-      return acc;
-    }, {});
-  }, [applications]);
-
   const statusClasses = {
     Active: 'aj-status-active',
     Draft:  'aj-status-draft',
@@ -188,7 +181,7 @@ export function AdminJobs() {
                   </td>
                   <td className="aj-td aj-muted">{j.clientOrg}</td>
                   <td className="aj-td aj-muted">{j.location}</td>
-                  <td className="aj-td aj-td-center aj-app-count">{appCounts[j.id] || 0}</td>
+                  <td className="aj-td aj-td-center aj-app-count">{statsByJob[j.id]?.total || 0}</td>
                   <td className="aj-td aj-td-center">
                     <span className={`aj-status-badge ${statusClasses[j.status]}`}>{j.status}</span>
                   </td>

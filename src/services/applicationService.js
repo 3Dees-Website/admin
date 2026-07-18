@@ -37,12 +37,38 @@ function normalizeApplication(app) {
   };
 }
 
+function normalizeJobStat(stat) {
+  return {
+    jobId: stat.jobId,
+    total: stat.total,
+    pending: stat.pending,
+    shortlisted: stat.shortlisted,
+    approved: stat.approved,
+    rejected: stat.rejected,
+  };
+}
+
 export const applicationService = {
   // ── Admin routes (auth required) ──────────────────────────────────────────
 
-  async getApplications(filters = {}) {
-    const res = await apiClient.get('/api/admin/applications', filters);
-    return res.data.map(normalizeApplication);
+  async getApplicationsPage({ page, pageSize, ...filters } = {}) {
+    const res = await apiClient.get('/api/admin/applications', { ...filters, page, pageSize });
+    return {
+      items: res.data.items.map(normalizeApplication),
+      total: res.data.total,
+      page: res.data.page,
+      pageSize: res.data.pageSize,
+    };
+  },
+
+  async getStats() {
+    const res = await apiClient.get('/api/admin/applications/stats');
+    return res.data; // { total, byStatus, submittedToday, byEgiDecision, byEgiSyncStatus }
+  },
+
+  async getStatsByJob() {
+    const res = await apiClient.get('/api/admin/applications/stats/by-job');
+    return res.data.items.map(normalizeJobStat);
   },
 
   async getApplication(id) {

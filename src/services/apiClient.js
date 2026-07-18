@@ -116,18 +116,20 @@ async function request(method, path, options = {}) {
   return json;
 }
 
+function buildQueryString(params) {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined && value !== null && value !== ''
+  );
+  return entries.length ? `?${new URLSearchParams(entries)}` : '';
+}
+
 export const apiClient = {
   get: (path, params) => {
-    const qs = params && Object.keys(params).length
-      ? `?${new URLSearchParams(params)}`
-      : '';
-    return request('GET', `${path}${qs}`);
+    return request('GET', `${path}${buildQueryString(params)}`);
   },
   getBlob: (path, params) => {
-    const qs = params && Object.keys(params).length
-      ? `?${new URLSearchParams(params)}`
-      : '';
-    return request('GET', `${path}${qs}`, { isBlob: true });
+    return request('GET', `${path}${buildQueryString(params)}`, { isBlob: true });
   },
   post: (path, body) => request('POST', path, { body }),
   postForm: (path, formData) => request('POST', path, { body: formData, isFormData: true }),
