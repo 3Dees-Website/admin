@@ -129,6 +129,17 @@
   line-height: 1.4;
 }
 
+.enm-verification-reminder {
+  font-size: 0.65rem;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
 .enm-footer {
   display: flex;
   justify-content: flex-end;

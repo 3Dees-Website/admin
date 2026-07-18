@@ -1,0 +1,90 @@
+/* ══════════════════════════════════════════
+   FieldRenderer.css  —  prefix: fr-
+   ══════════════════════════════════════════ */
+
+.fr-input,
+.fr-select,
+.fr-textarea {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.65rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.fr-input:focus,
+.fr-select:focus,
+.fr-textarea:focus {
+  border-color: var(--color-brand-primary);
+}
+
+.fr-input:disabled,
+.fr-select:disabled,
+.fr-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fr-textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.fr-yesno {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.fr-yesno-btn {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.9rem;
+  background: #fff;
+  color: #6b7280;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.fr-yesno-btn:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+}
+
+.fr-yesno-btn--active {
+  background-color: var(--color-brand-primary);
+  color: #fff;
+}
+
+.fr-yesno-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fr-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  cursor: pointer;
+}
+
+.fr-checkbox-row input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--color-brand-primary);
+  cursor: pointer;
+}

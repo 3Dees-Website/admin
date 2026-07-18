@@ -8,22 +8,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
+import { RequirementsBuilder } from '../components/RequirementsBuilder';
 import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, X, ShieldAlert, Check } from 'lucide-react';
 import './styles/AdminJobs.css';
-
-const DEFAULT_REQS = {
-  cvRequired: true,
-  coverLetterRequired: false,
-  academicCertRequired: false,
-  nyscCertRequired: false,
-  passportPhotoRequired: false,
-  nationalIdRequired: true,
-  dobRequired: false,
-  stateOfOriginRequired: false,
-  lgaRequired: false,
-  yearsOfExpRequired: false,
-  currentEmployerRequired: false
-};
 
 const DEFAULT_FIELDS = {
   title: '',
@@ -50,13 +37,13 @@ export function AdminJobs() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
   const [formFields, setFormFields] = useState({ ...DEFAULT_FIELDS });
-  const [requirementsBuilder, setRequirementsBuilder] = useState({ ...DEFAULT_REQS });
+  const [requirementsBuilder, setRequirementsBuilder] = useState({});
 
   useEffect(() => {
     if (searchParams.get('create') === 'open') {
       setEditingJob(null);
       setFormFields({ ...DEFAULT_FIELDS });
-      setRequirementsBuilder({ ...DEFAULT_REQS });
+      setRequirementsBuilder({});
       setModalOpen(true);
       setSearchParams({});
     }
@@ -64,7 +51,7 @@ export function AdminJobs() {
 
   const resetForm = () => {
     setFormFields({ ...DEFAULT_FIELDS });
-    setRequirementsBuilder({ ...DEFAULT_REQS });
+    setRequirementsBuilder({});
   };
 
   const handleOpenEdit = (job) => {
@@ -83,7 +70,7 @@ export function AdminJobs() {
       closingDate: job.closingDate,
       status: job.status
     });
-    setRequirementsBuilder({ ...job.applicationRequirements });
+    setRequirementsBuilder({ ...(job.applicationRequirements || {}) });
     setModalOpen(true);
   };
 
@@ -123,19 +110,6 @@ export function AdminJobs() {
     Draft:  'aj-status-draft',
     Closed: 'aj-status-closed'
   };
-
-  // Reusable checkbox row for requirements builder
-  const ReqCheck = ({ field, label }) => (
-    <label className="aj-req-check">
-      <input
-        type="checkbox"
-        checked={requirementsBuilder[field]}
-        onChange={(e) => setRequirementsBuilder({ ...requirementsBuilder, [field]: e.target.checked })}
-        className="aj-checkbox"
-      />
-      <span className="aj-req-label">{label}</span>
-    </label>
-  );
 
   return (
     <div className="aj-wrapper" id="admin-jobs-wrapper">
@@ -342,23 +316,11 @@ export function AdminJobs() {
 
               {/* Requirements Builder */}
               <div className="aj-req-builder">
-                <h3 className="aj-req-builder-title">Dynamic Application Info Checklist Builder</h3>
+                <h3 className="aj-req-builder-title">Dynamic Application Requirements Builder</h3>
                 <p className="aj-req-builder-desc">
-                  Mark which upload categories and bio fields are mandatory. Unmarked items will be completely hidden from the user intake panel.
+                  Mark each field Off, Optional, or Required for this vacancy. Fields left Off are completely hidden from the applicant intake form.
                 </p>
-                <div className="aj-req-grid">
-                  <ReqCheck field="cvRequired"              label="CV/Resume Upload" />
-                  <ReqCheck field="coverLetterRequired"     label="Cover Letter Upload" />
-                  <ReqCheck field="academicCertRequired"    label="Academic Cert Upload" />
-                  <ReqCheck field="nyscCertRequired"        label="NYSC Degree Certificate" />
-                  <ReqCheck field="passportPhotoRequired"   label="Passport Photograph" />
-                  <ReqCheck field="nationalIdRequired"      label="National ID Upload" />
-                  <ReqCheck field="dobRequired"             label="Date of Birth (Field)" />
-                  <ReqCheck field="stateOfOriginRequired"   label="State of Origin (Field)" />
-                  <ReqCheck field="lgaRequired"             label="LGA Address (Field)" />
-                  <ReqCheck field="yearsOfExpRequired"      label="Experience Years (Field)" />
-                  <ReqCheck field="currentEmployerRequired" label="Current Employer (Field)" />
-                </div>
+                <RequirementsBuilder value={requirementsBuilder} onChange={setRequirementsBuilder} />
               </div>
 
               {/* Footer: Status + Buttons */}

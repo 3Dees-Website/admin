@@ -10,6 +10,9 @@ export function useApplications() {
     applyToJob: context.applyToJob,
     reviewApplication: context.reviewApplication,
     updateApplication: context.updateApplication,
+    uploadVerificationDocument: context.uploadVerificationDocument,
+    deleteVerificationDocument: context.deleteVerificationDocument,
+    resendToEgi: context.resendToEgi,
     bulkReviewApplications: context.bulkReviewApplications,
   };
 }

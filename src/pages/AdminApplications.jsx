@@ -6,7 +6,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, Download, Eye, Check, X, RefreshCw } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
-import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
+import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
+import { ApplicationDetail } from '../components/ApplicationDetail';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { applicationService } from '../services/applicationService';
@@ -122,7 +123,7 @@ export function AdminApplications() {
     if (!activeApp) return;
     addToast('info', 'Status Queued', 'Running credential checks & starting portal sync...');
     const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
-    setActiveApp(updated);
+    if (updated) setActiveApp(updated);
     refetch();
   };
 
@@ -311,8 +312,8 @@ export function AdminApplications() {
                     </td>
                     <td>
                       <div className="candidate-cell">
-                        <span className="candidate-name">{a.personalInfo.fullName}</span>
-                        <span className="candidate-meta">{a.personalInfo.email} • {a.personalInfo.phone}</span>
+                        <span className="candidate-name">{a.applicantName}</span>
+                        <span className="candidate-meta">{a.applicantEmail}</span>
                       </div>
                     </td>
                     <td className="role-cell">{getJobTitle(a.jobId)}</td>
@@ -325,6 +326,7 @@ export function AdminApplications() {
                     </td>
                     <td className="text-center">
                       <EgiDecisionBadge decision={a.egiDecision} />
+                      <EgiResendBadge count={a.egiResendCount} />
                     </td>
                     <td className="text-right">
                       <button
@@ -368,7 +370,7 @@ export function AdminApplications() {
             <div className="drawer-header">
               <div>
                 <span className="drawer-eyebrow">Candidacy Sheet Audit</span>
-                <h2 className="drawer-title">{activeApp.personalInfo.fullName}</h2>
+                <h2 className="drawer-title">{activeApp.applicantName}</h2>
               </div>
               <button onClick={() => setActiveApp(null)} className="drawer-close" aria-label="Close drawer">
                 <X size={24} />
@@ -390,144 +392,13 @@ export function AdminApplications() {
                 </div>
               </div>
 
-              {/* EGI Sync & Decision */}
-              <div className="drawer-section">
-                <h3 className="drawer-section-title">EGI Sync &amp; Decision</h3>
-                <div className="info-grid">
-                  <div><strong>Delivery to EGI:</strong> <EgiSyncBadge status={activeApp.egiSyncStatus} /></div>
-                  <div><strong>EGI Decision:</strong> <EgiDecisionBadge decision={activeApp.egiDecision} /></div>
-                  {activeApp.egiNote && (
-                    <div className="col-span-2">
-                      <strong>Note sent to EGI:</strong>
-                      <p className="info-address">{activeApp.egiNote}</p>
-                    </div>
-                  )}
-                  {activeApp.egiDecision === 'Declined' && activeApp.egiDecisionNote && (
-                    <div className="col-span-2">
-                      <strong>EGI's decline reason:</strong>
-                      <p className="info-address">{activeApp.egiDecisionNote}</p>
-                    </div>
-                  )}
-                  {activeApp.egiDecisionBy && (
-                    <div>
-                      <strong>Decided by:</strong>{' '}
-                      <span className="info-value">
-                        {activeApp.egiDecisionBy}
-                        {activeApp.egiDecisionAt && ` on ${new Date(activeApp.egiDecisionAt).toLocaleDateString()}`}
-                      </span>
-                    </div>
-                  )}
-                  {activeApp.egiReferenceId && (
-                    <div><strong>EGI reference:</strong> <span className="info-value">{activeApp.egiReferenceId}</span></div>
-                  )}
-                </div>
-              </div>
-
-              {/* Biography */}
-              <div className="drawer-section">
-                <h3 className="drawer-section-title">Candidate Biography</h3>
-                <div className="info-grid">
-                  <div><strong>Email contact:</strong> <span className="info-value">{activeApp.personalInfo.email}</span></div>
-                  <div><strong>Phone line:</strong> <span className="info-value">{activeApp.personalInfo.phone}</span></div>
-                  <div><strong>Gender:</strong> <span className="info-value">{activeApp.personalInfo.gender}</span></div>
-                  {activeApp.personalInfo.dob && (
-                    <div><strong>Date of Birth:</strong> <span className="info-value">{activeApp.personalInfo.dob}</span></div>
-                  )}
-                  {activeApp.personalInfo.stateOfOrigin && (
-                    <div>
-                      <strong>State/LGA:</strong>{' '}
-                      <span className="info-value">
-                        {activeApp.personalInfo.stateOfOrigin} (LGA: {activeApp.personalInfo.lga || 'None'})
-                      </span>
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <strong>Residence address:</strong>
-                    <p className="info-address">{activeApp.personalInfo.residentialAddress}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Intellectual Assets */}
-              <div className="drawer-section">
-                <h3 className="drawer-section-title">Intellectual Assets</h3>
-                <div className="info-grid">
-                  <div><strong>Highest Qualification:</strong> <span className="info-value">{activeApp.educationInfo.highestQualification}</span></div>
-                  <div><strong>Graduation Academy:</strong> <span className="info-value">{activeApp.educationInfo.institution}</span></div>
-                  <div><strong>Year Graduated:</strong> <span className="info-value">{activeApp.educationInfo.yearOfGraduation}</span></div>
-                  <div><strong>Years Experience:</strong> <span className="info-value">{activeApp.educationInfo.yearsOfExperience || '0'} Years</span></div>
-                  {activeApp.educationInfo.currentEmployer && (
-                    <div className="col-span-2"><strong>Last Sponsor Org:</strong> <span className="info-value">{activeApp.educationInfo.currentEmployer}</span></div>
-                  )}
-                  <div className="col-span-2">
-                    <strong>Work history statement summary:</strong>
-                    <p className="info-address">{activeApp.educationInfo.workSummary}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Documents */}
-              <div className="drawer-section">
-                <h3 className="drawer-section-title">Supporting Dossier Files</h3>
-                <div className="docs-grid">
-                  {Object.entries(activeApp.documents).map(([key, fileObj]) => {
-                    if (!fileObj) return null;
-                    return (
-                      <div key={key} className="doc-card">
-                        <div className="doc-info">
-                          <h4 className="doc-key">{key}</h4>
-                          <p className="doc-name">{fileObj.name}</p>
-                          <span className="doc-meta">{fileObj.size} • {fileObj.type.split('/').pop()?.toUpperCase()}</span>
-                        </div>
-                        <a
-                          href={fileObj.url}
-                          download={fileObj.name}
-                          onClick={() => addToast('success', 'File Download Initiated', `Opening mock stream for ${fileObj.name}`)}
-                          className="doc-download-btn"
-                        >
-                          <Download size={16} />
-                        </a>
-                      </div>
-                    );
-                  })}
-                  {Object.keys(activeApp.documents).length === 0 && (
-                    <div className="col-span-2 docs-empty">
-                      This vacancy required no administrative document folder submissions.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Admin Notes */}
-              <div className="drawer-notes">
-                <label className="filter-label">Administrative Audit Notes &amp; Directives</label>
-                <textarea
-                  rows={2}
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Annotate credential discrepancies, background check remarks, or specific vetting approvals here..."
-                  className="notes-textarea"
-                />
-              </div>
-
-              {/* Audit Trace */}
-              <div className="drawer-section">
-                <h4 className="audit-trace-title">Candidacy Evaluation Audit Trace</h4>
-                <div className="audit-trace-list">
-                  {activeApp.statusHistory.map((hist, idx) => (
-                    <div key={idx} className="audit-trace-item">
-                      <span>
-                        Vetted to <strong className="trace-status">{hist.status}</strong> by{' '}
-                        <span className="trace-officer">{hist.changedBy}</span>
-                      </span>
-                      <span className="trace-date">
-                        {new Date(hist.timestamp).toLocaleDateString()}{' '}
-                        {new Date(hist.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ApplicationDetail
+                app={activeApp}
+                currentUser={currentUser}
+                notes={adminNotes}
+                onNotesChange={setAdminNotes}
+                onAppUpdated={setActiveApp}
+              />
             </div>
 
             {/* Drawer Footer */}
@@ -567,7 +438,8 @@ export function AdminApplications() {
       <EgiNoteModal
         open={showApproveModal}
         busy={approving}
-        description={activeApp ? `Approving ${activeApp.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        description={activeApp ? `Approving ${activeApp.applicantName} sends this note to EGI along with the candidate record.` : ''}
+        verificationDocuments={activeApp?.verificationDocuments}
         onCancel={() => setShowApproveModal(false)}
         onConfirm={handleApproveConfirm}
       />

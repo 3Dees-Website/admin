@@ -1,23 +1,13 @@
 import { apiClient } from './apiClient';
 
-// The API stores personal_info with firstName/lastName separately.
-// The UI expects a fullName string, so we derive it when missing.
-function normalizePersonalInfo(info) {
-  if (!info) return null;
-  const fullName =
-    info.fullName ||
-    `${info.firstName || ''} ${info.lastName || ''}`.trim();
-  return { ...info, fullName };
-}
-
 function normalizeApplication(app) {
   return {
     id: app.id,
     jobId: app.job_id,
     referenceId: app.reference_id,
-    personalInfo: normalizePersonalInfo(app.personal_info),
-    educationInfo: app.education_info,
-    documents: app.documents,
+    formData: app.form_data || {},
+    documents: app.documents || {},
+    verificationDocuments: app.verification_documents || [],
     status: app.status,
     statusHistory: app.status_history,
     notes: app.notes,
@@ -28,6 +18,9 @@ function normalizeApplication(app) {
     egiDecisionBy: app.egi_decision_by,
     egiDecisionAt: app.egi_decision_at,
     egiReferenceId: app.egi_reference_id,
+    egiResendCount: app.egi_resend_count || 0,
+    applicantName: app.applicant_name || '',
+    applicantEmail: app.applicant_email || '',
     submittedAt: app.submitted_at,
     // Joined fields present on list/single endpoints
     jobTitle: app.job_title,
@@ -86,12 +79,10 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  async updateApplication(id, { personalInfo, educationInfo, documents, notes }) {
+  async updateApplication(id, { formData, documents }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}`, {
-      personalInfo,
-      educationInfo,
+      formData,
       documents,
-      notes,
     });
     return normalizeApplication(res.data);
   },
@@ -104,6 +95,21 @@ export const applicationService = {
       changedBy,
     });
     return res.data; // { success: [...ids], failed: [{ id, reason }] }
+  },
+
+  async addVerificationDocument(id, formData) {
+    const res = await apiClient.postForm(`/api/admin/applications/${id}/verification-documents`, formData);
+    return normalizeApplication(res.data);
+  },
+
+  async deleteVerificationDocument(id, docId) {
+    const res = await apiClient.delete(`/api/admin/applications/${id}/verification-documents/${docId}`);
+    return normalizeApplication(res.data);
+  },
+
+  async resendToEgi(id, egiNote) {
+    const res = await apiClient.post(`/api/admin/applications/${id}/resend-egi`, { egiNote });
+    return normalizeApplication(res.data);
   },
 
   async exportCsv(filters = {}) {

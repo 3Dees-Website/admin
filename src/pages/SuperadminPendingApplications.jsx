@@ -8,6 +8,7 @@ import { useApplications } from '../hooks/useApplications';
 import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
+import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { EgiNoteModal } from '../components/EgiNoteModal';
@@ -20,13 +21,15 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { reviewApplication, bulkReviewApplications, updateApplication } = useApplications();
+  const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
 
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [editingApp,    setEditingApp]    = useState(null);
+  const [drawerNotes,   setDrawerNotes]   = useState('');
   const [selectedIds,   setSelectedIds]   = useState(new Set());
   const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
@@ -95,25 +98,16 @@ export function SuperadminPendingApplications() {
 
   const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
+    await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
     setEditingApp(null);
     addToast('success', 'Override Applied', `Candidate moved to ${status} via superadmin override.`);
     refetch();
     refetchStats();
   };
 
-  const handleSaveEdits = async (updatedApp) => {
-    const result = await updateApplication(updatedApp.id, {
-      personalInfo: updatedApp.personalInfo,
-      educationInfo: updatedApp.educationInfo,
-      documents: updatedApp.documents,
-      notes: updatedApp.notes,
-    });
-    if (result) {
-      addToast('success', 'Candidate File Updated', `${updatedApp.personalInfo.fullName}'s record saved to ledger.`);
-      setEditingApp(null);
-      refetch();
-    }
+  const handleOpenEdit = (app) => {
+    setEditingApp(app);
+    setDrawerNotes(app.notes || '');
   };
 
   const handleQuickShortlist = async (app) => {
@@ -299,11 +293,11 @@ export function SuperadminPendingApplications() {
                     <td className="spa-td">
                       <div className="spa-candidate">
                         <div className="spa-avatar">
-                          {app.personalInfo.fullName.slice(0, 2).toUpperCase()}
+                          {(app.applicantName || '?').slice(0, 2).toUpperCase()}
                         </div>
                         <div className="spa-candidate-info">
-                          <span className="spa-candidate-name">{app.personalInfo.fullName}</span>
-                          <span className="spa-candidate-meta">{app.personalInfo.email}</span>
+                          <span className="spa-candidate-name">{app.applicantName}</span>
+                          <span className="spa-candidate-meta">{app.applicantEmail}</span>
                           <span className="spa-ref">{app.referenceId}</span>
                         </div>
                       </div>
@@ -347,7 +341,7 @@ export function SuperadminPendingApplications() {
                           Approve
                         </button>
                         <button
-                          onClick={() => setEditingApp(app)}
+                          onClick={() => handleOpenEdit(app)}
                           className="spa-open-btn"
                         >
                           Override File
@@ -384,10 +378,12 @@ export function SuperadminPendingApplications() {
           app={editingApp}
           jobTitle={getJobTitle(editingApp.jobId)}
           isSuperadmin={true}
-          addToast={addToast}
+          currentUser={currentUser}
+          notes={drawerNotes}
+          onNotesChange={setDrawerNotes}
           onClose={() => setEditingApp(null)}
-          onSave={handleSaveEdits}
           onStatusChange={handleStatusChange}
+          onAppUpdated={setEditingApp}
         />
       )}
 
@@ -395,7 +391,8 @@ export function SuperadminPendingApplications() {
       <EgiNoteModal
         open={!!approveTarget}
         busy={approveBusy}
-        description={approveTarget ? `Approving ${approveTarget.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        description={approveTarget ? `Approving ${approveTarget.applicantName} sends this note to EGI along with the candidate record.` : ''}
+        verificationDocuments={approveTarget?.verificationDocuments}
         onCancel={() => setApproveTarget(null)}
         onConfirm={handleQuickApproveConfirm}
       />

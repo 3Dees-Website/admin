@@ -270,6 +270,39 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const uploadVerificationDocument = async (appId, formData) => {
+    try {
+      const updated = await applicationService.addVerificationDocument(appId, formData);
+      addToast('success', 'Document Attached', 'Verification document uploaded.');
+      return updated;
+    } catch (err) {
+      addToast('error', 'Upload Failed', err?.message || 'Could not attach the verification document.');
+      return null;
+    }
+  };
+
+  const deleteVerificationDocument = async (appId, docId) => {
+    try {
+      const updated = await applicationService.deleteVerificationDocument(appId, docId);
+      addToast('info', 'Document Removed', 'Verification document deleted.');
+      return updated;
+    } catch (err) {
+      addToast('error', 'Delete Failed', err?.message || 'Could not remove the verification document.');
+      return null;
+    }
+  };
+
+  const resendToEgi = async (appId, egiNote) => {
+    try {
+      const updated = await applicationService.resendToEgi(appId, egiNote);
+      addToast('success', 'Resent to EGI', 'Candidate resubmitted to the EGI portal.');
+      return updated;
+    } catch (err) {
+      addToast('error', 'Resend Failed', err?.message || 'Could not resend to the EGI portal.');
+      return null;
+    }
+  };
+
   /**
    * Returns the backend's { success, failed } result (or null on failure) so
    * the calling page can decide how to refetch its current page/stats.
@@ -373,6 +406,9 @@ export function PortalProvider({ children }) {
         applyToJob,
         reviewApplication,
         updateApplication,
+        uploadVerificationDocument,
+        deleteVerificationDocument,
+        resendToEgi,
         bulkReviewApplications,
         registerAdmin,
         toggleAdminSuspension,

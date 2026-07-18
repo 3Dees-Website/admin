@@ -14,6 +14,7 @@ export function EgiNoteModal({
   description,
   confirmLabel = 'Approve & Sync',
   busy = false,
+  verificationDocuments,
   onCancel,
   onConfirm,
 }) {
@@ -72,6 +73,13 @@ export function EgiNoteModal({
           <p className="enm-hint">
             This note is sent to EGI along with the candidate record. It's separate from internal admin notes.
           </p>
+          {verificationDocuments !== undefined && (
+            <p className="enm-verification-reminder">
+              {verificationDocuments.length > 0
+                ? `Attached verification documents: ${verificationDocuments.map((d) => d.label).join(', ')}.`
+                : 'No verification documents attached yet.'}
+            </p>
+          )}
         </div>
 
         <div className="enm-footer">

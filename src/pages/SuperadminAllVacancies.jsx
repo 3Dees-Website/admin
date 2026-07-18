@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
+import { RequirementsSummary } from '../components/RequirementsSummary';
 import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
 
@@ -399,6 +400,12 @@ export function SuperadminAllVacancies() {
                     <span className="sav-app-stat-key">Rejected</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Requirements Summary */}
+              <div className="sav-desc-block">
+                <h4 className="sav-section-title">Application Requirements</h4>
+                <RequirementsSummary applicationRequirements={activeJob.applicationRequirements} />
               </div>
 
               {/* Description */}

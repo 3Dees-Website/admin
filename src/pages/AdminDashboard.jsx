@@ -159,8 +159,8 @@ export function AdminDashboard() {
                 <tr key={app.id} className="table-body-row">
                   <td>
                     <div className="candidate-cell">
-                      <span className="candidate-name">{app.personalInfo.fullName}</span>
-                      <span className="candidate-email">{app.personalInfo.email}</span>
+                      <span className="candidate-name">{app.applicantName}</span>
+                      <span className="candidate-email">{app.applicantEmail}</span>
                     </div>
                   </td>
                   <td className="role-cell">{getJobTitle(app.jobId)}</td>

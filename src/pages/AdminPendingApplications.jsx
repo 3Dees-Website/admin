@@ -17,7 +17,7 @@ import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { reviewApplication, updateApplication } = useApplications();
+  const { reviewApplication } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -25,6 +25,7 @@ export function AdminPendingApplications() {
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
   const [editingApp,     setEditingApp]     = useState(null);
+  const [drawerNotes,    setDrawerNotes]    = useState('');
   const [selectedIds,    setSelectedIds]    = useState(new Set());
 
   const {
@@ -87,26 +88,16 @@ export function AdminPendingApplications() {
   /* Single status change from drawer */
   const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, editingApp.notes || '', egiNote);
+    await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
     setEditingApp(null);
     addToast('success', 'Status Updated', `Applicant moved to ${status}.`);
     refetch();
     refetchStats();
   };
 
-  /* Save edits from drawer */
-  const handleSaveEdits = async (updatedApp) => {
-    const result = await updateApplication(updatedApp.id, {
-      personalInfo: updatedApp.personalInfo,
-      educationInfo: updatedApp.educationInfo,
-      documents: updatedApp.documents,
-      notes: updatedApp.notes,
-    });
-    if (result) {
-      addToast('success', 'Candidate Updated', `${updatedApp.personalInfo.fullName}'s file has been saved.`);
-      setEditingApp(null);
-      refetch();
-    }
+  const handleOpenEdit = (app) => {
+    setEditingApp(app);
+    setDrawerNotes(app.notes || '');
   };
 
   /* Quick single-row shortlist */
@@ -271,11 +262,11 @@ export function AdminPendingApplications() {
                   <td className="apa-td">
                     <div className="apa-candidate">
                       <div className="apa-avatar">
-                        {app.personalInfo.fullName.slice(0, 2).toUpperCase()}
+                        {(app.applicantName || '?').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="apa-candidate-info">
-                        <span className="apa-candidate-name">{app.personalInfo.fullName}</span>
-                        <span className="apa-candidate-meta">{app.personalInfo.email}</span>
+                        <span className="apa-candidate-name">{app.applicantName}</span>
+                        <span className="apa-candidate-meta">{app.applicantEmail}</span>
                         <span className="apa-ref">{app.referenceId}</span>
                       </div>
                     </div>
@@ -284,7 +275,7 @@ export function AdminPendingApplications() {
                   <td className="apa-td">
                     <div className="apa-role-cell">
                       <span className="apa-role-title">{getJobTitle(app.jobId)}</span>
-                      <span className="apa-role-qual">{app.educationInfo.highestQualification}</span>
+                      <span className="apa-role-qual">{app.formData.highestQualification || '—'}</span>
                     </div>
                   </td>
 
@@ -316,7 +307,7 @@ export function AdminPendingApplications() {
                         ✓ Shortlist
                       </button>
                       <button
-                        onClick={() => setEditingApp(app)}
+                        onClick={() => handleOpenEdit(app)}
                         className="apa-open-btn"
                         title="Open candidate file"
                       >
@@ -353,10 +344,12 @@ export function AdminPendingApplications() {
           app={editingApp}
           jobTitle={getJobTitle(editingApp.jobId)}
           isSuperadmin={false}
-          addToast={addToast}
+          currentUser={currentUser}
+          notes={drawerNotes}
+          onNotesChange={setDrawerNotes}
           onClose={() => setEditingApp(null)}
-          onSave={handleSaveEdits}
           onStatusChange={handleStatusChange}
+          onAppUpdated={setEditingApp}
         />
       )}
 

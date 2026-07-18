@@ -1,0 +1,113 @@
+/* ══════════════════════════════════════════
+   RequirementsSummary.css  —  prefix: rqs-
+   ══════════════════════════════════════════ */
+
+.rqs-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.rqs-loading {
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
+
+.rqs-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.rqs-chevron {
+  color: #9ca3af;
+  transition: transform 0.15s;
+}
+
+.rqs-chevron--open {
+  transform: rotate(180deg);
+}
+
+.rqs-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.rqs-count-chip {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.rqs-count-chip strong {
+  color: var(--color-brand-dark);
+}
+
+.rqs-empty {
+  font-size: 0.65rem;
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.rqs-full-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rqs-section-title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin: 0 0 0.35rem;
+}
+
+.rqs-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rqs-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--color-brand-dark);
+  padding: 0.2rem 0;
+}
+
+.rqs-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.rqs-tag--required {
+  background: rgba(255,102,0,0.1);
+  color: var(--color-brand-primary);
+}
+
+.rqs-tag--optional {
+  background: #eef2ff;
+  color: #4338ca;
+}

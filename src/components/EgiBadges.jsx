@@ -22,3 +22,8 @@ export function EgiDecisionBadge({ decision }) {
   const entry = DECISION_MAP[decision] || DECISION_MAP.Pending;
   return <span className={`egi-badge egi-badge--${entry.tone}`}>{entry.label}</span>;
 }
+
+export function EgiResendBadge({ count }) {
+  if (!count) return null;
+  return <span className="egi-badge egi-badge--blue">Resent ×{count}</span>;
+}

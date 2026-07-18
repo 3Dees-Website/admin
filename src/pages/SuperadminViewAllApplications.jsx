@@ -11,7 +11,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
-import { EgiSyncBadge, EgiDecisionBadge } from '../components/EgiBadges';
+import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
+import { ApplicationDetail } from '../components/ApplicationDetail';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { applicationService } from '../services/applicationService';
@@ -100,7 +101,7 @@ export function SuperadminViewAllApplications() {
     if (!activeApp) return;
     addToast('info', 'Execute Oversight Trigger', `Writing compliance check to ${status}...`);
     const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
-    setActiveApp(updated);
+    if (updated) setActiveApp(updated);
     refetch();
   };
 
@@ -248,8 +249,8 @@ export function SuperadminViewAllApplications() {
                 <tr key={a.id} className="sva-row">
                   <td className="sva-td">
                     <div className="sva-applicant-info">
-                      <span className="sva-applicant-name">{a.personalInfo.fullName}</span>
-                      <span className="sva-applicant-meta">{a.personalInfo.email} • {a.personalInfo.phone}</span>
+                      <span className="sva-applicant-name">{a.applicantName}</span>
+                      <span className="sva-applicant-meta">{a.applicantEmail}</span>
                     </div>
                   </td>
                   <td className="sva-td sva-job-title">{getJobTitle(a.jobId)}</td>
@@ -264,6 +265,7 @@ export function SuperadminViewAllApplications() {
                   </td>
                   <td className="sva-td sva-td-center">
                     <EgiDecisionBadge decision={a.egiDecision} />
+                    <EgiResendBadge count={a.egiResendCount} />
                   </td>
                   <td className="sva-td sva-td-right">
                     <button
@@ -305,7 +307,7 @@ export function SuperadminViewAllApplications() {
             <div className="sva-drawer-header">
               <div>
                 <span className="sva-drawer-label">SUPERADMIN SECURE OVERRIDE</span>
-                <h2 className="sva-drawer-name">{activeApp.personalInfo.fullName}</h2>
+                <h2 className="sva-drawer-name">{activeApp.applicantName}</h2>
               </div>
               <button onClick={() => setActiveApp(null)} className="sva-drawer-close">
                 <X className="sva-close-icon" />
@@ -334,60 +336,13 @@ export function SuperadminViewAllApplications() {
                 <div><strong>Client Sponsoring:</strong> <span className="sva-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
 
-              {/* EGI Sync & Decision */}
-              <div className="sva-egi-group">
-                <label className="sva-filter-label">EGI Sync &amp; Decision</label>
-                <div className="sva-egi-row">
-                  <span>Delivery to EGI</span>
-                  <EgiSyncBadge status={activeApp.egiSyncStatus} />
-                </div>
-                <div className="sva-egi-row">
-                  <span>EGI Decision</span>
-                  <EgiDecisionBadge decision={activeApp.egiDecision} />
-                </div>
-                {activeApp.egiNote && (
-                  <p className="sva-egi-note"><strong>Note sent to EGI:</strong> {activeApp.egiNote}</p>
-                )}
-                {activeApp.egiDecision === 'Declined' && activeApp.egiDecisionNote && (
-                  <p className="sva-egi-note sva-egi-note--declined"><strong>EGI's decline reason:</strong> {activeApp.egiDecisionNote}</p>
-                )}
-                {activeApp.egiDecisionBy && (
-                  <span className="sva-egi-meta">
-                    Decided by {activeApp.egiDecisionBy}
-                    {activeApp.egiDecisionAt && ` on ${new Date(activeApp.egiDecisionAt).toLocaleDateString()}`}
-                  </span>
-                )}
-                {activeApp.egiReferenceId && (
-                  <span className="sva-egi-meta">EGI reference: {activeApp.egiReferenceId}</span>
-                )}
-              </div>
-
-              {/* Notes */}
-              <div className="sva-notes-group">
-                <label className="sva-filter-label">Compliance Override Annotations</label>
-                <textarea
-                  rows={3}
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  placeholder="Annotate specific reasons regarding credential bypasses, reference audits verification, or general oversight directives..."
-                  className="sva-textarea"
-                />
-              </div>
-
-              {/* Status History */}
-              <div className="sva-history-group">
-                <h4 className="sva-history-title">Dossier Evaluation Audit History</h4>
-                <div className="sva-history-list">
-                  {activeApp.statusHistory.map((hist, idx) => (
-                    <div key={idx} className="sva-history-item">
-                      <span>• Vetted to <strong className="sva-history-status">{hist.status}</strong> by <span className="sva-history-by">{hist.changedBy}</span></span>
-                      <span className="sva-history-time">
-                        {new Date(hist.timestamp).toLocaleDateString()} {new Date(hist.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ApplicationDetail
+                app={activeApp}
+                currentUser={currentUser}
+                notes={adminNotes}
+                onNotesChange={setAdminNotes}
+                onAppUpdated={setActiveApp}
+              />
             </div>
 
             {/* Drawer Footer */}
@@ -414,7 +369,8 @@ export function SuperadminViewAllApplications() {
       <EgiNoteModal
         open={showApproveModal}
         busy={approving}
-        description={activeApp ? `Approving ${activeApp.personalInfo.fullName} sends this note to EGI along with the candidate record.` : ''}
+        description={activeApp ? `Approving ${activeApp.applicantName} sends this note to EGI along with the candidate record.` : ''}
+        verificationDocuments={activeApp?.verificationDocuments}
         onCancel={() => setShowApproveModal(false)}
         onConfirm={handleApproveConfirm}
       />
