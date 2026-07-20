@@ -73,7 +73,9 @@ Session tokens live in `localStorage` under fixed keys (see `TOKEN_STORAGE_KEYS`
 
 ### 3.3 Global state — `PortalContext`
 
-There is a **single** context/reducer ([PortalContext.jsx](src/context/PortalContext.jsx)) that holds effectively all server-derived state for the whole app: `currentUser`, `token`, `jobs`, `applications`, `admins`, `auditLogs`, `toasts`. There's no per-page data fetching for the "core" entities — everything is loaded once via `loadInitialData()` (fired on mount if a session already exists, and again right after OTP success) and kept in sync via reducer actions as mutations happen.
+**[PortalContext.jsx](src/context/PortalContext.jsx)** holds `currentUser`, `token`, `jobs`, `admins` (superadmin only), and `toasts`. `loadInitialData()` (fired on mount if a session already exists, and again right after OTP success) only fetches jobs (and admins, for superadmins) — kept in sync via reducer actions as mutations happen.
+
+**Applications and audit logs are *not* in this context** — they used to be, but were moved to per-page server-side pagination (§3.6) since a full in-memory copy of every application didn't scale. `reviewApplication`, `updateApplication`, and `bulkReviewApplications` no longer dispatch into the reducer; they simply **return** the updated record/result, and the calling page is responsible for refetching its own paginated list/stats afterward.
 
 Four small hooks expose slices of this context so components don't need to know the context exists directly:
 
@@ -81,7 +83,7 @@ Four small hooks expose slices of this context so components don't need to know 
 |---|---|
 | [useAuth.js](src/hooks/useAuth.js) | `currentUser`, `token`, `login`, `commitSession`, `logout`, `admins`, `registerAdmin`, `toggleAdminSuspension`, `resetAdminPass`, `removeAdmin` |
 | [useJobs.js](src/hooks/useJobs.js) | `jobs`, `postJob`, `editJob`, `removeJob` |
-| [useApplications.js](src/hooks/useApplications.js) | `applications`, `auditLogs`, `applyToJob`, `reviewApplication`, `updateApplication`, `bulkReviewApplications` |
+| [useApplications.js](src/hooks/useApplications.js) | `applyToJob`, `reviewApplication`, `updateApplication`, `uploadVerificationDocument`, `deleteVerificationDocument`, `resendToEgi`, `bulkReviewApplications` — mutating actions only, no `applications`/`auditLogs` state (see §3.6) |
 | [useToast.js](src/hooks/useToast.js) | `toasts`, `addToast`, `removeToast` |
 
 The **EGI queue** (sync stats / failed deliveries / retry) is the one exception — it's fetched directly by the pages that need it via `egiService`, not routed through `PortalContext`, since it's ops-only data only one page consumes (see §7 EGI section).
@@ -95,15 +97,39 @@ Each service wraps one REST resource and normalizes the backend's `snake_case` J
 | [apiClient.js](src/services/apiClient.js) | HTTP transport | `get/getBlob/post/postForm/put/patch/delete`, token refresh interceptor, `BASE_URL` export |
 | [authService.js](src/services/authService.js) | `/api/auth/*` | Uses raw `fetch`, not `apiClient` — deliberately, so login/OTP calls never get caught in the refresh-retry loop |
 | [jobService.js](src/services/jobService.js) | `/api/admin/jobs`, `/api/jobs` | Admin CRUD + public read routes |
-| [applicationService.js](src/services/applicationService.js) | `/api/admin/applications*` | List/detail/status-update/bulk-status/export/public-submit; carries all EGI fields (see §7) |
+| [applicationService.js](src/services/applicationService.js) | `/api/admin/applications*` | Paginated list (`getApplicationsPage`), stats (`getStats`, `getStatsByJob`), status-update/bulk-status, verification-document upload/delete, `resendToEgi`, `exportCsv` (now actually called — see §3.6/§7), public-submit; carries all EGI fields (see §7) |
 | [userService.js](src/services/userService.js) | `/api/admin/users` | Superadmin-only staff account management |
-| [auditService.js](src/services/auditService.js) | `/api/admin/audit-logs` | Compliance/status-change audit trail |
+| [auditService.js](src/services/auditService.js) | `/api/admin/audit-logs` | Paginated list (`getAuditLogsPage`), `exportCsv` (now actually called) |
 | [contactService.js](src/services/contactService.js) | `/api/contact` | Public contact form submit (raw `fetch`, unauthenticated) |
 | [egiService.js](src/services/egiService.js) | `/api/admin/egi/queue*` | EGI outbox queue stats/list/retry (added for the EGI integration) |
+| [fieldCatalogService.js](src/services/fieldCatalogService.js) | `/api/field-catalog` | Dynamic application-field catalog, cached as a shared promise for the session (see §3.7) |
 
 ### 3.5 Layout shell
 
 **[AdminLayout.jsx](src/components/AdminLayout.jsx)** is the shared page chrome for every authenticated route: a collapsible left sidebar (role-specific nav menu, logo, sign-out) + a top header bar + a mobile bottom tab bar. It's parameterized by a `role` prop (`"admin"` or `"superadmin"`) which selects which menu array to render. `App.jsx` wraps the entire `/admin` and `/superadmin` route trees in one `<AdminLayout>` each, with an `<Outlet />` for the active page.
+
+### 3.6 Server-side pagination *(new)*
+
+Applications and audit logs no longer live in `PortalContext` (§3.3) — they're fetched per-page directly from the backend via a generic hook factory, **[createPaginatedListHook.js](src/hooks/createPaginatedListHook.js)**: `createPaginatedListHook(fetchFn)` returns a `usePaginatedList(filters)` hook that debounces `search` (300ms), resets to page 1 whenever a non-search filter changes, guards against out-of-order responses with a request-id ref, and returns `{ items, total, page, pageSize, setPage, setPageSize, isLoading, error, refetch }`. Two instances of it exist: **[usePaginatedApplications.js](src/hooks/usePaginatedApplications.js)** (wraps `applicationService.getApplicationsPage`) and **[usePaginatedAuditLogs.js](src/hooks/usePaginatedAuditLogs.js)** (wraps `auditService.getAuditLogsPage`).
+
+Every list page that shows applications or audit logs uses one of these instead of reading from context: `AdminApplications`, `AdminPendingApplications` (fixed `status: 'Pending'` filter), `SuperadminViewAllApplications`, `SuperadminPendingApplications` (fixed `status: 'Pending'` filter), and `SuperadminAuditTrail`. **[PaginationControls.jsx](src/components/PaginationControls.jsx)** renders the shared "Showing X–Y of total" label, a page-size select (20/50/100), and Prev/Next controls for all of them; **[TableLoadingRows.jsx](src/components/TableLoadingRows.jsx)** renders skeleton-bar `<tr>`s in place of real rows while a page is loading. `AdminApplications` and `SuperadminViewAllApplications` also poll every 60s (only while the tab is visible) and expose a manual Refresh button, since the list is no longer kept live by context mutations. Because `reviewApplication`/`updateApplication`/`bulkReviewApplications` just return the updated record now (§3.3), every page that calls them must `refetch()` its own list afterward.
+
+Dashboard tiles and per-job counts that used to `.filter()`/`.reduce()` over a full in-memory `applications` array now read from two dedicated stats hooks instead: **[useApplicationStats.js](src/hooks/useApplicationStats.js)** (`GET /api/admin/applications/stats` → `{ total, byStatus, submittedToday, byEgiDecision, byEgiSyncStatus }`; used by `AdminDashboard`, `SuperadminDashboard`, and both pending-queue pages' stat tiles) and **[useJobStats.js](src/hooks/useJobStats.js)** (`GET /api/admin/applications/stats/by-job` → a `{ [jobId]: { total, pending, shortlisted, approved, rejected } }` map; used by `AdminJobs`/`SuperadminAllVacancies` for per-row applicant counts). Both fail silently — stats tiles are supplementary, pages stay usable without them. One known gap: `SuperadminPendingApplications`'s "Overdue (>7 days)" tile has no backend aggregate and is computed only from the current page's rows (see §8).
+
+### 3.7 Dynamic field catalog & requirements builder *(new)*
+
+The old hardcoded 11-checkbox "Application Info Checklist" on `AdminJobs.jsx` (`cvRequired`, `dobRequired`, etc.) is gone. Requirements are now driven by a live **field catalog** fetched from the backend (`GET /api/field-catalog`, cached for the session as a shared promise in **[fieldCatalogService.js](src/services/fieldCatalogService.js)**) describing ~90 possible application fields grouped into 9 sections (personal, jobInfo, employment, education, documents, professional, referees, declarations, roleSpecific) — see [docs/field-catalog-draft.md](docs/field-catalog-draft.md) for the design doc this was built from (once finalized it becomes `src/config/fieldCatalog.js` on the *backend*; this frontend only ever consumes it over HTTP, it doesn't hardcode the catalog). **[useFieldCatalog.js](src/hooks/useFieldCatalog.js)** exposes `{ catalog, isLoading }`; **[fieldCatalogHelpers.js](src/utils/fieldCatalogHelpers.js)** holds the pure grouping/derivation helpers (`groupFieldsBySection`, `getConditionalSubfieldKeys`, `getExperienceParentKeys`, `getSubfieldsForParent`) shared by every UI piece below.
+
+A job's `applicationRequirements` is now a `{ [fieldKey]: 'required' | 'optional' }` map instead of fixed booleans. Three components sit on top of the catalog:
+- **[RequirementsBuilder.jsx](src/components/RequirementsBuilder.jsx)** — the editable version used in `AdminJobs.jsx`'s create/edit modal: collapsible per-section panels, a tri-state (off/optional/required) toggle per field, bulk per-section actions, and a locked "Required" pill for any key in `catalog.mandatoryKeys` (mandatory keys are force-merged into every change emitted, and an old/empty config is self-healed on catalog load so the backend's `InvalidRequirements` check can't be tripped from this UI).
+- **[RequirementsSummary.jsx](src/components/RequirementsSummary.jsx)** — the read-only counterpart, shown in `SuperadminAllVacancies.jsx`'s job detail drawer ("N fields enabled across M sections", expandable per-section breakdown).
+- **[FieldRenderer.jsx](src/components/FieldRenderer.jsx)** — one editable control per catalog field type (text/textarea/select incl. a dependent state→LGA dropdown/yesno/declaration/date/number/year/email/tel); the same component renders both a job's requirements form and an already-submitted application's answers (see §3.8).
+
+### 3.8 `ApplicationDetail` & edit locking *(new)*
+
+All three "candidate file" surfaces in the app — the shared `CandidateEditDrawer`, and the bespoke inline drawers on `AdminApplications.jsx` and `SuperadminViewAllApplications.jsx` — now render identical content via one component, **[ApplicationDetail.jsx](src/components/ApplicationDetail.jsx)**. Each page still owns its own drawer chrome (overlay, header, footer status-action buttons — `CandidateEditDrawer` gates Approve behind `isSuperadmin`, `AdminApplications` doesn't; see §8), but the body — EGI panel, catalog-driven field sections (view or edit via `FieldRenderer`), applicant documents, verification documents, notes textarea, and status history — is defined exactly once. `CandidateEditDrawer.jsx` itself shrank to little more than `<ApplicationDetail app={app} currentUser={currentUser} notes={notes} onNotesChange={onNotesChange} onAppUpdated={onAppUpdated} />` plus its chrome.
+
+Applications are now also **edit-locked** once they reach certain EGI states, mirrored client-side (UI-only — the backend is the real enforcement) by **[applicationLock.js](src/utils/applicationLock.js)**'s `getLockInfo(app, currentUser)`: unlocked while `Pending`/`Shortlisted`; locked (info banner) once `Approved` and awaiting an EGI decision; locked for everyone except a superadmin (who also gets `canResend: true`) if EGI declined; locked for non-superadmins once `Rejected`; permanently locked once EGI accepts. `ApplicationDetail` renders the resulting banner, hides its Edit toolbar and verification-document upload when locked, and — for a superadmin viewing a declined application — shows a "Resend to EGI" button (`applicationService.resendToEgi`, gated behind the same required-note `EgiNoteModal` flow as Approve). `EgiBadges.jsx` gained a matching `EgiResendBadge` pill showing the resend count.
 
 ---
 
@@ -132,14 +158,28 @@ Each service wraps one REST resource and normalizes the backend's `snake_case` J
 
 | File | Purpose |
 |---|---|
-| [PortalContext.jsx](src/context/PortalContext.jsx) | The entire app's data layer — reducer, all server-mutating action creators, toast queue, session bootstrap-on-mount effect. See §3.3. |
+| [PortalContext.jsx](src/context/PortalContext.jsx) | The app's data layer for `currentUser`/`token`/`jobs`/`admins`/`toasts` — reducer, server-mutating action creators, toast queue, session bootstrap-on-mount effect. See §3.3. |
 | [useAuth.js](src/hooks/useAuth.js) / [useJobs.js](src/hooks/useJobs.js) / [useApplications.js](src/hooks/useApplications.js) / [useToast.js](src/hooks/useToast.js) | Thin selector hooks over `PortalContext` (see table in §3.3). |
+| [createPaginatedListHook.js](src/hooks/createPaginatedListHook.js) | Generic paginated-list hook factory (debounced search, stale-response guard). See §3.6. |
+| [usePaginatedApplications.js](src/hooks/usePaginatedApplications.js) / [usePaginatedAuditLogs.js](src/hooks/usePaginatedAuditLogs.js) | `createPaginatedListHook` instances over `applicationService`/`auditService`. See §3.6. |
+| [useApplicationStats.js](src/hooks/useApplicationStats.js) / [useJobStats.js](src/hooks/useJobStats.js) | Dashboard/table stat tiles sourced from backend aggregate endpoints instead of client-side `.reduce()`. See §3.6. |
+| [useFieldCatalog.js](src/hooks/useFieldCatalog.js) | `{ catalog, isLoading }` over `fieldCatalogService`. See §3.7. |
 
 ### 4.4 `src/services/`
 
-Covered in §3.4.
+Covered in §3.4. `fieldCatalogService.js` is new — see §3.7.
 
-### 4.5 `src/components/` (shared, cross-page)
+### 4.5 `src/utils/` *(new)*
+
+| File | Purpose |
+|---|---|
+| [applicationLock.js](src/utils/applicationLock.js) | `getLockInfo(app, currentUser)` — client-side mirror of the backend's edit-locking ladder (banner copy, `locked`/`canResend` flags); `mapLockError(err)` translates backend lock-error codes for the rare race-condition case. See §3.8. |
+| [downloadBlob.js](src/utils/downloadBlob.js) | `downloadBlob(blob, filename)` — generic blob→file-download via a temporary `<a download>` anchor. Used by the three pages with a real backend CSV export (see §7). |
+| [fileView.js](src/utils/fileView.js) | `viewFile(doc)` — opens viewable types (PDF/JPG/PNG/WebP/GIF) in a new tab via an in-memory `<iframe>` document; falls back to `triggerDownload()` for other types. Used throughout `ApplicationDetail.jsx`. |
+| [fieldCatalogHelpers.js](src/utils/fieldCatalogHelpers.js) | Pure grouping/derivation helpers over the field catalog (`groupFieldsBySection`, `getConditionalSubfieldKeys`, `getExperienceParentKeys`, `getSubfieldsForParent`). See §3.7. |
+| [verificationDocTypes.js](src/utils/verificationDocTypes.js) | `VERIFICATION_DOC_TYPES` — the admin-only verification-document type list, must match the backend's `verificationDocuments.controller.js` labels exactly. |
+
+### 4.6 `src/components/` (shared, cross-page)
 
 | File | Purpose |
 |---|---|
@@ -147,11 +187,17 @@ Covered in §3.4.
 | [Navbar.jsx](src/components/Navbar.jsx) + `styles/Navbar.css` | Exports `LogoSVG` (an `<img>` wrapper around `/3dees_Logo.png`, used on the login page, OTP page, and inside `AdminLayout`'s sidebar header) and a full public marketing-site-style `<Navbar>` component. **Note:** the `<Navbar>` component itself is not currently rendered anywhere in this app's routes — only `LogoSVG` is imported from this file. It looks like a carry-over from a shared component library with the public marketing site. |
 | [ProtectedRoute.jsx](src/components/ProtectedRoute.jsx) | Route guard — see §3.2. |
 | [Toast.jsx](src/components/Toast.jsx) + `styles/Toast.css` | `ToastContainer` (reads `useToast()`, renders an `AnimatePresence` stack) + `ToastItem` (auto-dismisses after 4s). Toast types: `success`, `error`, `info`. |
-| [CandidateEditDrawer.jsx](src/components/CandidateEditDrawer.jsx) + `styles/CandidateEditDrawer.css` | The shared "candidate file" slide-out drawer used by both pending-queue pages ([AdminPendingApplications](src/pages/AdminPendingApplications.jsx) and [SuperadminPendingApplications](src/pages/SuperadminPendingApplications.jsx)). Tabs: Personal / Education / Documents / Notes. Lets an admin edit personal & education info, upload/replace/remove documents (read as base64 client-side), edit internal notes, view status history, and change status (Reject / Shortlist / Approve — Approve only shown when `isSuperadmin`). The Notes tab also shows the EGI sync/decision panel (see §7). |
-| [EgiNoteModal.jsx](src/components/EgiNoteModal.jsx) + `styles/EgiNoteModal.css` | Shared confirmation modal that collects the required "note to EGI" before any Approve action fires. Used by every approve flow in the app (single and bulk). See §7. |
-| [EgiBadges.jsx](src/components/EgiBadges.jsx) + `styles/EgiBadges.css` | `<EgiSyncBadge status=.../>` and `<EgiDecisionBadge decision=.../>` — small colored pill components mapping the EGI status enums to gray/blue/green/red badges. See §7. |
+| [CandidateEditDrawer.jsx](src/components/CandidateEditDrawer.jsx) + `styles/CandidateEditDrawer.css` | Now just the drawer **chrome** (overlay, header with name/job/ref + superadmin "Override Mode" banner, footer with Reject/Shortlist/Approve — Approve gated behind `isSuperadmin`) around a `<ApplicationDetail>` body. Used by both pending-queue pages. See §3.8. |
+| [ApplicationDetail.jsx](src/components/ApplicationDetail.jsx) + `styles/ApplicationDetail.css` *(new)* | The single shared "candidate file" content renderer — EGI panel (sync/decision/resend badges, resend button), catalog-driven field sections (view or edit via `FieldRenderer`), documents panel, verification-documents panel, notes textarea, status history. Used by `CandidateEditDrawer` and directly embedded in `AdminApplications.jsx`'s and `SuperadminViewAllApplications.jsx`'s own bespoke drawers. See §3.8. |
+| [FieldRenderer.jsx](src/components/FieldRenderer.jsx) + `styles/FieldRenderer.css` *(new)* | One editable control per field-catalog type (text/textarea/select incl. dependent LGA dropdown/yesno/declaration/date/number/year/email/tel). Used by `RequirementsBuilder` and `ApplicationDetail`. See §3.7. |
+| [RequirementsBuilder.jsx](src/components/RequirementsBuilder.jsx) + `styles/RequirementsBuilder.css` *(new)* | Editable per-section, tri-state (off/optional/required) requirements builder used in `AdminJobs.jsx`'s job form, replacing the old fixed checkbox grid. See §3.7. |
+| [RequirementsSummary.jsx](src/components/RequirementsSummary.jsx) + `styles/RequirementsSummary.css` *(new)* | Read-only requirements breakdown shown in `SuperadminAllVacancies.jsx`'s job detail drawer. See §3.7. |
+| [PaginationControls.jsx](src/components/PaginationControls.jsx) + `styles/PaginationControls.css` *(new)* | Shared "Showing X–Y of total" + page-size select + Prev/Next UI for every server-paginated table. See §3.6. |
+| [TableLoadingRows.jsx](src/components/TableLoadingRows.jsx) + `styles/TableLoadingRows.css` *(new)* | Skeleton-bar `<tr>` placeholders shown while a paginated table is loading. See §3.6. |
+| [EgiNoteModal.jsx](src/components/EgiNoteModal.jsx) + `styles/EgiNoteModal.css` | Shared confirmation modal that collects the required "note to EGI" before any Approve or Resend action fires (optionally lists attached verification documents as a reminder). Used by every approve/resend flow in the app (single and bulk). See §7. |
+| [EgiBadges.jsx](src/components/EgiBadges.jsx) + `styles/EgiBadges.css` | `<EgiSyncBadge status=.../>`, `<EgiDecisionBadge decision=.../>`, and `<EgiResendBadge count=.../>` — small colored pill components mapping the EGI status enums (and resend count) to gray/blue/green/red badges. See §7. |
 
-### 4.6 `src/pages/`
+### 4.7 `src/pages/`
 
 Covered page-by-page in §5.
 
@@ -177,7 +223,7 @@ Full route table from [App.jsx](src/App.jsx):
 | `/superadmin/jobs` | `SuperadminAllVacancies` | role: `superadmin` | |
 | `/superadmin/admins` | `SuperadminManageAdmins` | role: `superadmin` | |
 | `/superadmin/audit` | `SuperadminAuditTrail` | role: `superadmin` | |
-| `/superadmin/egi-sync` | `SuperadminEgiSync` | role: `superadmin` | New — EGI integration |
+| `/superadmin/egi-sync` | `SuperadminEgiSync` | role: `superadmin` | EGI outbox ops screen |
 | `*` | → redirect | — | Anything unmatched goes to `/` |
 
 There are two parallel worlds — `admin` and `superadmin` — that largely mirror the same underlying data (jobs, applications) with different levels of authority. Superadmin pages generally style themselves as "override"/"executive" tooling (warning banners about bypassing normal workflow, audit logging emphasis) and can Approve applications directly; plain Admins mostly Shortlist/Reject and hand off approval to a Superadmin (see the one inconsistency noted in §8).
@@ -193,47 +239,45 @@ Six individual digit inputs with auto-advance-on-type, backspace-across-box, arr
 ### Admin pages (`role="admin"`)
 
 #### `AdminDashboard.jsx` — `/admin/dashboard`
-Landing page after admin login. A greeting banner with the user's name + two quick-action buttons ("Post New Job" → deep-links to `/admin/jobs?create=open`, "Applications"). A 6-tile stats grid (Posted Positions, Applications, Pending Audit, Shortlisted, Approved Placements, Rejected Dossiers) computed client-side from the already-loaded `jobs`/`applications` arrays. Below that, a "Incoming Recruits Feed" table of the 10 most recently submitted applications.
+Landing page after admin login. A greeting banner with the user's name + two quick-action buttons ("Post New Job" → deep-links to `/admin/jobs?create=open`, "Applications"). A 6-tile stats grid (Posted Positions, Applications, Pending Audit, Shortlisted, Approved Placements, Rejected Dossiers) now reads from `jobs` (context) + `useApplicationStats()`'s `byStatus`/`total` instead of reducing a full in-memory applications array (see §3.6). Below that, an "Incoming Recruits Feed" table of the 10 most recently submitted applications, fetched directly via a one-off `applicationService.getApplicationsPage({ page: 1, pageSize: 10 })` call.
 
 #### `AdminJobs.jsx` — `/admin/jobs`
-Full CRUD for job vacancies. A table of all jobs (title, client org, location, submission count, status badge, per-row toggle/edit/delete actions). "Create/Edit" opens a large modal form covering: title, client org, category, employment type, location, openings, salary range, closing date, description, responsibilities, requirements (each a textarea, one item per line) — **plus** a "Dynamic Application Info Checklist Builder": a grid of checkboxes (`cvRequired`, `coverLetterRequired`, `academicCertRequired`, `nyscCertRequired`, `passportPhotoRequired`, `nationalIdRequired`, `dobRequired`, `stateOfOriginRequired`, `lgaRequired`, `yearsOfExpRequired`, `currentEmployerRequired`) that controls which fields/uploads the **public-facing application form** (outside this admin app) requires for that specific vacancy. Status toggle cycles Active → Closed → Draft → Active. Delete requires a confirm modal. Supports a `?create=open` query param (consumed once via `useSearchParams`, then cleared) to auto-open the create modal — used by the AdminDashboard quick-action link.
+Full CRUD for job vacancies. A table of all jobs (title, client org, location, submission count — now from `useJobStats()`'s per-job map rather than a client-side `.reduce()`, status badge, per-row toggle/edit/delete actions). "Create/Edit" opens a large modal form covering: title, client org, category, employment type, location, openings, salary range, closing date, description, responsibilities, requirements (each a textarea, one item per line) — **plus** the new **[RequirementsBuilder](src/components/RequirementsBuilder.jsx)** (§3.7), which replaced the old fixed 11-checkbox grid with a catalog-driven, per-section tri-state (off/optional/required) builder controlling which fields/uploads the **public-facing application form** (outside this admin app) requires for that specific vacancy. Status toggle cycles Active → Closed → Draft → Active. Delete requires a confirm modal. Supports a `?create=open` query param (consumed once via `useSearchParams`, then cleared) to auto-open the create modal — used by the AdminDashboard quick-action link.
 
 #### `AdminPendingApplications.jsx` — `/admin/pending`
-Queue of only `Pending`-status applications for a normal admin to triage first. Search (name/email/reference/job title) + job filter. Stats: Total Pending, Received Today, Selected (count). Row checkboxes + "Shortlist All" / "Reject All" bulk actions (no bulk-approve here — admins don't approve from this queue). Per-row quick "Shortlist" button and "Open File" (opens `CandidateEditDrawer` with `isSuperadmin={false}`, so its Approve button is hidden — a plain admin can Shortlist/Reject from the drawer but not Approve). A "Waiting" badge color-codes days-since-submission (ok < 3 days, warn 3–6, alert ≥ 7).
+Queue of only `Pending`-status applications for a normal admin to triage first, now server-paginated via `usePaginatedApplications({ status: 'Pending', ... })` (§3.6) with `TableLoadingRows` skeletons while loading and `PaginationControls` at the bottom. Search (name/email/reference/job title) + job filter. Stats: Total Pending / Received Today come from `useApplicationStats()`'s `byStatus.Pending`/`submittedToday` (an all-status approximation, noted in code as "close enough"), Selected is a local checkbox count. Row checkboxes + "Shortlist All" / "Reject All" bulk actions (no bulk-approve here — admins don't approve from this queue) call `bulkReviewApplications` then `refetch()` the current page. Per-row quick "Shortlist" button and "Open File" (opens `CandidateEditDrawer` with `isSuperadmin={false}`, so its Approve button is hidden — a plain admin can Shortlist/Reject from the drawer but not Approve). A "Waiting" badge color-codes days-since-submission (ok < 3 days, warn 3–6, alert ≥ 7).
 
 #### `AdminApplications.jsx` — `/admin/applications`
-The full applications list for an admin (all statuses, not just Pending). Filters: search, job, status. Bulk Shortlist/Reject (checkbox selection). CSV export button generates a client-side CSV (not via the backend's export endpoint — see §8) with columns: ReferenceStamp, ApplicantName, Email, Phone, RoleApplied, Qualification, WorkExperienceYears, Status, SyncState, EGI Decision, EGI Decision Note, SubmissionDate. Clicking "Audit File" opens a large **inline** drawer (this page does **not** use the shared `CandidateEditDrawer` — it has its own bespoke drawer markup) showing biography, EGI sync/decision panel, education/documents, an internal-notes textarea, and full status history, with footer actions Reject / Shortlist / **Approve & Sync** (this is the one place a plain admin can approve — see §8 for the noted inconsistency vs. the pending queue). Approve now opens the shared `EgiNoteModal` to collect the required note before submitting.
+The full applications list for an admin (all statuses, not just Pending), server-paginated via `usePaginatedApplications` (§3.6) with `TableLoadingRows`/`PaginationControls`, a 60s auto-poll (only while the tab is visible), and a manual Refresh button. Filters: search, job, status. Bulk Shortlist/Reject (checkbox selection, then `refetch()`). CSV export button now calls `applicationService.exportCsv(filters)` against the real backend export endpoint and pipes the resulting blob through `downloadBlob()` (previously a client-built CSV string — see §7/§8). Clicking "Audit File" opens a large **inline** drawer (this page keeps its own bespoke drawer chrome, not `CandidateEditDrawer`) whose body is the shared **[ApplicationDetail](src/components/ApplicationDetail.jsx)** component (§3.8) — EGI panel, catalog-driven fields, documents, verification documents, notes, status history — with footer actions Reject / Shortlist / **Approve & Sync** (this is the one place a plain admin can approve — see §8 for the noted inconsistency vs. the pending queue). Approve opens the shared `EgiNoteModal` to collect the required note before submitting.
 
 ### Superadmin pages (`role="superadmin"`)
 
 #### `SuperadminDashboard.jsx` — `/superadmin/dashboard`
-Landing page after superadmin login. An "Advisory Console Active" banner with a link to Manage Admins and a "Diagnostic Test" button (client-side only — just fires a toast, doesn't call any API). A 4-tile metrics grid (Active Staff Admins, Total Active Jobs, Global Applications, Logged Vetting Changes). A two-column "work grid": a live audit-log stream (last 8 entries from `auditLogs`) and an **EGI Sync Health** card — this card fetches real numbers from `egiService.getQueueStats()` on mount (queue counts by status, computed failure rate, a link to the full `/superadmin/egi-sync` page). See §7 — this card used to show hardcoded fake "ONLINE"/`0.00%` placeholder values before the EGI integration work.
-
-Note: this page also computes an `admins` list by reading a `3dees_local_db` key out of `localStorage` — this looks like leftover logic from before the app was migrated to the real backend (the real admin list is `useAuth().admins`, sourced from the API); this `localStorage`-derived list is what actually feeds the "Active Staff Admins" tile, so if that key is empty/absent the tile will read 0 regardless of the real admin count. See §8.
+Landing page after superadmin login. An "Advisory Console Active" banner with a link to Manage Admins and a "Diagnostic Test" button (client-side only — just fires a toast, doesn't call any API). A 4-tile metrics grid: Active Staff Admins (now correctly sourced from `useAuth().admins`, see §8 — this used to read a stale `3dees_local_db` localStorage key), Total Active Jobs, Global Applications (`useApplicationStats()`'s `total`), and Logged Vetting Changes (`total` from a direct one-off `auditService.getAuditLogsPage({ page: 1, pageSize: 8 })` call, which also supplies the feed below). A two-column "work grid": a live audit-log stream (last 8 entries from that same call) and an **EGI Sync Health** card — this card fetches real numbers from `egiService.getQueueStats()` on mount (queue counts by status, computed failure rate, a link to the full `/superadmin/egi-sync` page).
 
 #### `SuperadminPendingApplications.jsx` — `/superadmin/pending`
-The superadmin equivalent of the admin pending queue, styled as "override" tooling with a red "Override Mode Available" banner. Extra "Overdue (>7 days)" stat tile. Per-row actions: quick Shortlist, quick **Approve** (opens `EgiNoteModal` for the required note, then calls `reviewApplication`), and "Override File" (opens the shared `CandidateEditDrawer` with `isSuperadmin={true}`, exposing its Approve button too). Bulk bar adds "Bulk Approve & Sync" alongside Bulk Shortlist/Reject — bulk-approve specifically routes through the real `PATCH /api/admin/applications/bulk-status` endpoint (via `bulkReviewApplications`) rather than looping single-application calls, since the backend now requires one shared `egiNote` per bulk-approve call.
+The superadmin equivalent of the admin pending queue, styled as "override" tooling with a red "Override Mode Available" banner, server-paginated via `usePaginatedApplications({ status: 'Pending', ... })` (§3.6) with `TableLoadingRows`/`PaginationControls`. Extra "Overdue (>7 days)" stat tile — a known gap, since there's no backend aggregate for it, it's computed only from the current page's rows (see §8). Per-row actions: quick Shortlist, quick **Approve** (opens `EgiNoteModal` for the required note, then calls `reviewApplication` and `refetch()`s the page), and "Override File" (opens the shared `CandidateEditDrawer` with `isSuperadmin={true}`, exposing its Approve button too). Bulk bar adds "Bulk Approve & Sync" alongside Bulk Shortlist/Reject — bulk-approve specifically routes through the real `PATCH /api/admin/applications/bulk-status` endpoint (via `bulkReviewApplications`) rather than looping single-application calls, since the backend now requires one shared `egiNote` per bulk-approve call.
 
 #### `SuperadminViewAllApplications.jsx` — `/superadmin/applications`
-Superadmin's version of the full applications list (all statuses, all jobs). Own bespoke drawer (like `AdminApplications.jsx`, not the shared `CandidateEditDrawer`) with an EGI sync/decision panel, compliance-override warning banner, notes textarea, full status history, and footer actions Reject & Block / Force Shortlist / Approve & Portal Sync (Approve gated behind `EgiNoteModal`). CSV export (client-side) includes the EGI Sync + EGI Decision + EGI Decision Note columns.
+Superadmin's version of the full applications list (all statuses, all jobs), server-paginated (§3.6) with the same 60s auto-poll/manual-refresh pattern as `AdminApplications.jsx`. Own bespoke drawer chrome (compliance-override warning banner, footer actions Reject & Block / Force Shortlist / Approve & Portal Sync gated behind `EgiNoteModal`), but its body is now the shared **[ApplicationDetail](src/components/ApplicationDetail.jsx)** component (§3.8) — same EGI panel/fields/documents/notes/history as everywhere else. CSV export now calls `auditService`'s applications counterpart, `applicationService.exportCsv(filters)`, against the real backend endpoint via `downloadBlob()` rather than building a CSV client-side.
 
 #### `SuperadminAllVacancies.jsx` — `/superadmin/jobs`
-Read-mostly, cross-client view of every vacancy (vs. `AdminJobs.jsx` which is full CRUD). Filters: search, category, status. Summary tiles: Total Vacancies, Active Pipelines, Closed Slots, Total Openings. CSV export (Title, ClientOrg, Category, Type, Location, Openings, SalaryRange, Status, ClosingDate, PostedBy, TotalApplicants, Approved). "Audit & Override" opens a detail drawer with full job details, an applicant-pipeline summary (total/shortlisted/approved/rejected counts for that job), description/requirements text, and footer actions to Force Delete or Close/Reopen the vacancy. Does not support creating or editing job content (only status toggle + delete) — creation/editing of job content lives only on the Admin side (`AdminJobs.jsx`).
+Read-mostly, cross-client view of every vacancy (vs. `AdminJobs.jsx` which is full CRUD). Filters: search, category, status. Summary tiles: Total Vacancies, Active Pipelines, Closed Slots, Total Openings. CSV export (Title, ClientOrg, Category, Type, Location, Openings, SalaryRange, Status, ClosingDate, PostedBy, TotalApplicants, Approved). "Audit & Override" opens a detail drawer with full job details, a **[RequirementsSummary](src/components/RequirementsSummary.jsx)** (§3.7) showing the job's field-catalog requirements, an applicant-pipeline summary (total/shortlisted/approved/rejected counts now from `useJobStats()` rather than inline `.filter().length` calls), description/requirements text, and footer actions to Force Delete or Close/Reopen the vacancy. Does not support creating or editing job content (only status toggle + delete) — creation/editing of job content lives only on the Admin side (`AdminJobs.jsx`).
 
 #### `SuperadminManageAdmins.jsx` — `/superadmin/admins`
 Staff account management — the only page that touches `userService`/the `/api/admin/users` endpoints. Table of all admin accounts (name, email, created date, last login, Active/Suspended badge). "Register Vetting Officer" modal creates a new admin (name/email/initial password). Per-row: toggle suspension, reset password (modal, overwrite passcode directly — no email flow), delete (confirm modal).
 
 #### `SuperadminAuditTrail.jsx` — `/superadmin/audit`
-Read-only compliance log. Filters: search, actor (dynamically populated from distinct `changedBy` values in the loaded logs), status. Table of every status change ever recorded: timestamp, log ID, applicant + job, officer who made the change, and a "status shift" visual (`prevStatus → newStatus` badges). Data comes straight from `auditLogs` in context (`auditService.getAuditLogs()`), no local fetching.
+Read-only compliance log, now server-paginated via `usePaginatedAuditLogs` (§3.6) with `TableLoadingRows`/`PaginationControls` instead of reading a full `auditLogs` array out of context (that array no longer exists — see §3.3). Filters: search, actor, status (all sent as query params to `GET /api/admin/audit-logs`). Table of every matching status change: timestamp, log ID, applicant + job, officer who made the change, and a "status shift" visual (`prevStatus → newStatus` badges). A new "Export filtered CSV" button calls `auditService.exportCsv(filters)` against the real backend endpoint via `downloadBlob()`.
 
-#### `SuperadminEgiSync.jsx` — `/superadmin/egi-sync` *(new)*
+#### `SuperadminEgiSync.jsx` — `/superadmin/egi-sync`
 Ops screen for the EGI delivery outbox. Unlike every other page, this one fetches its own data directly (not through `PortalContext`) since it's a narrow ops concern. A 4-tile stat row (Pending/Queued/Synced/Failed counts from `egiService.getQueueStats()`). Filters: free-text application-ID search, status dropdown (defaults to `Failed`). Table columns: Reference, Applicant Email, Status badge, Attempts, Last Error (truncated with a title tooltip), Next Attempt At, and a **Retry** button (only rendered for `Failed` rows) that calls `egiService.retryQueueItem(id)` and then refetches both the stats and the item list.
 
 ---
 
 ## 6. Styling conventions
 
-There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync, new), `enm-` (EgiNoteModal, new).
+There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync), `enm-` (EgiNoteModal), `ad-` (ApplicationDetail, new — its section anchors are `#ad-section-<key>`).
 
 All brand colors/fonts are CSS custom properties defined once in [index.css](src/index.css):
 
@@ -252,7 +296,7 @@ The brand logo asset is `public/3dees_Logo.png` (used inline throughout the app 
 
 ## 7. The EGI integration
 
-3DEES places candidates with a partner organization, **EGI**, via an outbox-style async sync: when an application is Approved, the backend queues it for delivery to EGI's system in the background rather than syncing synchronously. This section covers the full frontend surface for that flow (added in this session).
+3DEES places candidates with a partner organization, **EGI**, via an outbox-style async sync: when an application is Approved, the backend queues it for delivery to EGI's system in the background rather than syncing synchronously. This section covers the full frontend surface for that flow.
 
 ### What changed on the backend, in one paragraph
 Approving an application now requires an admin-authored **note to EGI** (`egiNote`) sent alongside the approval — the backend rejects `Approved` transitions missing it with `400 MissingField`. Every application now also carries: `egi_sync_status` (`Pending → Queued → Synced`/`Failed`), and EGI's own verdict via `egi_decision` (`Pending → Accepted`/`Declined`) plus `egi_decision_note`, `egi_decision_by`, `egi_decision_at`, `egi_reference_id`. There's also a small queue/outbox API for inspecting and retrying failed deliveries — those `/api/egi/*` routes used by *EGI's own backend* (API-key/HMAC auth) are out of scope for this frontend; only the `/api/admin/egi/*` ops routes (JWT-authenticated, same as everything else) are used here.
@@ -264,8 +308,12 @@ Every place in the app where an admin can transition an application to `Approved
 - `SuperadminViewAllApplications.jsx`'s inline drawer Approve button
 - `SuperadminPendingApplications.jsx`'s per-row quick-Approve button
 - `SuperadminPendingApplications.jsx`'s **Bulk** Approve button (one shared note applies to the whole batch — this call was switched from looping individual status updates to calling the real `bulk-status` endpoint once)
+- The new **Resend to EGI** action inside `ApplicationDetail` (§3.8) — shown only when a superadmin views a `Declined` application (`getLockInfo().canResend`); calls `applicationService.resendToEgi(id, egiNote)` and increments `egiResendCount`
 
 By deliberate product decision (confirmed with the user), a pre-existing inconsistency was **left as-is** rather than "fixed" as a drive-by: a plain Admin can approve directly from `AdminApplications.jsx`, but cannot approve from the Pending Queue drawer (`isSuperadmin` gate). Both surfaces now require the EGI note; neither's access control was changed.
+
+### Edit locking
+Once an application reaches certain EGI states, `ApplicationDetail` locks it from further edits — see **[applicationLock.js](src/utils/applicationLock.js)** and §3.8 for the full state ladder (unlocked while Pending/Shortlisted, locked pending an EGI decision, superadmin-only unlocked-with-resend if declined, locked for non-superadmins once Rejected, permanently locked once Accepted).
 
 ### Status visibility
 **[EgiBadges.jsx](src/components/EgiBadges.jsx)** renders the sync/decision state consistently everywhere:
@@ -283,25 +331,26 @@ By deliberate product decision (confirmed with the user), a pre-existing inconsi
 | `Accepted` | green "Accepted by EGI" |
 | `Declined` | red "Declined by EGI" |
 
-These badges appear as extra table columns on `AdminApplications.jsx` and `SuperadminViewAllApplications.jsx` (deliberately **not** added to the two Pending-only queue tables, since every row there is trivially `Pending`/`Awaiting EGI` and the column would carry no information). Full detail — including the note sent, EGI's decline reason if declined, and who/when EGI decided — is shown in the drawer/detail views (`CandidateEditDrawer`'s Notes tab, and the bespoke drawers on the two full-applications pages).
+A third badge, **`EgiResendBadge`** (blue "Resent ×N", renders nothing if the count is 0), shows next to the decision badge wherever an application has been resent (see the Resend flow above). These badges appear as extra table columns on `AdminApplications.jsx` and `SuperadminViewAllApplications.jsx` (deliberately **not** added to the two Pending-only queue tables, since every row there is trivially `Pending`/`Awaiting EGI` and the column would carry no information). Full detail — including the note sent, EGI's decline reason if declined, and who/when EGI decided — is shown in the shared **[ApplicationDetail](src/components/ApplicationDetail.jsx)** view (§3.8) used by every drawer.
 
 ### CSV exports
-Both client-generated CSV reports (`AdminApplications.jsx`, `SuperadminViewAllApplications.jsx`) gained two trailing columns: `EGI Decision`, `EGI Decision Note` (quote-escaped, since decision notes are free text from EGI and may contain commas/quotes).
+CSV export on `AdminApplications.jsx`, `SuperadminViewAllApplications.jsx`, and `SuperadminAuditTrail.jsx` is no longer built client-side — each now calls its service's `exportCsv(filters)` against the real backend `/export` endpoint (`applicationService`/`auditService`) and pipes the resulting `Blob` through the shared **[downloadBlob.js](src/utils/downloadBlob.js)** util. This resolves the previous inconsistency where those backend endpoints existed but were never called (see former §8 note, now removed).
 
 ### Ops screen (superadmin-only)
-- **`SuperadminDashboard.jsx`**'s "Sync Health" tile now shows real numbers (previously hardcoded placeholder text) — queue counts by status, a computed failure rate, and a link into...
-- **`SuperadminEgiSync.jsx`** (`/superadmin/egi-sync`, new sidebar nav item) — the full Failed Deliveries table with per-row Retry, described in §5.
+- **`SuperadminDashboard.jsx`**'s "Sync Health" tile shows real numbers — queue counts by status, a computed failure rate, and a link into the full ops screen below.
+- **`SuperadminEgiSync.jsx`** (`/superadmin/egi-sync`) — the full Failed Deliveries table with per-row Retry, described in §5.
 
 ---
 
 ## 8. Known rough edges / tech debt (not fixed, worth knowing about)
 
 - **`AdminApplications.jsx` lets a plain admin Approve directly**, while the Pending Queue drawer restricts Approve to superadmins only. Confirmed intentional-to-leave by the project owner (see §7) rather than a bug to fix silently.
-- **`SuperadminDashboard.jsx`'s "Active Staff Admins" tile** reads from a `3dees_local_db` `localStorage` key rather than the real `useAuth().admins` list — looks like leftover logic from before this app was migrated from localStorage-only mock data to the real backend REST API. Likely reads 0 in a fresh browser profile.
-- **`applicationService.exportCsv` and `auditService.exportCsv`** call real backend export endpoints (`/api/admin/applications/export`, `/api/admin/audit-logs/export`) but are **never called anywhere** — every CSV export in the UI is instead generated client-side from already-loaded data, with a different (page-specific) column set than what those backend endpoints presumably return.
+- **`SuperadminPendingApplications.jsx`'s "Overdue (>7 days)" stat tile** has no backend aggregate to back it — it's computed only from whichever page of results happens to be currently loaded, not the true overdue count across all pages. Noted in the code as a known degradation of the move to server-side pagination (§3.6).
 - **The public `<Navbar>` component** in `Navbar.jsx` (full nav bar with mobile menu, scroll-shadow, logout button) is exported but not rendered by any route in this app — only its `LogoSVG` sub-export is used. Probably shared from/with the public marketing site's component library.
 - A handful of pre-existing ESLint findings remain unaddressed across a few pages (`Date.now()` called during render flagged by the newer `react-hooks/purity` rule, a couple of unused `currentUser`/`err` bindings, one missing-dependency warning) — none are new regressions, `npm run build` succeeds, and `npm run lint` is not wired into the build.
 - No automated tests exist in this project.
+
+Two items previously listed here are now resolved: `SuperadminDashboard.jsx`'s "Active Staff Admins" tile was switched from a stale `3dees_local_db` localStorage read to the real `useAuth().admins` list, and `applicationService.exportCsv`/`auditService.exportCsv` are now actually called by all three CSV export buttons (§7).
 
 ---
 
@@ -317,35 +366,56 @@ Both client-generated CSV reports (`AdminApplications.jsx`, `SuperadminViewAllAp
 ├── public/
 │   ├── 3dees_Logo.png                    # brand logo (non-square canvas)
 │   └── favicon.png                       # square-cropped logo for the browser tab
+├── docs/
+│   └── field-catalog-draft.md            # design doc for the ~90-field application catalog (new)
 └── src/
     ├── main.jsx                          # React root bootstrap
     ├── App.jsx                           # Route table + PortalProvider + ToastContainer
     ├── App.css
     ├── index.css                         # brand CSS variables, global body styles
     ├── context/
-    │   └── PortalContext.jsx             # global reducer + every server-mutating action
+    │   └── PortalContext.jsx             # reducer for currentUser/token/jobs/admins/toasts only
     ├── hooks/
     │   ├── useAuth.js
     │   ├── useJobs.js
-    │   ├── useApplications.js
-    │   └── useToast.js
+    │   ├── useApplications.js            # mutating actions only, no applications/auditLogs state
+    │   ├── useToast.js
+    │   ├── createPaginatedListHook.js    # generic paginated-list hook factory (new)
+    │   ├── usePaginatedApplications.js   # (new)
+    │   ├── usePaginatedAuditLogs.js      # (new)
+    │   ├── useApplicationStats.js        # (new)
+    │   ├── useJobStats.js                # (new)
+    │   └── useFieldCatalog.js            # (new)
     ├── services/
-    │   ├── apiClient.js                  # fetch wrapper, JWT + auto-refresh
+    │   ├── apiClient.js                  # fetch wrapper, JWT + auto-refresh, shared buildQueryString
     │   ├── authService.js
     │   ├── jobService.js
-    │   ├── applicationService.js
+    │   ├── applicationService.js         # paginated list, stats, verification docs, resendToEgi, exportCsv
     │   ├── userService.js
-    │   ├── auditService.js
+    │   ├── auditService.js               # paginated list, exportCsv
     │   ├── contactService.js
-    │   └── egiService.js                 # EGI outbox queue (new)
+    │   ├── egiService.js                 # EGI outbox queue
+    │   └── fieldCatalogService.js        # dynamic field catalog, session-cached (new)
+    ├── utils/                            # (new directory)
+    │   ├── applicationLock.js            # client-side mirror of backend edit-locking ladder
+    │   ├── downloadBlob.js               # generic blob → file download
+    │   ├── fileView.js                   # in-tab document viewer / download fallback
+    │   ├── fieldCatalogHelpers.js        # pure catalog grouping/derivation helpers
+    │   └── verificationDocTypes.js       # admin verification-document type list
     ├── components/
     │   ├── AdminLayout.jsx               # sidebar + header shell for authenticated routes
     │   ├── Navbar.jsx                    # LogoSVG (used) + public Navbar (unused)
     │   ├── ProtectedRoute.jsx
     │   ├── Toast.jsx
-    │   ├── CandidateEditDrawer.jsx       # shared candidate-file drawer
-    │   ├── EgiNoteModal.jsx              # required-note approve modal (new)
-    │   ├── EgiBadges.jsx                 # sync/decision badge components (new)
+    │   ├── CandidateEditDrawer.jsx       # drawer chrome only, body delegates to ApplicationDetail
+    │   ├── ApplicationDetail.jsx         # shared candidate-file content renderer (new)
+    │   ├── FieldRenderer.jsx             # one control per field-catalog type (new)
+    │   ├── RequirementsBuilder.jsx       # editable job requirements builder (new)
+    │   ├── RequirementsSummary.jsx       # read-only job requirements breakdown (new)
+    │   ├── PaginationControls.jsx        # shared pager UI (new)
+    │   ├── TableLoadingRows.jsx          # skeleton rows for paginated tables (new)
+    │   ├── EgiNoteModal.jsx              # required-note approve/resend modal
+    │   ├── EgiBadges.jsx                 # sync/decision/resend badge components
     │   └── styles/                       # one .css per component above
     └── pages/
         ├── AdminLogin.jsx                 # /
@@ -360,6 +430,6 @@ Both client-generated CSV reports (`AdminApplications.jsx`, `SuperadminViewAllAp
         ├── SuperadminAllVacancies.jsx     # /superadmin/jobs
         ├── SuperadminManageAdmins.jsx     # /superadmin/admins
         ├── SuperadminAuditTrail.jsx       # /superadmin/audit
-        ├── SuperadminEgiSync.jsx          # /superadmin/egi-sync (new)
+        ├── SuperadminEgiSync.jsx          # /superadmin/egi-sync
         └── styles/                        # one .css per page above
 ```
