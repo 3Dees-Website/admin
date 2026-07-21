@@ -129,6 +129,17 @@ export function AdminLayout({ children, role }) {
           </div>
 
           <div className="admin-header-right">
+            {/* Reload page */}
+            <button
+              type="button"
+              className="admin-reload-btn"
+              onClick={() => window.location.reload()}
+              aria-label="Reload page"
+              title="Reload"
+            >
+              <RefreshCw size={16} />
+            </button>
+
             {/* Notification Bell */}
             <div className="admin-notif-bell">
               <Bell size={16} />
