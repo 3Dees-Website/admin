@@ -62,6 +62,8 @@ VITE_API_BASE_URL=http://localhost:3000
 3. On successful verification the backend returns `{ accessToken, refreshToken, user }`. `commitSession()` (in `PortalContext`) persists all three to `localStorage` and loads the rest of the portal's data.
 4. The user is redirected to `/admin/dashboard` or `/superadmin/dashboard` depending on `user.role`.
 
+**Forgot / reset password** *(new)*: **[ForgotPassword.jsx](src/pages/ForgotPassword.jsx)** (`/forgot-password`) collects an email and calls `authService.requestPasswordReset` via the `forgotPassword()` context action; the backend is enumeration-safe (`POST /api/auth/forgot-password` always returns a generic success), so the page shows the same "check your inbox" confirmation regardless of whether the email exists — the one exception is a `429 TooManyRequests` from the rate limiter, which is shown as its own message instead. The emailed link points to `/reset-password?token=<rawToken>&id=<tokenRowId>`; **[ResetPassword.jsx](src/pages/ResetPassword.jsx)** reads both query params (via `useSearchParams`), shows an invalid-link state without calling the API if either is missing, live-validates the new password client-side against the same rule the backend enforces (8+ chars, upper, lower, digit, special character) plus a "passwords must match" check, and on submit calls `authService.resetPassword` via the `resetPassword()` context action (`POST /api/auth/reset-password`). Client-side validation is UX only — the server is the real gate. Both pages are public routes, unreachable behind `ProtectedRoute` (a user resetting a password has no session).
+
 Session tokens live in `localStorage` under fixed keys (see `TOKEN_STORAGE_KEYS` in [apiClient.js](src/services/apiClient.js)):
 `3dees_access_token`, `3dees_refresh_token`, `3dees_current_user`.
 
@@ -81,7 +83,7 @@ Four small hooks expose slices of this context so components don't need to know 
 
 | Hook | Exposes |
 |---|---|
-| [useAuth.js](src/hooks/useAuth.js) | `currentUser`, `token`, `login`, `commitSession`, `logout`, `admins`, `registerAdmin`, `toggleAdminSuspension`, `resetAdminPass`, `removeAdmin` |
+| [useAuth.js](src/hooks/useAuth.js) | `currentUser`, `token`, `login`, `forgotPassword`, `resetPassword`, `commitSession`, `logout`, `admins`, `registerAdmin`, `toggleAdminSuspension`, `resetAdminPass`, `removeAdmin` |
 | [useJobs.js](src/hooks/useJobs.js) | `jobs`, `postJob`, `editJob`, `removeJob` |
 | [useApplications.js](src/hooks/useApplications.js) | `applyToJob`, `reviewApplication`, `updateApplication`, `uploadVerificationDocument`, `deleteVerificationDocument`, `resendToEgi`, `bulkReviewApplications` — mutating actions only, no `applications`/`auditLogs` state (see §3.6) |
 | [useToast.js](src/hooks/useToast.js) | `toasts`, `addToast`, `removeToast` |
@@ -211,6 +213,8 @@ Full route table from [App.jsx](src/App.jsx):
 |---|---|---|---|
 | `/` | `AdminLogin` | Public | Redirects to the right dashboard immediately if already logged in |
 | `/admin/verify` | `OTPVerification` | Public (requires route state) | Bounces to `/` if landed on directly without a `pendingToken` |
+| `/forgot-password` | `ForgotPassword` | Public | Collects an email, always shows the same generic confirmation (enumeration-safe) |
+| `/reset-password` | `ResetPassword` | Public | Reads `token`/`id` query params from the emailed link; shows an invalid-link state if either is missing |
 | `/admin` (index) | → redirect | — | Redirects to `/admin/dashboard` |
 | `/admin/dashboard` | `AdminDashboard` | role: `admin` | |
 | `/admin/jobs` | `AdminJobs` | role: `admin` | |
@@ -234,7 +238,13 @@ There are two parallel worlds — `admin` and `superadmin` — that largely mirr
 Email + password form. Calls `authService.login` via the `login()` context action. On success, navigates to `/admin/verify` carrying `{ pendingToken, maskedEmail }`. Shows a spinner in the submit button while authenticating. Uses `LogoSVG` from `Navbar.jsx`.
 
 #### `OTPVerification.jsx` — `/admin/verify`
-Six individual digit inputs with auto-advance-on-type, backspace-across-box, arrow-key navigation, full paste support, and auto-submit once all six digits are filled. A 60-second countdown gates the "resend" affordance — there's no dedicated resend API, so "resend" actually just sends the user back to `/` to log in again (which triggers a fresh OTP email). On success, shows a checkmark success state and a short "Establishing secure session…" animation before redirecting (the redirect explicitly waits for `token`/`currentUser` to be present in context before firing, to avoid racing `ProtectedRoute`).
+Six individual digit inputs with auto-advance-on-type, backspace-across-box, arrow-key navigation, full paste support, and auto-submit once all six digits are filled. A 180-second (3-minute) countdown — matching the real backend OTP validity window — gates the "resend" affordance — there's no dedicated resend API, so "resend" actually just sends the user back to `/` to log in again (which triggers a fresh OTP email). On success, shows a checkmark success state and a short "Establishing secure session…" animation before redirecting (the redirect explicitly waits for `token`/`currentUser` to be present in context before firing, to avoid racing `ProtectedRoute`).
+
+#### `ForgotPassword.jsx` — `/forgot-password`
+Single email field + submit. Calls `authService.requestPasswordReset` via the `forgotPassword()` context action. Because the backend is enumeration-safe, the page shows the same generic "If that email is registered, a reset link has been sent" confirmation regardless of the actual result — the only distinguishable outcome is a `429 TooManyRequests` from the rate limiter, shown as its own inline error instead of the confirmation. Links back to `/`.
+
+#### `ResetPassword.jsx` — `/reset-password`
+Reached from the emailed reset link (`/reset-password?token=<rawToken>&id=<tokenRowId>`). Reads both query params via `useSearchParams`; if either is missing, shows an invalid-link state (with a link to `/forgot-password`) without ever calling the API. Otherwise: New Password + Confirm New Password fields (both with a show/hide toggle matching the login page's), a live checklist of the four password rules (8+ chars, uppercase, lowercase, digit, special character — validated against the same regex the backend enforces, client-side only as UX), and a "passwords do not match" message. Submit is disabled until both fields are non-empty, match, and pass the rule. Calls `authService.resetPassword` via the `resetPassword()` context action; on success shows a confirmation with a link to `/`, on failure shows the backend's message inline — an invalid/expired/already-used token (`401 InvalidToken`, collapsed into one generic message by the backend) also renders a "Request a new link" link back to `/forgot-password`.
 
 ### Admin pages (`role="admin"`)
 
@@ -277,7 +287,7 @@ Ops screen for the EGI delivery outbox. Unlike every other page, this one fetche
 
 ## 6. Styling conventions
 
-There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync), `enm-` (EgiNoteModal), `ad-` (ApplicationDetail, new — its section anchors are `#ad-section-<key>`).
+There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `fp-` (ForgotPassword, new), `rp-` (ResetPassword, new), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync), `enm-` (EgiNoteModal), `ad-` (ApplicationDetail, new — its section anchors are `#ad-section-<key>`).
 
 All brand colors/fonts are CSS custom properties defined once in [index.css](src/index.css):
 
@@ -420,6 +430,8 @@ Two items previously listed here are now resolved: `SuperadminDashboard.jsx`'s "
     └── pages/
         ├── AdminLogin.jsx                 # /
         ├── OTPVerification.jsx            # /admin/verify
+        ├── ForgotPassword.jsx             # /forgot-password (new)
+        ├── ResetPassword.jsx              # /reset-password (new)
         ├── AdminDashboard.jsx             # /admin/dashboard
         ├── AdminJobs.jsx                  # /admin/jobs
         ├── AdminPendingApplications.jsx   # /admin/pending
