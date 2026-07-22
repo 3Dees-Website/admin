@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -124,6 +124,11 @@ export function AdminLogin() {
                   <Eye className="al-eye-icon" />
                 )}
               </button>
+            </div>
+            <div className="al-forgot-row">
+              <Link to="/forgot-password" className="al-forgot-link">
+                Forgot password?
+              </Link>
             </div>
           </div>
 

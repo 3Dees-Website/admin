@@ -137,6 +137,47 @@ export function PortalProvider({ children }) {
   };
 
   /**
+   * Requests a password reset email. The backend is enumeration-safe, so
+   * every outcome except a rate limit returns the same generic confirmation.
+   */
+  const forgotPassword = async (email) => {
+    const genericMessage = 'If that email is registered, a reset link has been sent. Check your inbox.';
+    try {
+      const data = await authService.requestPasswordReset(email);
+      return { success: true, message: data?.message || genericMessage };
+    } catch (err) {
+      if (err?.error === 'TooManyRequests') {
+        return {
+          success: false,
+          error: 'TooManyRequests',
+          message: 'Too many attempts. Please wait a few minutes and try again.',
+        };
+      }
+      return { success: true, message: genericMessage };
+    }
+  };
+
+  /**
+   * Submits a new password alongside the reset token from the emailed link.
+   */
+  const resetPassword = async ({ id, token, newPassword }) => {
+    try {
+      const data = await authService.resetPassword({ id, token, newPassword });
+      return { success: true, message: data?.message || 'Your password has been reset.' };
+    } catch (err) {
+      const errorMap = {
+        InvalidToken: 'This reset link is invalid or has expired.',
+        TooManyRequests: 'Too many attempts. Please wait a few minutes and try again.',
+      };
+      const message =
+        err?.error === 'ValidationError'
+          ? err?.message || 'Password does not meet the required rules.'
+          : errorMap[err?.error] || 'Something went wrong. Please try again.';
+      return { success: false, error: err?.error, message };
+    }
+  };
+
+  /**
    * Step 2 — Called by OTPVerification after the backend confirms the OTP.
    * Persists the session and loads all portal data.
    */
@@ -396,6 +437,8 @@ export function PortalProvider({ children }) {
       value={{
         ...state,
         login,
+        forgotPassword,
+        resetPassword,
         commitSession,
         logout,
         addToast,

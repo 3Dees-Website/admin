@@ -43,4 +43,21 @@ export const authService = {
       // Intentionally silent: local session is cleared regardless
     }
   },
+
+  /**
+   * Requests a password reset email. Backend is enumeration-safe — always
+   * returns a generic success regardless of whether the email exists.
+   */
+  async requestPasswordReset(email) {
+    const { data } = await post('/api/auth/forgot-password', { email });
+    return data; // { message }
+  },
+
+  /**
+   * Submits a new password alongside the reset token from the emailed link.
+   */
+  async resetPassword({ id, token, newPassword }) {
+    const { data } = await post('/api/auth/reset-password', { id, token, newPassword });
+    return data; // { message }
+  },
 };

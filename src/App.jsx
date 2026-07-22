@@ -9,6 +9,8 @@ import './App.css';
 
 // Public pages
 import { AdminLogin } from './pages/AdminLogin';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 
 // Admin panel pages
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -47,6 +49,8 @@ export default function App() {
           {/* ── PUBLIC ── */}
           <Route path="/" element={<AdminLogin />} />
           <Route path="/admin/verify" element={<OTPVerification />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* ── ADMIN ── */}
           <Route
