@@ -4,10 +4,11 @@ import { useJobs } from '../hooks/useJobs';
 import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useAuth } from '../hooks/useAuth';
 import { applicationService } from '../services/applicationService';
+import { formatCount } from '../utils/formatCount';
 import { Briefcase, FileText, CheckCircle, Clock, Ban, PlusCircle, ArrowUpRight } from 'lucide-react';
 import './styles/AdminDashboard.css';
 
-const RECENT_FEED_SIZE = 10;
+const RECENT_FEED_SIZE = 20;
 
 export function AdminDashboard() {
   const { jobs } = useJobs();
@@ -87,7 +88,7 @@ export function AdminDashboard() {
             <span className="stat-label">Posted Positions</span>
             <Briefcase size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value">{stats.totalJobs}</p>
+          <p className="stat-value" title={String(stats.totalJobs)}>{formatCount(stats.totalJobs)}</p>
         </div>
 
         <div className="stat-card">
@@ -95,7 +96,7 @@ export function AdminDashboard() {
             <span className="stat-label">Applications</span>
             <FileText size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value">{stats.totalApps}</p>
+          <p className="stat-value" title={String(stats.totalApps)}>{formatCount(stats.totalApps)}</p>
         </div>
 
         <div className="stat-card">
@@ -103,7 +104,7 @@ export function AdminDashboard() {
             <span className="stat-label">Pending Audit</span>
             <Clock size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value">{stats.pending}</p>
+          <p className="stat-value" title={String(stats.pending)}>{formatCount(stats.pending)}</p>
         </div>
 
         <div className="stat-card">
@@ -111,7 +112,7 @@ export function AdminDashboard() {
             <span className="stat-label">Shortlisted</span>
             <Clock size={18} className="stat-icon stat-icon--indigo" />
           </div>
-          <p className="stat-value">{stats.shortlisted}</p>
+          <p className="stat-value" title={String(stats.shortlisted)}>{formatCount(stats.shortlisted)}</p>
         </div>
 
         <div className="stat-card">
@@ -119,7 +120,7 @@ export function AdminDashboard() {
             <span className="stat-label">Approved Placements</span>
             <CheckCircle size={18} className="stat-icon stat-icon--green" />
           </div>
-          <p className="stat-value">{stats.approved}</p>
+          <p className="stat-value" title={String(stats.approved)}>{formatCount(stats.approved)}</p>
         </div>
 
         <div className="stat-card">
@@ -127,7 +128,7 @@ export function AdminDashboard() {
             <span className="stat-label">Rejected Dossiers</span>
             <Ban size={18} className="stat-icon stat-icon--red" />
           </div>
-          <p className="stat-value">{stats.rejected}</p>
+          <p className="stat-value" title={String(stats.rejected)}>{formatCount(stats.rejected)}</p>
         </div>
       </div>
 

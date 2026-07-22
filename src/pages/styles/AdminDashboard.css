@@ -184,6 +184,8 @@
 
 .table-scroll {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 22rem;
   width: 100%;
 }
 
@@ -207,6 +209,10 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #9ca3af;
+  position: sticky;
+  top: 0;
+  background-color: #f3f4f6;
+  z-index: 1;
 }
 
 /* Table body */

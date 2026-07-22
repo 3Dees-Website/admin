@@ -9,12 +9,13 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useToast } from '../hooks/useToast';
-import { Briefcase, Users, FileLock2, History, ShieldAlert, Activity } from 'lucide-react';
+import { Briefcase, Users, FileLock2, CheckCircle, ShieldAlert, Activity } from 'lucide-react';
 import { egiService } from '../services/egiService';
 import { auditService } from '../services/auditService';
+import { formatCount } from '../utils/formatCount';
 import './styles/SuperadminDashboard.css';
 
-const RECENT_AUDITS_SIZE = 8;
+const RECENT_AUDITS_SIZE = 20;
 
 export function SuperadminDashboard() {
   const { jobs } = useJobs();
@@ -25,7 +26,6 @@ export function SuperadminDashboard() {
   const [egiStats, setEgiStats] = useState(null);
   const [egiStatsLoading, setEgiStatsLoading] = useState(true);
   const [recentAudits, setRecentAudits] = useState([]);
-  const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,10 +40,9 @@ export function SuperadminDashboard() {
   useEffect(() => {
     let cancelled = false;
     auditService.getAuditLogsPage({ page: 1, pageSize: RECENT_AUDITS_SIZE })
-      .then(({ items, total }) => {
+      .then(({ items }) => {
         if (cancelled) return;
         setRecentAudits(items);
-        setTotalAuditLogs(total);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -63,6 +62,9 @@ export function SuperadminDashboard() {
     const suspendedAdmins = admins.filter((u) => u.role === 'admin' && u.status === 'Suspended').length;
     return { totalAdmins, activeAdmins, suspendedAdmins };
   }, [admins]);
+
+  const globalTotal = globalStats?.total ?? 0;
+  const egiAccepted = globalStats?.byEgiDecision?.Accepted ?? 0;
 
   return (
     <div className="sd-wrapper" id="superadmin-dashboard-page">
@@ -100,7 +102,7 @@ export function SuperadminDashboard() {
             <Users className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{adminStats.activeAdmins}</p>
+            <p className="sd-metric-value" title={String(adminStats.activeAdmins)}>{formatCount(adminStats.activeAdmins)}</p>
             <span className="sd-metric-sub">{adminStats.suspendedAdmins} officers suspended</span>
           </div>
         </div>
@@ -111,7 +113,7 @@ export function SuperadminDashboard() {
             <Briefcase className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{jobs.length}</p>
+            <p className="sd-metric-value" title={String(jobs.length)}>{formatCount(jobs.length)}</p>
             <span className="sd-metric-sub">Across all client sectors</span>
           </div>
         </div>
@@ -122,19 +124,19 @@ export function SuperadminDashboard() {
             <FileLock2 className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{globalStats?.total ?? 0}</p>
+            <p className="sd-metric-value" title={String(globalTotal)}>{formatCount(globalTotal)}</p>
             <span className="sd-metric-sub">Synced to local environment</span>
           </div>
         </div>
 
         <div className="sd-metric-card">
           <div className="sd-metric-top">
-            <span className="sd-metric-label">Logged Vetting Changes</span>
-            <History className="sd-metric-icon sd-metric-icon-green" />
+            <span className="sd-metric-label">EGI Approved Applications</span>
+            <CheckCircle className="sd-metric-icon sd-metric-icon-green" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value">{totalAuditLogs}</p>
-            <span className="sd-metric-sub">Immutable audits index</span>
+            <p className="sd-metric-value" title={String(egiAccepted)}>{formatCount(egiAccepted)}</p>
+            <span className="sd-metric-sub">Accepted by EGI</span>
           </div>
         </div>
 
