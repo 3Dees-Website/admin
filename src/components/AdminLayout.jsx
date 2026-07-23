@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
   History, LogOut, Bell, Menu, X, ShieldAlert,
-  Inbox, RefreshCw
+  Inbox, RefreshCw, UserCircle
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import './styles/AdminLayout.css';
@@ -19,7 +19,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
     { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
-    
+    { name: 'Profile',        path: '/admin/profile',       icon: <UserCircle size={16} /> },
   ];
 
   const superAdminMenu = [
@@ -30,6 +30,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
     { name: 'Compliance Audits',  path: '/superadmin/audit',         icon: <History size={16} /> },
     { name: 'EGI Sync',         path: '/superadmin/egi-sync',      icon: <RefreshCw size={16} /> },
+    { name: 'Profile',          path: '/superadmin/profile',       icon: <UserCircle size={16} /> },
   ];
 
   const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
@@ -70,14 +71,17 @@ export function AdminLayout({ children, role }) {
 
         {/* Admin Designation Card */}
         {!sidebarCollapsed && (
-          <div className="sidebar-user-card">
+          <Link
+            to={role === 'superadmin' ? '/superadmin/profile' : '/admin/profile'}
+            className="sidebar-user-card"
+          >
             <span className="sidebar-user-session">Authorized Session</span>
             <span className="sidebar-user-name">{currentUser?.name}</span>
             <span className="sidebar-user-role">
               <ShieldAlert size={14} className="sidebar-shield-icon" />
               <span className="capitalize">{currentUser?.role} Clearance</span>
             </span>
-          </div>
+          </Link>
         )}
 
         {/* Sidebar Navigation */}
@@ -146,10 +150,13 @@ export function AdminLayout({ children, role }) {
               <span className="admin-notif-dot" />
             </div>
 
-            <div className="admin-header-user">
+            <Link
+              to={role === 'superadmin' ? '/superadmin/profile' : '/admin/profile'}
+              className="admin-header-user"
+            >
               <span className="admin-header-username">{currentUser?.name}</span>
               <span className="admin-header-role">{currentUser?.role} clearance</span>
-            </div>
+            </Link>
 
             {/* Mobile logout */}
             <button

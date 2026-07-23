@@ -17,6 +17,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminJobs } from './pages/AdminJobs';
 import { AdminApplications } from './pages/AdminApplications';
 import { AdminPendingApplications } from './pages/AdminPendingApplications';
+import { Profile } from './pages/Profile';
 
 // Superadmin panel pages
 import { SuperadminDashboard } from './pages/SuperadminDashboard';
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="jobs"         element={<AdminJobs />} />
             <Route path="pending"      element={<AdminPendingApplications />} />
             <Route path="applications" element={<AdminApplications />} />
+            <Route path="profile"      element={<Profile />} />
           </Route>
 
           {/* ── SUPERADMIN ── */}
@@ -93,6 +95,7 @@ export default function App() {
             <Route path="admins"       element={<SuperadminManageAdmins />} />
             <Route path="audit"        element={<SuperadminAuditTrail />} />
             <Route path="egi-sync"     element={<SuperadminEgiSync />} />
+            <Route path="profile"      element={<Profile />} />
           </Route>
 
           {/* ── CATCH ALL ── */}

@@ -12,6 +12,7 @@ export function useAuth() {
     login: context.login,
     forgotPassword: context.forgotPassword,
     resetPassword: context.resetPassword,
+    updateCurrentUser: context.updateCurrentUser,
     commitSession: context.commitSession,
     logout: context.logout,
     admins: context.admins,

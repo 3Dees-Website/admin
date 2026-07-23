@@ -21,6 +21,8 @@ function portalReducer(state, action) {
         currentUser: action.payload ? action.payload.user : null,
         token: action.payload ? action.payload.token : null,
       };
+    case 'UPDATE_CURRENT_USER':
+      return { ...state, currentUser: { ...state.currentUser, ...action.payload } };
     case 'SET_INITIAL_DATA':
       return {
         ...state,
@@ -188,6 +190,18 @@ export function PortalProvider({ children }) {
     dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
     addToast('success', 'Session Opened', `Welcome back, ${user.name}.`);
     await loadInitialData(user);
+  };
+
+  /**
+   * Merges a patch (e.g. a new name) into currentUser, both in React state
+   * and in the persisted localStorage copy — ProtectedRoute and the
+   * session-restore effect both read that copy directly, so a name change
+   * that only updated state would revert on the next page refresh.
+   */
+  const updateCurrentUser = (patch) => {
+    const updated = { ...state.currentUser, ...patch };
+    localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify(updated));
+    dispatch({ type: 'UPDATE_CURRENT_USER', payload: patch });
   };
 
   const logout = async () => {
@@ -439,6 +453,7 @@ export function PortalProvider({ children }) {
         login,
         forgotPassword,
         resetPassword,
+        updateCurrentUser,
         commitSession,
         logout,
         addToast,
