@@ -112,6 +112,11 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
+  async getDocumentUrl(id, key) {
+    const res = await apiClient.post(`/api/admin/applications/${id}/document-url`, { key });
+    return res.data.url;
+  },
+
   async exportCsv(filters = {}) {
     return apiClient.getBlob('/api/admin/applications/export', filters);
   },

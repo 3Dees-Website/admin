@@ -361,8 +361,25 @@
   border: 1px solid #a5b4fc;
 }
 
-.ad-doc-view-btn:hover {
+.ad-doc-view-btn:hover:not(:disabled) {
   background-color: #eef2ff;
+}
+
+.ad-doc-view-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ad-doc-view-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ad-doc-error {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: #dc2626;
 }
 
 .ad-doc-delete-btn {

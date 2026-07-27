@@ -358,6 +358,15 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const getDocumentUrl = async (appId, key) => {
+    try {
+      return await applicationService.getDocumentUrl(appId, key);
+    } catch (err) {
+      addToast('error', 'Could Not Open Document', err?.message || 'This document could not be located.');
+      return null;
+    }
+  };
+
   /**
    * Returns the backend's { success, failed } result (or null on failure) so
    * the calling page can decide how to refetch its current page/stats.
@@ -467,6 +476,7 @@ export function PortalProvider({ children }) {
         uploadVerificationDocument,
         deleteVerificationDocument,
         resendToEgi,
+        getDocumentUrl,
         bulkReviewApplications,
         registerAdmin,
         toggleAdminSuspension,

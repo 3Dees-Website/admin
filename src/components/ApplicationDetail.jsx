@@ -8,7 +8,6 @@ import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
 import { VERIFICATION_DOC_TYPES } from '../utils/verificationDocTypes';
-import { viewFile } from '../utils/fileView';
 import './styles/ApplicationDetail.css';
 
 const renderFieldValue = (field, value) => {
@@ -176,7 +175,7 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
           return (
             <section key={section.key} id="ad-section-documents" className="ad-section">
               <h3 className="ad-section-title">{section.title}</h3>
-              <DocumentsPanel fields={fields} documents={app.documents} />
+              <DocumentsPanel fields={fields} documents={app.documents} appId={app.id} />
             </section>
           );
         }
@@ -219,9 +218,9 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
                               <div key={sub.key} className="ad-field-row ad-field-row--sub">
                                 <span className="ad-field-label">{sub.label}</span>
                                 {doc ? (
-                                  <button type="button" className="ad-doc-view-btn" onClick={() => viewFile(doc)}>
-                                    <Eye size={12} /> {doc.name}
-                                  </button>
+                                  <ViewDocumentButton appId={app.id} docKey={doc.key} iconSize={12}>
+                                    {doc.name}
+                                  </ViewDocumentButton>
                                 ) : (
                                   <span className="ad-field-value">Not provided</span>
                                 )}
@@ -258,6 +257,7 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
       <section id="ad-section-verification" className="ad-section">
         <h3 className="ad-section-title">Verification Documents — Uploaded by 3DEES</h3>
         <VerificationDocumentsPanel
+          appId={app.id}
           verificationDocuments={app.verificationDocuments}
           locked={lockInfo.locked}
           onUpload={handleUploadVerificationDoc}
@@ -309,8 +309,45 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
   );
 }
 
+/* ── Shared "view document" button — fetches a fresh signed URL on click ── */
+function ViewDocumentButton({ appId, docKey, iconSize = 14, className = 'ad-doc-view-btn', children }) {
+  const { getDocumentUrl } = useApplications();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleClick = async () => {
+    // Open the tab synchronously, inside the click gesture, so browsers
+    // don't treat the later redirect (after the awaited fetch) as a blocked popup.
+    const tab = window.open('about:blank', '_blank');
+    setLoading(true);
+    setError('');
+    const url = await getDocumentUrl(appId, docKey);
+    setLoading(false);
+
+    if (!tab) {
+      setError('Pop-up blocked. Please allow pop-ups for this site.');
+      return;
+    }
+    if (url) {
+      tab.location.href = url;
+    } else {
+      tab.close();
+      setError('Could not open this document.');
+    }
+  };
+
+  return (
+    <span className="ad-doc-view-wrap">
+      <button type="button" className={className} onClick={handleClick} disabled={loading}>
+        <Eye size={iconSize} /> {loading ? 'Opening…' : children}
+      </button>
+      {error && <span className="ad-doc-error">{error}</span>}
+    </span>
+  );
+}
+
 /* ── Applicant documents (view-only) ────────────────────────────────────── */
-function DocumentsPanel({ fields, documents }) {
+function DocumentsPanel({ fields, documents, appId }) {
   const rows = fields.flatMap((field) => {
     const val = documents[field.key];
     if (!val) return [];
@@ -332,9 +369,7 @@ function DocumentsPanel({ fields, documents }) {
             <span className="ad-doc-card-label">{field.label}</span>
             <span className="ad-doc-card-name">{item.name}</span>
           </div>
-          <button type="button" onClick={() => viewFile(item)} className="ad-doc-view-btn">
-            <Eye size={14} /> View
-          </button>
+          <ViewDocumentButton appId={appId} docKey={item.key}>View</ViewDocumentButton>
         </div>
       ))}
     </div>
@@ -342,7 +377,7 @@ function DocumentsPanel({ fields, documents }) {
 }
 
 /* ── Verification documents (admin-uploaded, with upload/delete) ─────────── */
-function VerificationDocumentsPanel({ verificationDocuments, locked, onUpload, onDelete }) {
+function VerificationDocumentsPanel({ appId, verificationDocuments, locked, onUpload, onDelete }) {
   const [confirmingId, setConfirmingId] = useState(null);
   const [docType, setDocType] = useState(VERIFICATION_DOC_TYPES[0].value);
   const [label, setLabel] = useState('');
@@ -380,9 +415,7 @@ function VerificationDocumentsPanel({ verificationDocuments, locked, onUpload, o
                 </span>
               </div>
               <div className="ad-doc-card-actions">
-                <button type="button" onClick={() => viewFile(doc)} className="ad-doc-view-btn">
-                  <Eye size={14} /> View
-                </button>
+                <ViewDocumentButton appId={appId} docKey={doc.key}>View</ViewDocumentButton>
                 {!locked && (
                   confirmingId === doc.id ? (
                     <>

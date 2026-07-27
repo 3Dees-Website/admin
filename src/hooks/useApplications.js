@@ -13,6 +13,7 @@ export function useApplications() {
     uploadVerificationDocument: context.uploadVerificationDocument,
     deleteVerificationDocument: context.deleteVerificationDocument,
     resendToEgi: context.resendToEgi,
+    getDocumentUrl: context.getDocumentUrl,
     bulkReviewApplications: context.bulkReviewApplications,
   };
 }
