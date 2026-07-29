@@ -10,9 +10,11 @@ import { RequirementsBuilder } from './RequirementsBuilder';
 import { X, Check } from 'lucide-react';
 import './styles/JobFormModal.css';
 
+const DEFAULT_CLIENT_ORG = 'ECO Green Investments Limited';
+
 const DEFAULT_FIELDS = {
   title: '',
-  clientOrg: '',
+  clientOrg: DEFAULT_CLIENT_ORG,
   category: 'Agriculture',
   type: 'Full-time',
   location: '',
@@ -33,7 +35,7 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
     editingJob
       ? {
           title: editingJob.title,
-          clientOrg: editingJob.clientOrg,
+          clientOrg: editingJob.clientOrg || DEFAULT_CLIENT_ORG,
           category: editingJob.category,
           type: editingJob.type,
           location: editingJob.location,
