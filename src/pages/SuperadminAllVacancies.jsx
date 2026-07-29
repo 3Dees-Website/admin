@@ -9,11 +9,12 @@ import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { RequirementsSummary } from '../components/RequirementsSummary';
 import { JobFormModal } from '../components/JobFormModal';
+import { effectiveStatus } from '../utils/jobStatus';
 import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert, Plus } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
 
 const CATEGORIES = ['All', 'Agriculture', 'Construction', 'Administration', 'Logistics', 'Finance'];
-const STATUSES   = ['All', 'Active', 'Closed', 'Paused'];
+const STATUSES   = ['All', 'Active', 'Closed', 'Draft', 'Expired'];
 
 export function SuperadminAllVacancies() {
   const { jobs, removeJob, editJob } = useJobs();
@@ -37,8 +38,19 @@ export function SuperadminAllVacancies() {
   const filteredJobs = useMemo(() => {
     const q = searchTerm.toLowerCase();
     return jobs.filter((j) => {
-      const matchesCat    = selectedCat    === 'All' || j.category === selectedCat;
-      const matchesStatus = selectedStatus === 'All' || j.status   === selectedStatus;
+      const matchesCat = selectedCat === 'All' || j.category === selectedCat;
+      let matchesStatus;
+      if (selectedStatus === 'All') {
+        matchesStatus = true;
+      } else if (selectedStatus === 'Expired') {
+        matchesStatus = j.isExpired === true;
+      } else if (selectedStatus === 'Active') {
+        matchesStatus = j.status === 'Active' && !j.isExpired;
+      } else {
+        // Closed/Draft — status match regardless of expiry, so a Closed+expired
+        // job intentionally shows up under both the Closed and Expired filters.
+        matchesStatus = j.status === selectedStatus;
+      }
       const matchesSearch =
         j.title.toLowerCase().includes(q)       ||
         j.clientOrg.toLowerCase().includes(q)   ||
@@ -263,8 +275,8 @@ export function SuperadminAllVacancies() {
 
                   {/* Pipeline State */}
                   <td className="sav-td sav-td-center">
-                    <span className={`sav-status-badge sav-status-${(job.status || 'Active').toLowerCase()}`}>
-                      {job.status || 'Active'}
+                    <span className={`sav-status-badge sav-status-${effectiveStatus(job).toLowerCase()}`}>
+                      {effectiveStatus(job)}
                     </span>
                   </td>
 
@@ -373,8 +385,8 @@ export function SuperadminAllVacancies() {
                 </div>
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Pipeline State</span>
-                  <span className={`sav-status-badge sav-status-${(activeJob.status || 'Active').toLowerCase()}`}>
-                    {activeJob.status || 'Active'}
+                  <span className={`sav-status-badge sav-status-${effectiveStatus(activeJob).toLowerCase()}`}>
+                    {effectiveStatus(activeJob)}
                   </span>
                 </div>
               </div>

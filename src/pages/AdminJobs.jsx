@@ -10,6 +10,7 @@ import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { JobFormModal } from '../components/JobFormModal';
 import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, ShieldAlert } from 'lucide-react';
+import { effectiveStatus } from '../utils/jobStatus';
 import './styles/AdminJobs.css';
 
 export function AdminJobs() {
@@ -46,12 +47,6 @@ export function AdminJobs() {
       removeJob(confirmDeleteId);
       setConfirmDeleteId(null);
     }
-  };
-
-  const statusClasses = {
-    Active: 'aj-status-active',
-    Draft:  'aj-status-draft',
-    Closed: 'aj-status-closed'
   };
 
   return (
@@ -100,7 +95,7 @@ export function AdminJobs() {
                   <td className="aj-td aj-muted">{j.location}</td>
                   <td className="aj-td aj-td-center aj-app-count">{statsByJob[j.id]?.total || 0}</td>
                   <td className="aj-td aj-td-center">
-                    <span className={`aj-status-badge ${statusClasses[j.status]}`}>{j.status}</span>
+                    <span className={`aj-status-badge aj-status-${effectiveStatus(j).toLowerCase()}`}>{effectiveStatus(j)}</span>
                   </td>
                   <td className="aj-td aj-td-right">
                     <div className="aj-actions">
