@@ -83,9 +83,9 @@ Four small hooks expose slices of this context so components don't need to know 
 
 | Hook | Exposes |
 |---|---|
-| [useAuth.js](src/hooks/useAuth.js) | `currentUser`, `token`, `login`, `forgotPassword`, `resetPassword`, `commitSession`, `logout`, `admins`, `registerAdmin`, `toggleAdminSuspension`, `resetAdminPass`, `removeAdmin` |
+| [useAuth.js](src/hooks/useAuth.js) | `currentUser`, `token`, `login`, `forgotPassword`, `resetPassword`, `updateCurrentUser` *(new — patches `currentUser` locally after `Profile.jsx` saves a new name, no re-login needed)*, `commitSession`, `logout`, `admins`, `registerAdmin`, `toggleAdminSuspension`, `resetAdminPass`, `removeAdmin` |
 | [useJobs.js](src/hooks/useJobs.js) | `jobs`, `postJob`, `editJob`, `removeJob` |
-| [useApplications.js](src/hooks/useApplications.js) | `applyToJob`, `reviewApplication`, `updateApplication`, `uploadVerificationDocument`, `deleteVerificationDocument`, `resendToEgi`, `bulkReviewApplications` — mutating actions only, no `applications`/`auditLogs` state (see §3.6) |
+| [useApplications.js](src/hooks/useApplications.js) | `applyToJob`, `reviewApplication`, `updateApplication`, `uploadVerificationDocument`, `deleteVerificationDocument`, `resendToEgi`, `getDocumentUrl` *(new — signed document URL fetch, see §3.8)*, `bulkReviewApplications` — mutating actions only, no `applications`/`auditLogs` state (see §3.6) |
 | [useToast.js](src/hooks/useToast.js) | `toasts`, `addToast`, `removeToast` |
 
 The **EGI queue** (sync stats / failed deliveries / retry) is the one exception — it's fetched directly by the pages that need it via `egiService`, not routed through `PortalContext`, since it's ops-only data only one page consumes (see §7 EGI section).
@@ -105,6 +105,7 @@ Each service wraps one REST resource and normalizes the backend's `snake_case` J
 | [contactService.js](src/services/contactService.js) | `/api/contact` | Public contact form submit (raw `fetch`, unauthenticated) |
 | [egiService.js](src/services/egiService.js) | `/api/admin/egi/queue*` | EGI outbox queue stats/list/retry (added for the EGI integration) |
 | [fieldCatalogService.js](src/services/fieldCatalogService.js) | `/api/field-catalog` | Dynamic application-field catalog, cached as a shared promise for the session (see §3.7) |
+| [profileService.js](src/services/profileService.js) | `/api/auth/me*` | Self-service account management — `getMe`, `updateMyName`, `changeMyPassword` (see §3.9, new) |
 
 ### 3.5 Layout shell
 
@@ -133,6 +134,17 @@ All three "candidate file" surfaces in the app — the shared `CandidateEditDraw
 
 Applications are now also **edit-locked** once they reach certain EGI states, mirrored client-side (UI-only — the backend is the real enforcement) by **[applicationLock.js](src/utils/applicationLock.js)**'s `getLockInfo(app, currentUser)`: unlocked while `Pending`/`Shortlisted`; locked (info banner) once `Approved` and awaiting an EGI decision; locked for everyone except a superadmin (who also gets `canResend: true`) if EGI declined; locked for non-superadmins once `Rejected`; permanently locked once EGI accepts. `ApplicationDetail` renders the resulting banner, hides its Edit toolbar and verification-document upload when locked, and — for a superadmin viewing a declined application — shows a "Resend to EGI" button (`applicationService.resendToEgi`, gated behind the same required-note `EgiNoteModal` flow as Approve). `EgiBadges.jsx` gained a matching `EgiResendBadge` pill showing the resend count.
 
+Document viewing (applicant uploads and verification documents) goes through a signed-URL fetch rather than an in-memory blob: **`ViewDocumentButton`** (a private helper component inside `ApplicationDetail.jsx`, not its own file) opens a blank tab synchronously on click (so the browser's popup blocker doesn't treat the later redirect as unsolicited), then calls `getDocumentUrl(appId, docKey)` — exposed on `useApplications()`, backed by `applicationService.getDocumentUrl` (`POST /api/admin/applications/:id/document-url`) via `PortalContext` — and redirects the already-open tab to the returned signed URL once it resolves, or shows an inline "Could not open this document" error. This replaced the old **`fileView.js`** util (built an in-tab `<iframe>` document from a locally-held blob/base64 value), which has been deleted now that documents are fetched fresh from the backend per view instead of held client-side.
+
+### 3.9 `Profile` page *(new)*
+
+**[Profile.jsx](src/pages/Profile.jsx)** (`/admin/profile`, `/superadmin/profile` — same component mounted under both role trees) lets a logged-in admin or superadmin manage their own account, via **[profileService.js](src/services/profileService.js)** (`/api/auth/me*`, JWT-authenticated same as everything else):
+- **Account Details** card — read-only email, role, account-created date, and last-login date (`profileService.getMe`, `GET /api/auth/me`).
+- **Display Name** card — edits and saves the user's name (`profileService.updateMyName`, `PATCH /api/auth/me`); on success calls `updateCurrentUser()` (new `PortalContext`/`useAuth` action) so the sidebar/header greeting picks up the new name immediately without a re-login.
+- **Change Password** card — current password + new password + confirm, with the same live rule checklist as `ResetPassword.jsx` (8+ chars, upper, lower, digit, special character) and a match check; submits via `profileService.changeMyPassword` (`PATCH /api/auth/me/password`), mapping backend error codes (`IncorrectPassword`, `SamePassword`, `ValidationError`) to inline field errors rather than a generic toast.
+
+Both `AdminLayout.jsx` role-menus and its header/sidebar user chip link here.
+
 ---
 
 ## 4. Full file reference
@@ -146,6 +158,8 @@ Applications are now also **edit-locked** once they reach certain EGI states, mi
 | `eslint.config.js` | Flat ESLint config (hooks + refresh + browser globals). |
 | `.env` | Local-only backend URL config (gitignored). |
 | `package.json` | Scripts + dependencies (see §1/§2). |
+| `vercel.json` | SPA-fallback rewrite (`/(.*)` → `/index.html`) for Vercel deploys — without it, a hard-refresh on a client-side route like `/admin/dashboard` 404s at the host instead of loading the React app and letting `react-router-dom` resolve it. |
+| `public/_redirects` *(new)* | Same SPA-fallback rule (`/* /index.html 200`) in Netlify's `_redirects` syntax, for hosts that don't read `vercel.json`. |
 
 ### 4.2 `src/` entry points
 
@@ -169,7 +183,7 @@ Applications are now also **edit-locked** once they reach certain EGI states, mi
 
 ### 4.4 `src/services/`
 
-Covered in §3.4. `fieldCatalogService.js` is new — see §3.7.
+Covered in §3.4. `fieldCatalogService.js` (§3.7) and `profileService.js` (§3.9) are new.
 
 ### 4.5 `src/utils/` *(new)*
 
@@ -177,9 +191,11 @@ Covered in §3.4. `fieldCatalogService.js` is new — see §3.7.
 |---|---|
 | [applicationLock.js](src/utils/applicationLock.js) | `getLockInfo(app, currentUser)` — client-side mirror of the backend's edit-locking ladder (banner copy, `locked`/`canResend` flags); `mapLockError(err)` translates backend lock-error codes for the rare race-condition case. See §3.8. |
 | [downloadBlob.js](src/utils/downloadBlob.js) | `downloadBlob(blob, filename)` — generic blob→file-download via a temporary `<a download>` anchor. Used by the three pages with a real backend CSV export (see §7). |
-| [fileView.js](src/utils/fileView.js) | `viewFile(doc)` — opens viewable types (PDF/JPG/PNG/WebP/GIF) in a new tab via an in-memory `<iframe>` document; falls back to `triggerDownload()` for other types. Used throughout `ApplicationDetail.jsx`. |
 | [fieldCatalogHelpers.js](src/utils/fieldCatalogHelpers.js) | Pure grouping/derivation helpers over the field catalog (`groupFieldsBySection`, `getConditionalSubfieldKeys`, `getExperienceParentKeys`, `getSubfieldsForParent`). See §3.7. |
 | [verificationDocTypes.js](src/utils/verificationDocTypes.js) | `VERIFICATION_DOC_TYPES` — the admin-only verification-document type list, must match the backend's `verificationDocuments.controller.js` labels exactly. |
+| [formatCount.js](src/utils/formatCount.js) | `formatCount(n)` — compacts large stat numbers for dashboard tiles (`1234` → `"1.2k"`, `2_000_000` → `"2M"`); used by `AdminDashboard`, `SuperadminDashboard`, and `OTPVerification`. |
+
+`fileView.js` (the old blob/`<iframe>`-based document viewer) was **removed** — documents are now fetched fresh from the backend as a signed URL per view instead of held client-side; see `ViewDocumentButton` in §3.8.
 
 ### 4.6 `src/components/` (shared, cross-page)
 
@@ -190,7 +206,7 @@ Covered in §3.4. `fieldCatalogService.js` is new — see §3.7.
 | [ProtectedRoute.jsx](src/components/ProtectedRoute.jsx) | Route guard — see §3.2. |
 | [Toast.jsx](src/components/Toast.jsx) + `styles/Toast.css` | `ToastContainer` (reads `useToast()`, renders an `AnimatePresence` stack) + `ToastItem` (auto-dismisses after 4s). Toast types: `success`, `error`, `info`. |
 | [CandidateEditDrawer.jsx](src/components/CandidateEditDrawer.jsx) + `styles/CandidateEditDrawer.css` | Now just the drawer **chrome** (overlay, header with name/job/ref + superadmin "Override Mode" banner, footer with Reject/Shortlist/Approve — Approve gated behind `isSuperadmin`) around a `<ApplicationDetail>` body. Used by both pending-queue pages. See §3.8. |
-| [ApplicationDetail.jsx](src/components/ApplicationDetail.jsx) + `styles/ApplicationDetail.css` *(new)* | The single shared "candidate file" content renderer — EGI panel (sync/decision/resend badges, resend button), catalog-driven field sections (view or edit via `FieldRenderer`), documents panel, verification-documents panel, notes textarea, status history. Used by `CandidateEditDrawer` and directly embedded in `AdminApplications.jsx`'s and `SuperadminViewAllApplications.jsx`'s own bespoke drawers. See §3.8. |
+| [ApplicationDetail.jsx](src/components/ApplicationDetail.jsx) + `styles/ApplicationDetail.css` *(new)* | The single shared "candidate file" content renderer — EGI panel (sync/decision/resend badges, resend button), catalog-driven field sections (view or edit via `FieldRenderer`), documents panel, verification-documents panel, notes textarea, status history. Also defines the private `ViewDocumentButton` helper component (signed-URL document viewing, see §3.8) — not exported, not its own file. Used by `CandidateEditDrawer` and directly embedded in `AdminApplications.jsx`'s and `SuperadminViewAllApplications.jsx`'s own bespoke drawers. See §3.8. |
 | [FieldRenderer.jsx](src/components/FieldRenderer.jsx) + `styles/FieldRenderer.css` *(new)* | One editable control per field-catalog type (text/textarea/select incl. dependent LGA dropdown/yesno/declaration/date/number/year/email/tel). Used by `RequirementsBuilder` and `ApplicationDetail`. See §3.7. |
 | [RequirementsBuilder.jsx](src/components/RequirementsBuilder.jsx) + `styles/RequirementsBuilder.css` *(new)* | Editable per-section, tri-state (off/optional/required) requirements builder used in `AdminJobs.jsx`'s job form, replacing the old fixed checkbox grid. See §3.7. |
 | [RequirementsSummary.jsx](src/components/RequirementsSummary.jsx) + `styles/RequirementsSummary.css` *(new)* | Read-only requirements breakdown shown in `SuperadminAllVacancies.jsx`'s job detail drawer. See §3.7. |
@@ -220,6 +236,7 @@ Full route table from [App.jsx](src/App.jsx):
 | `/admin/jobs` | `AdminJobs` | role: `admin` | |
 | `/admin/pending` | `AdminPendingApplications` | role: `admin` | |
 | `/admin/applications` | `AdminApplications` | role: `admin` | |
+| `/admin/profile` | `Profile` | role: `admin` | Same component as `/superadmin/profile`, new |
 | `/superadmin` (index) | → redirect | — | Redirects to `/superadmin/dashboard` |
 | `/superadmin/dashboard` | `SuperadminDashboard` | role: `superadmin` | |
 | `/superadmin/pending` | `SuperadminPendingApplications` | role: `superadmin` | |
@@ -228,6 +245,7 @@ Full route table from [App.jsx](src/App.jsx):
 | `/superadmin/admins` | `SuperadminManageAdmins` | role: `superadmin` | |
 | `/superadmin/audit` | `SuperadminAuditTrail` | role: `superadmin` | |
 | `/superadmin/egi-sync` | `SuperadminEgiSync` | role: `superadmin` | EGI outbox ops screen |
+| `/superadmin/profile` | `Profile` | role: `superadmin` | Same component as `/admin/profile`, new |
 | `*` | → redirect | — | Anything unmatched goes to `/` |
 
 There are two parallel worlds — `admin` and `superadmin` — that largely mirror the same underlying data (jobs, applications) with different levels of authority. Superadmin pages generally style themselves as "override"/"executive" tooling (warning banners about bypassing normal workflow, audit logging emphasis) and can Approve applications directly; plain Admins mostly Shortlist/Reject and hand off approval to a Superadmin (see the one inconsistency noted in §8).
@@ -245,6 +263,9 @@ Single email field + submit. Calls `authService.requestPasswordReset` via the `f
 
 #### `ResetPassword.jsx` — `/reset-password`
 Reached from the emailed reset link (`/reset-password?token=<rawToken>&id=<tokenRowId>`). Reads both query params via `useSearchParams`; if either is missing, shows an invalid-link state (with a link to `/forgot-password`) without ever calling the API. Otherwise: New Password + Confirm New Password fields (both with a show/hide toggle matching the login page's), a live checklist of the four password rules (8+ chars, uppercase, lowercase, digit, special character — validated against the same regex the backend enforces, client-side only as UX), and a "passwords do not match" message. Submit is disabled until both fields are non-empty, match, and pass the rule. Calls `authService.resetPassword` via the `resetPassword()` context action; on success shows a confirmation with a link to `/`, on failure shows the backend's message inline — an invalid/expired/already-used token (`401 InvalidToken`, collapsed into one generic message by the backend) also renders a "Request a new link" link back to `/forgot-password`.
+
+### `Profile.jsx` — `/admin/profile` & `/superadmin/profile` *(new)*
+One component mounted under both role trees (identical for admins and superadmins — it manages the logged-in user's own account, not anyone else's). See §3.9 for the full breakdown: read-only account details, an editable display name (propagates into the sidebar/header via `updateCurrentUser()`), and a change-password form with a live rule checklist. Linked from both `AdminLayout` role-menus and the header/sidebar user chip.
 
 ### Admin pages (`role="admin"`)
 
@@ -287,7 +308,7 @@ Ops screen for the EGI delivery outbox. Unlike every other page, this one fetche
 
 ## 6. Styling conventions
 
-There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `fp-` (ForgotPassword, new), `rp-` (ResetPassword, new), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync), `enm-` (EgiNoteModal), `ad-` (ApplicationDetail, new — its section anchors are `#ad-section-<key>`).
+There is no global component library or design system — instead, **each page/component owns one CSS file with all its classes under a short, unique prefix**, so there's never any class-name collision across files even though everything is plain global CSS (no CSS Modules, no scoping). Examples: `aa-` (AdminApplications), `apa-` (AdminPendingApplications), `aj-` (AdminJobs), `al-` (AdminLogin), `otp-` (OTPVerification), `fp-` (ForgotPassword, new), `rp-` (ResetPassword, new), `spa-` (SuperadminPendingApplications), `sva-` (SuperadminViewAllApplications), `sav-` (SuperadminAllVacancies), `sma-` (SuperadminManageAdmins), `sat-` (SuperadminAuditTrail), `sd-` (SuperadminDashboard), `ced-` (CandidateEditDrawer), `ses-` (SuperadminEgiSync), `enm-` (EgiNoteModal), `ad-` (ApplicationDetail, new — its section anchors are `#ad-section-<key>`), `pf-` (Profile, new).
 
 All brand colors/fonts are CSS custom properties defined once in [index.css](src/index.css):
 
@@ -371,9 +392,11 @@ Two items previously listed here are now resolved: `SuperadminDashboard.jsx`'s "
 ├── index.html                          # Vite HTML entry — favicon + <title>
 ├── vite.config.js
 ├── eslint.config.js
+├── vercel.json                          # SPA-fallback rewrite for Vercel
 ├── .env                                 # VITE_API_BASE_URL (gitignored)
 ├── package.json
 ├── public/
+│   ├── _redirects                        # SPA-fallback rewrite for Netlify-style hosts (new)
 │   ├── 3dees_Logo.png                    # brand logo (non-square canvas)
 │   └── favicon.png                       # square-cropped logo for the browser tab
 ├── docs/
@@ -405,13 +428,14 @@ Two items previously listed here are now resolved: `SuperadminDashboard.jsx`'s "
     │   ├── auditService.js               # paginated list, exportCsv
     │   ├── contactService.js
     │   ├── egiService.js                 # EGI outbox queue
-    │   └── fieldCatalogService.js        # dynamic field catalog, session-cached (new)
+    │   ├── fieldCatalogService.js        # dynamic field catalog, session-cached (new)
+    │   └── profileService.js             # self-service getMe/updateMyName/changeMyPassword (new)
     ├── utils/                            # (new directory)
     │   ├── applicationLock.js            # client-side mirror of backend edit-locking ladder
     │   ├── downloadBlob.js               # generic blob → file download
-    │   ├── fileView.js                   # in-tab document viewer / download fallback
     │   ├── fieldCatalogHelpers.js        # pure catalog grouping/derivation helpers
-    │   └── verificationDocTypes.js       # admin verification-document type list
+    │   ├── verificationDocTypes.js       # admin verification-document type list
+    │   └── formatCount.js                # compact number formatting for stat tiles (new)
     ├── components/
     │   ├── AdminLayout.jsx               # sidebar + header shell for authenticated routes
     │   ├── Navbar.jsx                    # LogoSVG (used) + public Navbar (unused)
@@ -443,5 +467,6 @@ Two items previously listed here are now resolved: `SuperadminDashboard.jsx`'s "
         ├── SuperadminManageAdmins.jsx     # /superadmin/admins
         ├── SuperadminAuditTrail.jsx       # /superadmin/audit
         ├── SuperadminEgiSync.jsx          # /superadmin/egi-sync
+        ├── Profile.jsx                    # /admin/profile & /superadmin/profile (new)
         └── styles/                        # one .css per page above
 ```
