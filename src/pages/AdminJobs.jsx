@@ -8,27 +8,12 @@ import { useSearchParams } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
-import { RequirementsBuilder } from '../components/RequirementsBuilder';
-import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, X, ShieldAlert, Check } from 'lucide-react';
+import { JobFormModal } from '../components/JobFormModal';
+import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, ShieldAlert } from 'lucide-react';
 import './styles/AdminJobs.css';
 
-const DEFAULT_FIELDS = {
-  title: '',
-  clientOrg: '',
-  category: 'Agriculture',
-  type: 'Full-time',
-  location: '',
-  openings: 1,
-  salaryRange: '',
-  description: '',
-  responsibilities: '',
-  requirements: '',
-  closingDate: '',
-  status: 'Active'
-};
-
 export function AdminJobs() {
-  const { jobs, postJob, editJob, removeJob } = useJobs();
+  const { jobs, editJob, removeJob } = useJobs();
   const { statsByJob } = useJobStats();
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,60 +21,18 @@ export function AdminJobs() {
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
-  const [formFields, setFormFields] = useState({ ...DEFAULT_FIELDS });
-  const [requirementsBuilder, setRequirementsBuilder] = useState({});
 
   useEffect(() => {
     if (searchParams.get('create') === 'open') {
       setEditingJob(null);
-      setFormFields({ ...DEFAULT_FIELDS });
-      setRequirementsBuilder({});
       setModalOpen(true);
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
 
-  const resetForm = () => {
-    setFormFields({ ...DEFAULT_FIELDS });
-    setRequirementsBuilder({});
-  };
-
   const handleOpenEdit = (job) => {
     setEditingJob(job);
-    setFormFields({
-      title: job.title,
-      clientOrg: job.clientOrg,
-      category: job.category,
-      type: job.type,
-      location: job.location,
-      openings: job.openings,
-      salaryRange: job.salaryRange || '',
-      description: job.description,
-      responsibilities: job.responsibilities,
-      requirements: job.requirements,
-      closingDate: job.closingDate,
-      status: job.status
-    });
-    setRequirementsBuilder({ ...(job.applicationRequirements || {}) });
     setModalOpen(true);
-  };
-
-  const handleSubmitJob = (e) => {
-    e.preventDefault();
-    if (!formFields.title.trim() || !formFields.clientOrg.trim() || !formFields.location.trim() || !formFields.closingDate) {
-      addToast('error', 'Incomplete Fields', 'Please fill out all mandatory starred parameters.');
-      return;
-    }
-
-    if (editingJob) {
-      editJob({ ...editingJob, ...formFields, applicationRequirements: requirementsBuilder });
-      addToast('success', 'Vacancy Updates Recorded', 'Changes saved successfully.');
-    } else {
-      postJob({ ...formFields, applicationRequirements: requirementsBuilder });
-    }
-
-    setModalOpen(false);
-    resetForm();
   };
 
   const handleToggleStatus = (job) => {
@@ -121,7 +64,7 @@ export function AdminJobs() {
           <p className="aj-subtitle">Configure vacancy details and specify mandatory documents for candidates.</p>
         </div>
         <button
-          onClick={() => { setEditingJob(null); resetForm(); setModalOpen(true); }}
+          onClick={() => { setEditingJob(null); setModalOpen(true); }}
           className="aj-create-btn"
           id="btn-create-vacancy"
         >
@@ -191,164 +134,10 @@ export function AdminJobs() {
 
       {/* Create / Edit Modal */}
       {modalOpen && (
-        <div className="aj-overlay">
-          <div className="aj-modal">
-
-            {/* Modal Header */}
-            <div className="aj-modal-header">
-              <div>
-                <h2 className="aj-modal-title">
-                  {editingJob ? `Modify Vacancy: ${editingJob.title}` : 'Post A New Job Vacancy'}
-                </h2>
-                <p className="aj-modal-subtitle">Inputs configuration fields define public listings parameters.</p>
-              </div>
-              <button onClick={() => setModalOpen(false)} className="aj-modal-close" aria-label="Close form">
-                <X className="aj-close-icon" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmitJob} className="aj-form">
-
-              {/* Row 1: Basic Info */}
-              <div className="aj-fields-grid">
-                <div className="aj-field aj-field-wide">
-                  <label className="aj-label">Job Title <span className="aj-required">*</span></label>
-                  <input type="text" required placeholder="e.g. Agronomist Field Officer"
-                    value={formFields.title}
-                    onChange={(e) => setFormFields({ ...formFields, title: e.target.value })}
-                    className="aj-input" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Client Organisation <span className="aj-required">*</span></label>
-                  <input type="text" required placeholder="e.g. Ogun Premium Holdings"
-                    value={formFields.clientOrg}
-                    onChange={(e) => setFormFields({ ...formFields, clientOrg: e.target.value })}
-                    className="aj-input" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Category</label>
-                  <select value={formFields.category}
-                    onChange={(e) => setFormFields({ ...formFields, category: e.target.value })}
-                    className="aj-select">
-                    <option value="Agriculture">Agriculture Sector</option>
-                    <option value="Construction">Construction Sector</option>
-                    <option value="Administration">Corporate Administration</option>
-                    <option value="Logistics">Logistics & Supply lines</option>
-                    <option value="Finance">Finance & Banking</option>
-                    <option value="ICT">Information Technology (ICT)</option>
-                  </select>
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Employment Type</label>
-                  <select value={formFields.type}
-                    onChange={(e) => setFormFields({ ...formFields, type: e.target.value })}
-                    className="aj-select">
-                    <option value="Full-time">Full-time Operations</option>
-                    <option value="Part-time">Part-time Operations</option>
-                    <option value="Contract">Sponsor Contractual (Gig)</option>
-                    <option value="Temporary">Temporary Support Placement</option>
-                  </select>
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Location (State + LGA) <span className="aj-required">*</span></label>
-                  <input type="text" required placeholder="e.g. Ogun (Abeokuta North)"
-                    value={formFields.location}
-                    onChange={(e) => setFormFields({ ...formFields, location: e.target.value })}
-                    className="aj-input" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Capacity Slot Openings</label>
-                  <input type="number" required min={1}
-                    value={formFields.openings}
-                    onChange={(e) => setFormFields({ ...formFields, openings: parseInt(e.target.value) || 1 })}
-                    className="aj-input" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Salary Range (Optional)</label>
-                  <input type="text" placeholder="e.g. ₦300k - ₦400k / Month"
-                    value={formFields.salaryRange}
-                    onChange={(e) => setFormFields({ ...formFields, salaryRange: e.target.value })}
-                    className="aj-input" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Closing Date <span className="aj-required">*</span></label>
-                  <input type="date" required
-                    value={formFields.closingDate}
-                    onChange={(e) => setFormFields({ ...formFields, closingDate: e.target.value })}
-                    className="aj-input" />
-                </div>
-              </div>
-
-              {/* Row 2: Textareas */}
-              <div className="aj-textareas-grid">
-                <div className="aj-field">
-                  <label className="aj-label">Job Description <span className="aj-required">*</span></label>
-                  <textarea rows={4} placeholder="Provide overview details and role focus summaries..."
-                    value={formFields.description}
-                    onChange={(e) => setFormFields({ ...formFields, description: e.target.value })}
-                    className="aj-textarea" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Responsibilities (One per line) <span className="aj-required">*</span></label>
-                  <textarea rows={4} placeholder="Oversee field logistics&#10;Monitor fertilizer inventories"
-                    value={formFields.responsibilities}
-                    onChange={(e) => setFormFields({ ...formFields, responsibilities: e.target.value })}
-                    className="aj-textarea" />
-                </div>
-
-                <div className="aj-field">
-                  <label className="aj-label">Requirements (One per line) <span className="aj-required">*</span></label>
-                  <textarea rows={4} placeholder="B.Sc in Crop Science&#10;3+ years experience"
-                    value={formFields.requirements}
-                    onChange={(e) => setFormFields({ ...formFields, requirements: e.target.value })}
-                    className="aj-textarea" />
-                </div>
-              </div>
-
-              {/* Requirements Builder */}
-              <div className="aj-req-builder">
-                <h3 className="aj-req-builder-title">Dynamic Application Requirements Builder</h3>
-                <p className="aj-req-builder-desc">
-                  Mark each field Off, Optional, or Required for this vacancy. Fields left Off are completely hidden from the applicant intake form.
-                </p>
-                <RequirementsBuilder value={requirementsBuilder} onChange={setRequirementsBuilder} />
-              </div>
-
-              {/* Footer: Status + Buttons */}
-              <div className="aj-form-footer">
-                <div className="aj-status-row">
-                  <label className="aj-label">Save Vacancy State</label>
-                  <select value={formFields.status}
-                    onChange={(e) => setFormFields({ ...formFields, status: e.target.value })}
-                    className="aj-select aj-status-select">
-                    <option value="Active">Publish Now (Active)</option>
-                    <option value="Draft">Draft Mode (Hidden)</option>
-                    <option value="Closed">Archive (Closed)</option>
-                  </select>
-                </div>
-
-                <div className="aj-form-actions">
-                  <button type="button" onClick={() => setModalOpen(false)} className="aj-cancel-btn">
-                    Cancel
-                  </button>
-                  <button type="submit" className="aj-submit-btn">
-                    <Check className="aj-check-icon" />
-                    <span>{editingJob ? 'Save Vacancy Changes' : 'Publish Open Position'}</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        <JobFormModal
+          editingJob={editingJob}
+          onClose={() => setModalOpen(false)}
+        />
       )}
 
       {/* Delete Confirm Modal */}

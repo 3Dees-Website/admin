@@ -8,7 +8,8 @@ import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { RequirementsSummary } from '../components/RequirementsSummary';
-import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert } from 'lucide-react';
+import { JobFormModal } from '../components/JobFormModal';
+import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert, Plus } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
 
 const CATEGORIES = ['All', 'Agriculture', 'Construction', 'Administration', 'Logistics', 'Finance'];
@@ -24,6 +25,7 @@ export function SuperadminAllVacancies() {
   const [selectedStatus,  setSelectedStatus]  = useState('All');
   const [activeJob,       setActiveJob]       = useState(null);
   const [confirmDelete,   setConfirmDelete]   = useState(null);
+  const [modalOpen,       setModalOpen]       = useState(false);
 
   /* ── Derived counts ── */
   const appCountFor = (jobId) => statsByJob[jobId]?.total || 0;
@@ -132,9 +134,15 @@ export function SuperadminAllVacancies() {
             Universal overview of all active, paused, and closed client recruitment pipelines across Nigeria.
           </p>
         </div>
-        <button onClick={handleExport} className="sav-export-btn">
-          Export Vacancies Report
-        </button>
+        <div className="sav-header-actions">
+          <button onClick={() => { setActiveJob(null); setModalOpen(true); }} className="sav-create-btn">
+            <Plus className="sav-create-icon" />
+            Create Vacancy
+          </button>
+          <button onClick={handleExport} className="sav-export-btn">
+            Export Vacancies Report
+          </button>
+        </div>
       </div>
 
       {/* ── Summary Metrics ── */}
@@ -434,6 +442,12 @@ export function SuperadminAllVacancies() {
               </span>
               <div className="sav-footer-btns">
                 <button
+                  onClick={() => setModalOpen(true)}
+                  className="sav-btn-edit"
+                >
+                  Edit Vacancy
+                </button>
+                <button
                   onClick={() => setConfirmDelete(activeJob)}
                   className="sav-btn-delete"
                 >
@@ -450,6 +464,15 @@ export function SuperadminAllVacancies() {
 
           </div>
         </div>
+      )}
+
+      {/* ── Create / Edit Modal ── */}
+      {modalOpen && (
+        <JobFormModal
+          editingJob={activeJob}
+          onClose={() => setModalOpen(false)}
+          onSaved={(saved) => setActiveJob(saved)}
+        />
       )}
 
       {/* ── Delete Confirm Modal ── */}
