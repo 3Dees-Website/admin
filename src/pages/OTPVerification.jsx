@@ -333,7 +333,7 @@ export function OTPVerification() {
 
         {/* Footer */}
         <div className="otp-footer">
-          <span>All verification codes expire after 3 minutes.</span>
+          <span>All verification codes expire after {Math.round(RESEND_COOLDOWN / 60)} minutes.</span>
         </div>
 
       </div>
