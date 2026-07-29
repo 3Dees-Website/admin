@@ -114,33 +114,37 @@ export function SuperadminManageAdmins() {
                   </td>
                   <td className="sma-td sma-td-right">
                     <div className="sma-actions">
-                      <button
-                        onClick={() => toggleAdminSuspension(adm.id)}
-                        className="sma-toggle-btn"
-                        title={adm.status === 'Active' ? 'Freeze Account / Suspend' : 'Activate Account'}
-                      >
-                        {adm.status === 'Active'
-                          ? <ToggleRight className="sma-toggle-icon sma-toggle-active" />
-                          : <ToggleLeft className="sma-toggle-icon sma-toggle-inactive" />
-                        }
-                        <span>Toggle Suspension</span>
-                      </button>
+                      {adm.role !== 'superadmin' && (
+                        <>
+                          <button
+                            onClick={() => toggleAdminSuspension(adm.id)}
+                            className="sma-toggle-btn"
+                            title={adm.status === 'Active' ? 'Freeze Account / Suspend' : 'Activate Account'}
+                          >
+                            {adm.status === 'Active'
+                              ? <ToggleRight className="sma-toggle-icon sma-toggle-active" />
+                              : <ToggleLeft className="sma-toggle-icon sma-toggle-inactive" />
+                            }
+                            <span>Toggle Suspension</span>
+                          </button>
 
-                      <button
-                        onClick={() => setResetPassTarget(adm)}
-                        className="sma-icon-btn"
-                        title="Reassign security passcode"
-                      >
-                        <Key className="sma-icon" />
-                      </button>
+                          <button
+                            onClick={() => setResetPassTarget(adm)}
+                            className="sma-icon-btn"
+                            title="Reassign security passcode"
+                          >
+                            <Key className="sma-icon" />
+                          </button>
 
-                      <button
-                        onClick={() => setConfirmDeleteTarget(adm)}
-                        className="sma-icon-btn sma-icon-btn-delete"
-                        title="Remove Officer profile"
-                      >
-                        <Trash2 className="sma-icon" />
-                      </button>
+                          <button
+                            onClick={() => setConfirmDeleteTarget(adm)}
+                            className="sma-icon-btn sma-icon-btn-delete"
+                            title="Remove Officer profile"
+                          >
+                            <Trash2 className="sma-icon" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
