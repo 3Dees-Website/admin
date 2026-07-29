@@ -8,7 +8,9 @@ import { authService } from '../services/authService';
 import './styles/OTPVerification.css';
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 180;
+// 10 minutes — matches the backend's OTP_EXPIRY_MINUTES window, so resend/start-over
+// only appears once the code has actually expired.
+const RESEND_COOLDOWN = 600;
 
 export function OTPVerification() {
   const navigate = useNavigate();
