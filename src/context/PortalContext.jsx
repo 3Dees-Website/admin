@@ -5,6 +5,18 @@ import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
 import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
+const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
+const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
+const HEARTBEAT_INTERVAL_MS = 5000;
+// ~70s: safely above Chrome/Firefox's background-tab timer throttling floor
+// (~60s), so a backgrounded-but-still-open tab isn't mistaken for a closed browser.
+const HEARTBEAT_STALE_THRESHOLD_MS = 70000;
+
+const SESSION_END_COPY = {
+  manual: { type: 'info', title: 'Logged Out', message: 'You have been securely logged out.' },
+  idle:   { type: 'info', title: 'Session Expired', message: 'Signed out due to inactivity.' },
+};
+
 const initialState = {
   currentUser: null,
   token: null,
@@ -100,6 +112,22 @@ export function PortalProvider({ children }) {
     }
   }, [handleApiError]);
 
+  // ── Session teardown (shared by manual logout, idle timeout, and the ─────
+  // ── browser-reopen check below) ───────────────────────────────────────────
+
+  const endSession = (reason) => {
+    const refreshToken = localStorage.getItem(TOKEN_STORAGE_KEYS.refresh);
+    authService.logout(refreshToken); // fire-and-forget revocation
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.access);
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh);
+    localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
+    sessionStorage.removeItem(SESSION_MARKER_KEY);
+    dispatch({ type: 'SET_AUTH', payload: null });
+    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [] } });
+    const copy = SESSION_END_COPY[reason];
+    if (copy) addToast(copy.type, copy.title, copy.message);
+  };
+
   // ── Session restoration on mount ─────────────────────────────────────────
 
   useEffect(() => {
@@ -107,10 +135,32 @@ export function PortalProvider({ children }) {
     const accessToken = localStorage.getItem(TOKEN_STORAGE_KEYS.access);
 
     if (raw && accessToken) {
-      const user = JSON.parse(raw);
-      dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
-      loadInitialData(user);
+      const tabMarker = sessionStorage.getItem(SESSION_MARKER_KEY);
+      const lastHeartbeat = Number(localStorage.getItem(HEARTBEAT_KEY) || 0);
+      const heartbeatFresh = Date.now() - lastHeartbeat < HEARTBEAT_STALE_THRESHOLD_MS;
+
+      if (tabMarker || heartbeatFresh) {
+        // Same tab reloaded (tabMarker survives reload), OR another tab of
+        // this browser is currently alive (recent heartbeat) → rehydrate.
+        sessionStorage.setItem(SESSION_MARKER_KEY, '1');
+        const user = JSON.parse(raw);
+        dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
+        loadInitialData(user);
+      } else {
+        // No marker for this tab AND no other tab has been alive recently →
+        // the browser was fully closed and reopened. Stored tokens are stale.
+        endSession();
+      }
     }
+
+    // Start this tab's heartbeat regardless of the branch above, so any
+    // future tab opened while this one is alive can detect it.
+    localStorage.setItem(HEARTBEAT_KEY, Date.now().toString());
+    const heartbeatId = setInterval(() => {
+      localStorage.setItem(HEARTBEAT_KEY, Date.now().toString());
+    }, HEARTBEAT_INTERVAL_MS);
+
+    return () => clearInterval(heartbeatId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -187,6 +237,7 @@ export function PortalProvider({ children }) {
     localStorage.setItem(TOKEN_STORAGE_KEYS.access, accessToken);
     localStorage.setItem(TOKEN_STORAGE_KEYS.refresh, refreshToken);
     localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify(user));
+    sessionStorage.setItem(SESSION_MARKER_KEY, '1');
     dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
     addToast('success', 'Session Opened', `Welcome back, ${user.name}.`);
     await loadInitialData(user);
@@ -204,16 +255,12 @@ export function PortalProvider({ children }) {
     dispatch({ type: 'UPDATE_CURRENT_USER', payload: patch });
   };
 
-  const logout = async () => {
-    const refreshToken = localStorage.getItem(TOKEN_STORAGE_KEYS.refresh);
-    authService.logout(refreshToken); // fire-and-forget revocation
-    localStorage.removeItem(TOKEN_STORAGE_KEYS.access);
-    localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh);
-    localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
-    dispatch({ type: 'SET_AUTH', payload: null });
-    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [] } });
-    addToast('info', 'Logged Out', 'You have been securely logged out.');
-  };
+  const logout = async () => endSession('manual');
+
+  // Kept separate from logout() rather than an optional `reason` param on
+  // logout itself: AdminLayout binds logout directly as onClick={logout},
+  // and React would pass the click SyntheticEvent as that argument.
+  const logoutIdle = () => endSession('idle');
 
   // ── Job management ────────────────────────────────────────────────────────
 
@@ -465,6 +512,7 @@ export function PortalProvider({ children }) {
         updateCurrentUser,
         commitSession,
         logout,
+        logoutIdle,
         addToast,
         removeToast,
         postJob,

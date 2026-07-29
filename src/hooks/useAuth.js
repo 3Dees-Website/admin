@@ -15,6 +15,7 @@ export function useAuth() {
     updateCurrentUser: context.updateCurrentUser,
     commitSession: context.commitSession,
     logout: context.logout,
+    logoutIdle: context.logoutIdle,
     admins: context.admins,
     registerAdmin: context.registerAdmin,
     toggleAdminSuspension: context.toggleAdminSuspension,

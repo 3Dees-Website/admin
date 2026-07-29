@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -9,10 +9,44 @@ import {
 import { LogoSVG } from './Navbar';
 import './styles/AdminLayout.css';
 
+const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
+const IDLE_CHECK_INTERVAL_MS = 30 * 1000;   // poll every 30s
+const ACTIVITY_THROTTLE_MS = 5000;          // coalesce bursty events
+const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll'];
+
 export function AdminLayout({ children, role }) {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, logoutIdle } = useAuth();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const lastActivityRef = useRef(Date.now());
+  const logoutIdleRef = useRef(logoutIdle);
+  logoutIdleRef.current = logoutIdle;
+
+  useEffect(() => {
+    let lastMarked = 0;
+    const markActivity = () => {
+      const now = Date.now();
+      if (now - lastMarked > ACTIVITY_THROTTLE_MS) {
+        lastMarked = now;
+        lastActivityRef.current = now;
+      }
+    };
+
+    ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, markActivity, { passive: true }));
+
+    const intervalId = setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        logoutIdleRef.current();
+      }
+    }, IDLE_CHECK_INTERVAL_MS);
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, markActivity));
+      clearInterval(intervalId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const adminMenu = [
     { name: 'Console Home',   path: '/admin/dashboard',     icon: <LayoutDashboard size={16} /> },
