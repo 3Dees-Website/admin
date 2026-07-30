@@ -6,8 +6,10 @@
 import { useState } from 'react';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
+import { useCategories } from '../hooks/useCategories';
+import { useAuth } from '../hooks/useAuth';
 import { RequirementsBuilder } from './RequirementsBuilder';
-import { X, Check } from 'lucide-react';
+import { X, Check, Plus, Trash2 } from 'lucide-react';
 import './styles/JobFormModal.css';
 
 const DEFAULT_CLIENT_ORG = 'ECO Green Investments Limited';
@@ -30,6 +32,8 @@ const DEFAULT_FIELDS = {
 export function JobFormModal({ editingJob, onClose, onSaved }) {
   const { postJob, editJob } = useJobs();
   const { addToast } = useToast();
+  const { categories, addCategory, removeCategory } = useCategories();
+  const { currentUser } = useAuth();
 
   const [formFields, setFormFields] = useState(() =>
     editingJob
@@ -47,11 +51,38 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
           closingDate: editingJob.closingDate,
           status: editingJob.status
         }
-      : { ...DEFAULT_FIELDS }
+      : { ...DEFAULT_FIELDS, category: categories[0]?.name || DEFAULT_FIELDS.category }
   );
   const [requirementsBuilder, setRequirementsBuilder] = useState(() =>
     editingJob ? { ...(editingJob.applicationRequirements || {}) } : {}
   );
+
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [managingCategories, setManagingCategories] = useState(false);
+  const [confirmDeleteCatId, setConfirmDeleteCatId] = useState(null);
+
+  const handleAddCategory = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    const result = await addCategory(trimmed);
+    if (result.success) {
+      setFormFields((f) => ({ ...f, category: result.category.name }));
+      setNewCategoryName('');
+      setAddingCategory(false);
+      setCategoryError('');
+    } else if (result.error === 'DuplicateCategory') {
+      setCategoryError(result.message);
+    } else {
+      setAddingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    await removeCategory(id);
+    setConfirmDeleteCatId(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -110,16 +141,74 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
 
             <div className="jfm-field">
               <label className="jfm-label">Category</label>
-              <select value={formFields.category}
-                onChange={(e) => setFormFields({ ...formFields, category: e.target.value })}
-                className="jfm-select">
-                <option value="Agriculture">Agriculture Sector</option>
-                <option value="Construction">Construction Sector</option>
-                <option value="Administration">Corporate Administration</option>
-                <option value="Logistics">Logistics & Supply lines</option>
-                <option value="Finance">Finance & Banking</option>
-                <option value="ICT">Information Technology (ICT)</option>
-              </select>
+              <div className="jfm-category-row">
+                <select value={formFields.category}
+                  onChange={(e) => setFormFields({ ...formFields, category: e.target.value })}
+                  className="jfm-select">
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                <button type="button"
+                  onClick={() => { setAddingCategory((v) => !v); setCategoryError(''); }}
+                  className="jfm-cat-icon-btn"
+                  title="Add new category">
+                  <Plus className="jfm-cat-icon" />
+                </button>
+                {currentUser?.role === 'superadmin' && (
+                  <button type="button"
+                    onClick={() => { setManagingCategories((v) => !v); setConfirmDeleteCatId(null); }}
+                    className="jfm-cat-icon-btn"
+                    title="Manage categories">
+                    <Trash2 className="jfm-cat-icon" />
+                  </button>
+                )}
+              </div>
+
+              {addingCategory && (
+                <div className="jfm-cat-add-inline">
+                  <input type="text" placeholder="New category name"
+                    value={newCategoryName}
+                    onChange={(e) => { setNewCategoryName(e.target.value); setCategoryError(''); }}
+                    className="jfm-input" />
+                  <button type="button" onClick={handleAddCategory} className="jfm-cat-icon-btn" title="Confirm">
+                    <Check className="jfm-cat-icon" />
+                  </button>
+                  <button type="button"
+                    onClick={() => { setAddingCategory(false); setNewCategoryName(''); setCategoryError(''); }}
+                    className="jfm-cat-icon-btn" title="Cancel">
+                    <X className="jfm-cat-icon" />
+                  </button>
+                </div>
+              )}
+              {categoryError && <span className="jfm-field-error">{categoryError}</span>}
+
+              {managingCategories && currentUser?.role === 'superadmin' && (
+                <div className="jfm-cat-manage-list">
+                  {categories.map((c) => (
+                    <div key={c.id} className="jfm-cat-manage-row">
+                      <span className="jfm-cat-manage-name">{c.name}</span>
+                      {confirmDeleteCatId === c.id ? (
+                        <span className="jfm-cat-confirm">
+                          Delete?
+                          <button type="button" onClick={() => handleDeleteCategory(c.id)} className="jfm-cat-confirm-yes">Yes</button>
+                          <button type="button" onClick={() => setConfirmDeleteCatId(null)} className="jfm-cat-confirm-no">No</button>
+                        </span>
+                      ) : (
+                        <button type="button"
+                          onClick={() => setConfirmDeleteCatId(c.id)}
+                          className="jfm-cat-icon-btn"
+                          title={`Delete "${c.name}"`}>
+                          <Trash2 className="jfm-cat-icon" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {categories.length === 0 && (
+                    <span className="jfm-cat-manage-empty">No categories yet.</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="jfm-field">

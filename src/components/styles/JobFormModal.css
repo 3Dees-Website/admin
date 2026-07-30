@@ -138,6 +138,98 @@
 
 .jfm-select:focus { border-color: var(--color-brand-primary); }
 
+/* ── Category dropdown: inline add / manage ── */
+.jfm-category-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.jfm-category-row .jfm-select { flex: 1; }
+
+.jfm-cat-icon-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  background-color: var(--color-brand-light);
+  color: var(--color-brand-dark);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.jfm-cat-icon-btn:hover { color: var(--color-brand-primary); border-color: var(--color-brand-primary); }
+.jfm-cat-icon { width: 0.875rem; height: 0.875rem; }
+
+.jfm-cat-add-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.jfm-cat-add-inline .jfm-input { flex: 1; }
+
+.jfm-field-error {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #ef4444;
+  margin-top: 0.25rem;
+}
+
+.jfm-cat-manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  background-color: var(--color-brand-light);
+  max-height: 10rem;
+  overflow-y: auto;
+}
+
+.jfm-cat-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.jfm-cat-manage-name { font-size: 0.7rem; color: var(--color-brand-dark); }
+
+.jfm-cat-manage-empty { font-size: 0.65rem; color: #9ca3af; }
+
+.jfm-cat-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.jfm-cat-confirm-yes,
+.jfm-cat-confirm-no {
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.jfm-cat-confirm-yes { color: #ef4444; }
+.jfm-cat-confirm-yes:hover { background-color: rgba(239, 68, 68, 0.1); }
+.jfm-cat-confirm-no { color: var(--color-brand-dark); }
+.jfm-cat-confirm-no:hover { background-color: #e5e7eb; }
+
 .jfm-textareas-grid {
   display: grid;
   grid-template-columns: 1fr;

@@ -3,6 +3,7 @@ import { authService } from '../services/authService';
 import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
+import { categoryService } from '../services/categoryService';
 import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
@@ -22,6 +23,7 @@ const initialState = {
   token: null,
   jobs: [],
   admins: [],
+  categories: [],
   toasts: [],
 };
 
@@ -40,6 +42,7 @@ function portalReducer(state, action) {
         ...state,
         jobs: action.payload.jobs ?? state.jobs,
         admins: action.payload.admins ?? state.admins,
+        categories: action.payload.categories ?? state.categories,
       };
     case 'ADD_JOB':
       return { ...state, jobs: [...state.jobs, action.payload] };
@@ -59,6 +62,10 @@ function portalReducer(state, action) {
       };
     case 'DELETE_ADMIN':
       return { ...state, admins: state.admins.filter((adm) => adm.id !== action.payload) };
+    case 'ADD_CATEGORY':
+      return { ...state, categories: [...state.categories, action.payload] };
+    case 'DELETE_CATEGORY':
+      return { ...state, categories: state.categories.filter((c) => c.id !== action.payload) };
     case 'ADD_TOAST':
       return { ...state, toasts: [...state.toasts, action.payload] };
     case 'DISMISS_TOAST':
@@ -94,6 +101,14 @@ export function PortalProvider({ children }) {
   // ── Data loaders ──────────────────────────────────────────────────────────
 
   const loadInitialData = useCallback(async (user) => {
+    // Categories are settled independently of jobs/admins: a categories
+    // fetch failure should leave that list empty, not abort the rest of
+    // the dashboard (and vice versa).
+    const categoriesPromise = categoryService.getCategories().catch((err) => {
+      handleApiError(err, 'Category Load Error', 'Could not load job categories from the server.');
+      return [];
+    });
+
     try {
       const jobs = await jobService.getAdminJobs();
 
@@ -103,12 +118,16 @@ export function PortalProvider({ children }) {
         admins = await userService.getUsers();
       }
 
+      const categories = await categoriesPromise;
+
       dispatch({
         type: 'SET_INITIAL_DATA',
-        payload: { jobs, admins },
+        payload: { jobs, admins, categories },
       });
     } catch (err) {
       handleApiError(err, 'Data Load Error', 'Could not load portal data from the server.');
+      const categories = await categoriesPromise;
+      dispatch({ type: 'SET_INITIAL_DATA', payload: { categories } });
     }
   }, [handleApiError]);
 
@@ -123,7 +142,7 @@ export function PortalProvider({ children }) {
     localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
     sessionStorage.removeItem(SESSION_MARKER_KEY);
     dispatch({ type: 'SET_AUTH', payload: null });
-    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [] } });
+    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [], categories: [] } });
     const copy = SESSION_END_COPY[reason];
     if (copy) addToast(copy.type, copy.title, copy.message);
   };
@@ -500,6 +519,34 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // ── Category management (add: any admin; delete: superadmin only) ────────
+
+  const addCategory = async (name) => {
+    try {
+      const newCategory = await categoryService.createCategory(name);
+      dispatch({ type: 'ADD_CATEGORY', payload: newCategory });
+      addToast('success', 'Category Added', `"${newCategory.name}" is now available.`);
+      return { success: true, category: newCategory };
+    } catch (err) {
+      if (err?.error === 'DuplicateCategory') {
+        return { success: false, error: 'DuplicateCategory', message: `"${name}" already exists.` };
+      }
+      handleApiError(err, 'Add Category Failed', 'Could not create category.');
+      return { success: false, error: err?.error, message: err?.message };
+    }
+  };
+
+  const removeCategory = async (id) => {
+    const target = state.categories.find((c) => c.id === id);
+    try {
+      await categoryService.deleteCategory(id);
+      dispatch({ type: 'DELETE_CATEGORY', payload: id });
+      addToast('info', 'Category Deleted', `"${target?.name || 'Category'}" was removed.`);
+    } catch (err) {
+      handleApiError(err, 'Delete Failed', 'Could not delete category.');
+    }
+  };
+
   // ── Context value ─────────────────────────────────────────────────────────
 
   return (
@@ -530,6 +577,8 @@ export function PortalProvider({ children }) {
         toggleAdminSuspension,
         resetAdminPass,
         removeAdmin,
+        addCategory,
+        removeCategory,
       }}
     >
       {children}

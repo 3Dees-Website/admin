@@ -7,19 +7,21 @@ import { useState, useMemo } from 'react';
 import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
+import { useCategories } from '../hooks/useCategories';
 import { RequirementsSummary } from '../components/RequirementsSummary';
 import { JobFormModal } from '../components/JobFormModal';
 import { effectiveStatus } from '../utils/jobStatus';
 import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert, Plus } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
 
-const CATEGORIES = ['All', 'Agriculture', 'Construction', 'Administration', 'Logistics', 'Finance'];
-const STATUSES   = ['All', 'Active', 'Closed', 'Draft', 'Expired'];
+const STATUSES = ['All', 'Active', 'Closed', 'Draft', 'Expired'];
 
 export function SuperadminAllVacancies() {
   const { jobs, removeJob, editJob } = useJobs();
   const { statsByJob } = useJobStats();
   const { addToast } = useToast();
+  const { categories } = useCategories();
+  const categoryOptions = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories]);
 
   const [searchTerm,      setSearchTerm]      = useState('');
   const [selectedCat,     setSelectedCat]     = useState('All');
@@ -200,7 +202,7 @@ export function SuperadminAllVacancies() {
             onChange={(e) => setSelectedCat(e.target.value)}
             className="sav-select"
           >
-            {CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>{c === 'All' ? 'All Sectors' : c}</option>
             ))}
           </select>
