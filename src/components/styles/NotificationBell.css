@@ -42,7 +42,7 @@
   top: calc(100% + 0.5rem);
   right: 0;
   width: min(360px, calc(100vw - 2rem));
-  max-height: 28rem;
+  max-height: min(28rem, calc(100vh - 6rem));
   display: flex;
   flex-direction: column;
   background: #ffffff;
