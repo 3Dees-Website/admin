@@ -41,6 +41,13 @@ function normalizeJobStat(stat) {
   };
 }
 
+function normalizeStateStat(stat) {
+  return {
+    state: stat.state,
+    count: stat.count,
+  };
+}
+
 export const applicationService = {
   // ── Admin routes (auth required) ──────────────────────────────────────────
 
@@ -62,6 +69,14 @@ export const applicationService = {
   async getStatsByJob() {
     const res = await apiClient.get('/api/admin/applications/stats/by-job');
     return res.data.items.map(normalizeJobStat);
+  },
+
+  async getStatsByState() {
+    const res = await apiClient.get('/api/admin/applications/stats/by-state');
+    return {
+      total: res.data.total,
+      items: res.data.items.map(normalizeStateStat),
+    };
   },
 
   async getApplication(id) {

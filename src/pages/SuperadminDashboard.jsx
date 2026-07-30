@@ -5,11 +5,13 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useApplicationStats } from '../hooks/useApplicationStats';
+import { useApplicationStatsByState } from '../hooks/useApplicationStatsByState';
 import { useToast } from '../hooks/useToast';
-import { Briefcase, Users, FileLock2, CheckCircle, ShieldAlert, Activity } from 'lucide-react';
+import { Briefcase, Users, FileLock2, CheckCircle, ShieldAlert, Activity, MapPin } from 'lucide-react';
 import { egiService } from '../services/egiService';
 import { auditService } from '../services/auditService';
 import { formatCount } from '../utils/formatCount';
@@ -22,6 +24,7 @@ export function SuperadminDashboard() {
   const { admins } = useAuth();
   const { addToast } = useToast();
   const { stats: globalStats } = useApplicationStats();
+  const { stats: stateStats, isLoading: stateStatsLoading } = useApplicationStatsByState();
 
   const [egiStats, setEgiStats] = useState(null);
   const [egiStatsLoading, setEgiStatsLoading] = useState(true);
@@ -65,6 +68,15 @@ export function SuperadminDashboard() {
 
   const globalTotal = globalStats?.total ?? 0;
   const egiAccepted = globalStats?.byEgiDecision?.Accepted ?? 0;
+
+  const stateRows = useMemo(() => {
+    const total = stateStats?.total ?? 0;
+    if (!total) return [];
+    return (stateStats.items || [])
+      .filter((s) => s.count > 0)
+      .map((s) => ({ ...s, pct: (s.count / total) * 100 }))
+      .sort((a, b) => b.count - a.count);
+  }, [stateStats]);
 
   return (
     <div className="sd-wrapper" id="superadmin-dashboard-page">
@@ -228,6 +240,48 @@ export function SuperadminDashboard() {
           </div>
         </div>
 
+      </div>
+
+      {/* State-of-Origin Chart */}
+      <div className="sd-state-card">
+        <div className="sd-state-header">
+          <h3 className="sd-state-title">
+            <MapPin className="sd-state-title-icon" />
+            <span>EGI Approvals by State of Origin</span>
+          </h3>
+          {stateRows.length > 0 && (
+            <span className="sd-state-total">{stateStats.total} Accepted Total</span>
+          )}
+        </div>
+
+        <div className="sd-state-body">
+          {stateStatsLoading && (
+            <div className="sd-state-empty">Loading…</div>
+          )}
+
+          {!stateStatsLoading && stateRows.length === 0 && (
+            <div className="sd-state-empty">
+              No state data yet — appears as EGI-accepted applicants with state of origin accumulate.
+            </div>
+          )}
+
+          {stateRows.map((row, index) => (
+            <div className="sd-state-row" key={row.state}>
+              <span className="sd-state-label" title={row.state}>{row.state}</span>
+              <div className="sd-state-track">
+                <motion.div
+                  className="sd-state-fill"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${row.pct}%` }}
+                  transition={{ duration: 0.6, delay: index * 0.05, ease: 'easeOut' }}
+                />
+              </div>
+              <span className="sd-state-meta">
+                {Math.round(row.pct)}%<span className="sd-state-count">({row.count})</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
