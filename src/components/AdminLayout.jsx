@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
-  History, LogOut, Bell, Menu, X, ShieldAlert,
+  History, LogOut, Menu, X, ShieldAlert,
   Inbox, RefreshCw, UserCircle
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
+import { NotificationBell } from './NotificationBell';
 import './styles/AdminLayout.css';
 
 const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -179,10 +180,7 @@ export function AdminLayout({ children, role }) {
             </button>
 
             {/* Notification Bell */}
-            <div className="admin-notif-bell">
-              <Bell size={16} />
-              <span className="admin-notif-dot" />
-            </div>
+            <NotificationBell role={role} />
 
             <Link
               to={role === 'superadmin' ? '/superadmin/profile' : '/admin/profile'}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApplications } from '../hooks/useApplications';
 import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useJobs } from '../hooks/useJobs';
@@ -21,6 +22,7 @@ export function AdminApplications() {
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -75,6 +77,39 @@ export function AdminApplications() {
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const openAppId = searchParams.get('openApp');
+    if (!openAppId) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const app = await applicationService.getApplication(openAppId);
+        if (!cancelled) {
+          setActiveApp(app);
+          setAdminNotes(app.notes || '');
+        }
+      } catch {
+        if (!cancelled) {
+          addToast('error', 'Not Found', 'Could not load that application. It may have been removed.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('openApp');
+            return next;
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const statusBadgeClass = {
     Pending: 'badge badge-pending',

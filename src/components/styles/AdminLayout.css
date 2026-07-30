@@ -253,31 +253,6 @@
 }
 .admin-reload-btn:hover { color: var(--color-brand-primary); }
 
-/* Notification bell */
-.admin-notif-bell {
-  position: relative;
-  padding: 0.375rem;
-  border-radius: 50%;
-  background: var(--color-brand-light);
-  border: 1px solid #e5e7eb;
-  color: #9ca3af;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: color 0.15s;
-}
-.admin-notif-bell:hover { color: var(--color-brand-primary); }
-
-.admin-notif-dot {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.375rem;
-  width: 0.375rem;
-  height: 0.375rem;
-  background: var(--color-brand-primary);
-  border-radius: 50%;
-}
-
 /* Header user info */
 .admin-header-user {
   display: none;

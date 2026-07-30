@@ -4,6 +4,7 @@ import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
 import { categoryService } from '../services/categoryService';
+import { notificationService } from '../services/notificationService';
 import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
@@ -24,6 +25,8 @@ const initialState = {
   jobs: [],
   admins: [],
   categories: [],
+  notifications: [],
+  unreadCount: 0,
   toasts: [],
 };
 
@@ -43,6 +46,8 @@ function portalReducer(state, action) {
         jobs: action.payload.jobs ?? state.jobs,
         admins: action.payload.admins ?? state.admins,
         categories: action.payload.categories ?? state.categories,
+        notifications: action.payload.notifications ?? state.notifications,
+        unreadCount: action.payload.unreadCount ?? state.unreadCount,
       };
     case 'ADD_JOB':
       return { ...state, jobs: [...state.jobs, action.payload] };
@@ -66,6 +71,22 @@ function portalReducer(state, action) {
       return { ...state, categories: [...state.categories, action.payload] };
     case 'DELETE_CATEGORY':
       return { ...state, categories: state.categories.filter((c) => c.id !== action.payload) };
+    case 'MARK_NOTIFICATION_READ': {
+      const target = state.notifications.find((n) => n.id === action.payload);
+      return {
+        ...state,
+        notifications: state.notifications.map((n) =>
+          n.id === action.payload ? { ...n, read: true } : n
+        ),
+        unreadCount: target && !target.read ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+      };
+    }
+    case 'MARK_ALL_NOTIFICATIONS_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map((n) => ({ ...n, read: true })),
+        unreadCount: 0,
+      };
     case 'ADD_TOAST':
       return { ...state, toasts: [...state.toasts, action.payload] };
     case 'DISMISS_TOAST':
@@ -109,6 +130,12 @@ export function PortalProvider({ children }) {
       return [];
     });
 
+    // Notifications fail silently (no toast): a bell that can't load shouldn't
+    // interrupt the rest of the dashboard load with an error banner.
+    const notificationsPromise = notificationService
+      .getNotifications()
+      .catch(() => ({ items: [], unreadCount: 0 }));
+
     try {
       const jobs = await jobService.getAdminJobs();
 
@@ -119,15 +146,20 @@ export function PortalProvider({ children }) {
       }
 
       const categories = await categoriesPromise;
+      const notifData = await notificationsPromise;
 
       dispatch({
         type: 'SET_INITIAL_DATA',
-        payload: { jobs, admins, categories },
+        payload: { jobs, admins, categories, notifications: notifData.items, unreadCount: notifData.unreadCount },
       });
     } catch (err) {
       handleApiError(err, 'Data Load Error', 'Could not load portal data from the server.');
       const categories = await categoriesPromise;
-      dispatch({ type: 'SET_INITIAL_DATA', payload: { categories } });
+      const notifData = await notificationsPromise;
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: { categories, notifications: notifData.items, unreadCount: notifData.unreadCount },
+      });
     }
   }, [handleApiError]);
 
@@ -142,7 +174,10 @@ export function PortalProvider({ children }) {
     localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
     sessionStorage.removeItem(SESSION_MARKER_KEY);
     dispatch({ type: 'SET_AUTH', payload: null });
-    dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs: [], admins: [], categories: [] } });
+    dispatch({
+      type: 'SET_INITIAL_DATA',
+      payload: { jobs: [], admins: [], categories: [], notifications: [], unreadCount: 0 },
+    });
     const copy = SESSION_END_COPY[reason];
     if (copy) addToast(copy.type, copy.title, copy.message);
   };
@@ -547,6 +582,41 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+
+  // Used by both the initial load's independent settle and the bell's poll /
+  // manual refetch. Silent on failure so a flaky poll tick every 60s doesn't
+  // spam a toast.
+  const refetchNotifications = useCallback(async () => {
+    try {
+      const data = await notificationService.getNotifications();
+      dispatch({
+        type: 'SET_INITIAL_DATA',
+        payload: { notifications: data.items, unreadCount: data.unreadCount },
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const markNotificationRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+      dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id });
+    } catch (err) {
+      handleApiError(err, 'Update Failed', 'Could not mark notification as read.');
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      dispatch({ type: 'MARK_ALL_NOTIFICATIONS_READ' });
+    } catch (err) {
+      handleApiError(err, 'Update Failed', 'Could not mark all notifications as read.');
+    }
+  };
+
   // ── Context value ─────────────────────────────────────────────────────────
 
   return (
@@ -579,6 +649,9 @@ export function PortalProvider({ children }) {
         removeAdmin,
         addCategory,
         removeCategory,
+        refetchNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
       }}
     >
       {children}
