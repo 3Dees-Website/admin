@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
   History, LogOut, Menu, X, ShieldAlert,
-  Inbox, RefreshCw, UserCircle
+  Inbox, RefreshCw, UserCircle, UserCheck
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import { NotificationBell } from './NotificationBell';
@@ -61,6 +61,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
     { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
     { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
+    { name: 'Approved Candidates', path: '/superadmin/approved',    icon: <UserCheck size={16} /> },
     { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
     { name: 'Compliance Audits',  path: '/superadmin/audit',         icon: <History size={16} /> },

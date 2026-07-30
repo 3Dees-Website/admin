@@ -24,6 +24,7 @@ import { SuperadminDashboard } from './pages/SuperadminDashboard';
 import { SuperadminManageAdmins } from './pages/SuperadminManageAdmins';
 import { SuperadminAllVacancies } from './pages/SuperadminAllVacancies';
 import { SuperadminViewAllApplications } from './pages/SuperadminViewAllApplications';
+import { SuperadminApprovedCandidates } from './pages/SuperadminApprovedCandidates';
 import { SuperadminPendingApplications } from './pages/SuperadminPendingApplications';
 import { SuperadminAuditTrail } from './pages/SuperadminAuditTrail';
 import { SuperadminEgiSync } from './pages/SuperadminEgiSync';
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="dashboard"    element={<SuperadminDashboard />} />
             <Route path="pending"      element={<SuperadminPendingApplications />} />
             <Route path="applications" element={<SuperadminViewAllApplications />} />
+            <Route path="approved"     element={<SuperadminApprovedCandidates />} />
             <Route path="jobs"         element={<SuperadminAllVacancies />} />
             <Route path="admins"       element={<SuperadminManageAdmins />} />
             <Route path="audit"        element={<SuperadminAuditTrail />} />

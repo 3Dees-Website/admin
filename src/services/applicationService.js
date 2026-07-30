@@ -21,6 +21,7 @@ function normalizeApplication(app) {
     egiResendCount: app.egi_resend_count || 0,
     applicantName: app.applicant_name || '',
     applicantEmail: app.applicant_email || '',
+    stateOfOrigin: app.form_data?.stateOfOrigin || null,
     submittedAt: app.submitted_at,
     // Joined fields present on list/single endpoints
     jobTitle: app.job_title,
