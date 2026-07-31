@@ -95,7 +95,7 @@ export function AdminJobs() {
                   <td className="aj-td aj-muted">{j.location}</td>
                   <td className="aj-td aj-td-center aj-app-count">{statsByJob[j.id]?.total || 0} / {j.openings ?? '—'}</td>
                   <td className="aj-td aj-td-center">
-                    <span className={`aj-status-badge aj-status-${effectiveStatus(j).toLowerCase()}`}>{effectiveStatus(j)}</span>
+                    <span className={`aj-status-badge aj-status-${effectiveStatus(j, statsByJob[j.id]?.total ?? 0).toLowerCase()}`}>{effectiveStatus(j, statsByJob[j.id]?.total ?? 0)}</span>
                   </td>
                   <td className="aj-td aj-td-right">
                     <div className="aj-actions">

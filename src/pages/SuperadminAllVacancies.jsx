@@ -277,8 +277,8 @@ export function SuperadminAllVacancies() {
 
                   {/* Pipeline State */}
                   <td className="sav-td sav-td-center">
-                    <span className={`sav-status-badge sav-status-${effectiveStatus(job).toLowerCase()}`}>
-                      {effectiveStatus(job)}
+                    <span className={`sav-status-badge sav-status-${effectiveStatus(job, appCountFor(job.id)).toLowerCase()}`}>
+                      {effectiveStatus(job, appCountFor(job.id))}
                     </span>
                   </td>
 
@@ -387,8 +387,8 @@ export function SuperadminAllVacancies() {
                 </div>
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Pipeline State</span>
-                  <span className={`sav-status-badge sav-status-${effectiveStatus(activeJob).toLowerCase()}`}>
-                    {effectiveStatus(activeJob)}
+                  <span className={`sav-status-badge sav-status-${effectiveStatus(activeJob, appCountFor(activeJob.id)).toLowerCase()}`}>
+                    {effectiveStatus(activeJob, appCountFor(activeJob.id))}
                   </span>
                 </div>
               </div>
