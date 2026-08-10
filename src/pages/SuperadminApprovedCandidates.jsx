@@ -33,6 +33,7 @@ export function SuperadminApprovedCandidates() {
 
   const [selectedEgiDecision, setSelectedEgiDecision] = useState('All');
   const [selectedStateOfOrigin, setSelectedStateOfOrigin] = useState('All');
+  const [selectedJobId, setSelectedJobId] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
   const [adminNotes, setAdminNotes] = useState('');
@@ -47,6 +48,7 @@ export function SuperadminApprovedCandidates() {
     status: 'Approved',
     egiDecision: selectedEgiDecision !== 'All' ? selectedEgiDecision : undefined,
     stateOfOrigin: selectedStateOfOrigin !== 'All' ? selectedStateOfOrigin : undefined,
+    jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
     search: searchTerm,
   };
 
@@ -220,6 +222,20 @@ export function SuperadminApprovedCandidates() {
             <option value="All">All States</option>
             {stateOptions.map((s) => (
               <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="sac-filter-group">
+          <label className="sac-filter-label">Pipeline Role Target</label>
+          <select
+            value={selectedJobId}
+            onChange={(e) => setSelectedJobId(e.target.value)}
+            className="sac-select"
+          >
+            <option value="All">All Roles</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.id}>{j.title}</option>
             ))}
           </select>
         </div>
