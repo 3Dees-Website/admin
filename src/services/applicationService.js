@@ -128,6 +128,10 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
+  async deleteApplication(id) {
+    await apiClient.delete(`/api/admin/applications/${id}`);
+  },
+
   async getDocumentUrl(id, key) {
     const res = await apiClient.post(`/api/admin/applications/${id}/document-url`, { key });
     return res.data.url;

@@ -511,3 +511,123 @@
   font-size: 0.55rem;
   color: #9ca3af;
 }
+
+/* Danger zone — superadmin-only, irreversible delete */
+.ad-danger-zone {
+  border: 1px solid #fca5a5;
+  border-radius: 0.375rem;
+  padding: 0.875rem;
+  background: #fef2f2;
+}
+
+.ad-danger-zone .ad-section-title {
+  color: #b91c1c;
+  border-bottom-color: #fecaca;
+}
+
+.ad-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.ad-delete-btn:hover {
+  opacity: 0.9;
+}
+
+.ad-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-delete-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+}
+
+.ad-delete-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: #fff;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  max-width: 26rem;
+  width: calc(100% - 2rem);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.ad-delete-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #dc2626;
+}
+
+.ad-delete-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--color-brand-dark);
+  margin: 0;
+}
+
+.ad-delete-desc {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #6b7280;
+  margin: 0;
+}
+
+.ad-delete-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-self: flex-end;
+  margin-top: 0.5rem;
+}
+
+.ad-delete-cancel-btn,
+.ad-delete-confirm-btn {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  cursor: pointer;
+}
+
+.ad-delete-cancel-btn {
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.ad-delete-confirm-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.ad-delete-cancel-btn:disabled,
+.ad-delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

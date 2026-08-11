@@ -459,6 +459,17 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const deleteApplication = async (appId) => {
+    try {
+      await applicationService.deleteApplication(appId);
+      addToast('success', 'Application Deleted', 'The application and its documents were permanently removed.');
+      return true;
+    } catch (err) {
+      addToast('error', 'Delete Failed', err?.message || 'Could not delete this application.');
+      return false;
+    }
+  };
+
   const getDocumentUrl = async (appId, key) => {
     try {
       return await applicationService.getDocumentUrl(appId, key);
@@ -641,6 +652,7 @@ export function PortalProvider({ children }) {
         uploadVerificationDocument,
         deleteVerificationDocument,
         resendToEgi,
+        deleteApplication,
         getDocumentUrl,
         bulkReviewApplications,
         registerAdmin,

@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Eye, Trash2, Edit2, Save, X as XIcon, Send } from 'lucide-react';
+import { Eye, Trash2, Edit2, Save, X as XIcon, Send, ShieldAlert } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
+import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
@@ -25,15 +26,17 @@ const renderFieldValue = (field, value) => {
  * viewing, editing form_data, applicant documents, verification documents,
  * and EGI resend.
  */
-export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAppUpdated }) {
+export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAppUpdated, onDeleted, onDeleteFailed }) {
   const { catalog, isLoading } = useFieldCatalog();
-  const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi } = useApplications();
+  const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi, deleteApplication } = useApplications();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedFormData, setEditedFormData] = useState(app.formData);
   const [saving, setSaving] = useState(false);
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setEditedFormData(app.formData);
@@ -41,6 +44,12 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
   }, [app.id]);
 
   const lockInfo = useMemo(() => getLockInfo(app, currentUser), [app, currentUser]);
+
+  const canDelete =
+    currentUser?.role === 'superadmin' &&
+    app.status === 'Rejected' &&
+    app.egiSyncStatus === 'Pending' &&
+    app.egiDecision === 'Pending';
 
   const sectionGroups = useMemo(
     () => (catalog ? groupFieldsBySection(catalog.sections, catalog.fields) : []),
@@ -97,6 +106,27 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
     setResendBusy(false);
     setResendModalOpen(false);
     if (updated) onAppUpdated?.(updated);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    const success = await deleteApplication(app.id);
+    setDeleting(false);
+    setDeleteConfirmOpen(false);
+
+    if (success) {
+      onDeleted?.();
+      return;
+    }
+
+    onDeleteFailed?.();
+    try {
+      const fresh = await applicationService.getApplication(app.id);
+      onAppUpdated?.(fresh);
+    } catch {
+      // Best-effort refresh; if this also fails the drawer keeps showing
+      // the pre-attempt data until the user manually refreshes.
+    }
   };
 
   return (
@@ -296,6 +326,15 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
         </div>
       </section>
 
+      {canDelete && (
+        <section className="ad-section ad-danger-zone">
+          <h3 className="ad-section-title">Danger Zone</h3>
+          <button type="button" className="ad-delete-btn" onClick={() => setDeleteConfirmOpen(true)}>
+            <Trash2 size={14} /> Delete Application
+          </button>
+        </section>
+      )}
+
       <EgiNoteModal
         open={resendModalOpen}
         busy={resendBusy}
@@ -305,6 +344,38 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
         onCancel={() => setResendModalOpen(false)}
         onConfirm={handleResendConfirm}
       />
+
+      {deleteConfirmOpen && (
+        <div className="ad-delete-overlay">
+          <div className="ad-delete-backdrop" onClick={deleting ? undefined : () => setDeleteConfirmOpen(false)} />
+          <div className="ad-delete-modal">
+            <ShieldAlert className="ad-delete-icon" />
+            <h3 className="ad-delete-title">Delete Application</h3>
+            <p className="ad-delete-desc">
+              This permanently deletes <strong>{app.applicantName}</strong>&apos;s application, all uploaded
+              documents, and verification records. This cannot be undone.
+            </p>
+            <div className="ad-delete-actions">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="ad-delete-cancel-btn"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="ad-delete-confirm-btn"
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

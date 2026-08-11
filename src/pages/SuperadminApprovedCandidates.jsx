@@ -351,6 +351,11 @@ export function SuperadminApprovedCandidates() {
                 notes={adminNotes}
                 onNotesChange={setAdminNotes}
                 onAppUpdated={setActiveApp}
+                onDeleted={() => {
+                  setActiveApp(null);
+                  refetch();
+                }}
+                onDeleteFailed={refetch}
               />
             </div>
 
