@@ -144,8 +144,9 @@ export function AdminApplications() {
       addToast('info', 'Bulk Action Null', 'No applicants were selected in the active list.');
       return;
     }
-    await bulkReviewApplications(selectedAppIds, status);
-    setSelectedAppIds([]);
+    const result = await bulkReviewApplications(selectedAppIds, status);
+    // null = whole request rejected: keep the selection. Otherwise keep only failures.
+    if (result) setSelectedAppIds(result.failed.map((f) => f.id));
     refetch();
   };
 
@@ -155,18 +156,18 @@ export function AdminApplications() {
   };
 
   const handleUpdateApplicantStatus = async (status, egiNote) => {
-    if (!activeApp) return;
-    addToast('info', 'Status Queued', 'Running credential checks & starting portal sync...');
+    if (!activeApp) return null;
     const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
     if (updated) setActiveApp(updated);
     refetch();
+    return updated;
   };
 
   const handleApproveConfirm = async (egiNote) => {
     setApproving(true);
-    await handleUpdateApplicantStatus('Approved', egiNote);
+    const updated = await handleUpdateApplicantStatus('Approved', egiNote);
     setApproving(false);
-    setShowApproveModal(false);
+    if (updated) setShowApproveModal(false);
   };
 
   const handleExportCSV = async () => {

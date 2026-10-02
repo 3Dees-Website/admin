@@ -9,7 +9,6 @@ import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -17,10 +16,9 @@ import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { reviewApplication } = useApplications();
+  const { reviewApplication, reviewApplicationsIndividually } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  const { addToast } = useToast();
 
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
@@ -87,12 +85,13 @@ export function AdminPendingApplications() {
 
   /* Single status change from drawer */
   const handleStatusChange = async (status, egiNote) => {
-    if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
-    setEditingApp(null);
-    addToast('success', 'Status Updated', `Applicant moved to ${status}.`);
+    if (!editingApp) return false;
+    const updated = await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
     refetch();
     refetchStats();
+    if (!updated) return false;
+    setEditingApp(null);
+    return true;
   };
 
   const handleOpenEdit = (app) => {
@@ -107,31 +106,21 @@ export function AdminPendingApplications() {
     refetchStats();
   };
 
-  /* Bulk shortlist — applies only to rows selected on the current page */
-  const handleBulkShortlist = async () => {
+  /* Bulk shortlist/reject — applies only to rows selected on the current
+     page, one request per row; only failures stay selected */
+  const bulkAction = async (status) => {
     if (selectedIds.size === 0) return;
-    for (const id of selectedIds) {
-      const app = pendingApps.find((a) => a.id === id);
-      if (app) await reviewApplication(id, 'Shortlisted', app.notes || '');
-    }
-    addToast('success', 'Bulk Shortlist Done', `${selectedIds.size} application(s) moved to Shortlisted.`);
-    setSelectedIds(new Set());
+    const items = pendingApps
+      .filter((a) => selectedIds.has(a.id))
+      .map((a) => ({ id: a.id, notes: a.notes || '' }));
+    const result = await reviewApplicationsIndividually(items, status);
+    setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
   };
 
-  /* Bulk reject — applies only to rows selected on the current page */
-  const handleBulkReject = async () => {
-    if (selectedIds.size === 0) return;
-    for (const id of selectedIds) {
-      const app = pendingApps.find((a) => a.id === id);
-      if (app) await reviewApplication(id, 'Rejected', app.notes || '');
-    }
-    addToast('info', 'Bulk Reject Done', `${selectedIds.size} application(s) rejected.`);
-    setSelectedIds(new Set());
-    refetch();
-    refetchStats();
-  };
+  const handleBulkShortlist = () => bulkAction('Shortlisted');
+  const handleBulkReject = () => bulkAction('Rejected');
 
   /* Days waiting helper */
   const daysWaiting = (dateStr) => {

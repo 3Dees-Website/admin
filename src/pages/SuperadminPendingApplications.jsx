@@ -9,7 +9,6 @@ import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { PaginationControls } from '../components/PaginationControls';
@@ -21,10 +20,9 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { reviewApplication, bulkReviewApplications } = useApplications();
+  const { reviewApplication, bulkReviewApplications, reviewApplicationsIndividually } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  const { addToast } = useToast();
 
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
@@ -96,13 +94,16 @@ export function SuperadminPendingApplications() {
     }
   };
 
+  /* Single status change from drawer. Resolves true on success so the
+     drawer's approve modal knows whether to close. */
   const handleStatusChange = async (status, egiNote) => {
-    if (!editingApp) return;
-    await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
-    setEditingApp(null);
-    addToast('success', 'Override Applied', `Candidate moved to ${status} via superadmin override.`);
+    if (!editingApp) return false;
+    const updated = await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
     refetch();
     refetchStats();
+    if (!updated) return false;
+    setEditingApp(null);
+    return true;
   };
 
   const handleOpenEdit = (app) => {
@@ -116,14 +117,14 @@ export function SuperadminPendingApplications() {
     refetchStats();
   };
 
+  /* Bulk shortlist/reject — one request per row; only failures stay selected */
   const bulkAction = async (status) => {
     if (selectedIds.size === 0) return;
-    for (const id of selectedIds) {
-      const app = pendingApps.find((a) => a.id === id);
-      if (app) await reviewApplication(id, status, app.notes || '');
-    }
-    addToast('success', `Bulk ${status}`, `${selectedIds.size} applicant(s) set to ${status}.`);
-    setSelectedIds(new Set());
+    const items = pendingApps
+      .filter((a) => selectedIds.has(a.id))
+      .map((a) => ({ id: a.id, notes: a.notes || '' }));
+    const result = await reviewApplicationsIndividually(items, status);
+    setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
   };
@@ -131,9 +132,9 @@ export function SuperadminPendingApplications() {
   const handleQuickApproveConfirm = async (egiNote) => {
     if (!approveTarget) return;
     setApproveBusy(true);
-    await reviewApplication(approveTarget.id, 'Approved', approveTarget.notes || '', egiNote);
+    const updated = await reviewApplication(approveTarget.id, 'Approved', approveTarget.notes || '', egiNote);
     setApproveBusy(false);
-    setApproveTarget(null);
+    if (updated) setApproveTarget(null);
     refetch();
     refetchStats();
   };
@@ -141,12 +142,14 @@ export function SuperadminPendingApplications() {
   const handleBulkApproveConfirm = async (egiNote) => {
     if (selectedIds.size === 0) return;
     setApproveBusy(true);
-    await bulkReviewApplications(Array.from(selectedIds), 'Approved', egiNote);
+    const result = await bulkReviewApplications(Array.from(selectedIds), 'Approved', egiNote);
     setApproveBusy(false);
-    setBulkApproveOpen(false);
     refetch();
     refetchStats();
-    setSelectedIds(new Set());
+    // null = whole request rejected (e.g. note too long): keep modal, note and selection.
+    if (!result) return;
+    setSelectedIds(new Set(result.failed.map((f) => f.id)));
+    if (result.success.length > 0) setBulkApproveOpen(false);
   };
 
   const daysWaiting = (dateStr) =>

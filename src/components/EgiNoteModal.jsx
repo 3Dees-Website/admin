@@ -7,7 +7,14 @@ import './styles/EgiNoteModal.css';
  * Approved transition. EGI's backend rejects Approve requests with
  * 400 MissingField if egiNote is empty, so this is a hard gate, not
  * a nicety.
+ *
+ * The backend also rejects notes over EGI_NOTE_MAX_LENGTH with 400
+ * ValidationError. It measures String(egiNote).length on the value it
+ * receives, and this modal sends `trimmed`, so the counter measures
+ * `trimmed.length` — the exact string that goes over the wire.
  */
+const EGI_NOTE_MAX_LENGTH = 5000;
+
 export function EgiNoteModal({
   open,
   title = 'Approve & Notify EGI',
@@ -21,16 +28,30 @@ export function EgiNoteModal({
   const [note, setNote] = useState('');
   const [touched, setTouched] = useState(false);
 
+  // Clear the note whenever the parent opens or closes the modal, so a note
+  // can never carry over to the next applicant (some parents share one
+  // instance across rows). A failed confirm leaves `open` unchanged, so the
+  // typed note survives for a retry.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    setNote('');
+    setTouched(false);
+  }
+
   if (!open) return null;
 
   const trimmed = note.trim();
-  const isValid = trimmed.length > 0;
+  const isEmpty = trimmed.length === 0;
+  const overBy = trimmed.length - EGI_NOTE_MAX_LENGTH;
+  const isTooLong = overBy > 0;
 
   const handleConfirm = () => {
-    if (!isValid) {
+    if (isEmpty) {
       setTouched(true);
       return;
     }
+    if (isTooLong) return;
     onConfirm(trimmed);
   };
 
@@ -59,7 +80,7 @@ export function EgiNoteModal({
             Note to EGI <span className="enm-required">*</span>
           </label>
           <textarea
-            className={`enm-textarea${touched && !isValid ? ' enm-textarea--error' : ''}`}
+            className={`enm-textarea${(touched && isEmpty) || isTooLong ? ' enm-textarea--error' : ''}`}
             rows={4}
             value={note}
             onChange={(e) => { setNote(e.target.value); if (touched) setTouched(false); }}
@@ -67,9 +88,19 @@ export function EgiNoteModal({
             autoFocus
             disabled={busy}
           />
-          {touched && !isValid && (
-            <span className="enm-error-text">A note to EGI is required before approving.</span>
-          )}
+          <div className="enm-counter-row">
+            {touched && isEmpty && (
+              <span className="enm-error-text">A note to EGI is required before approving.</span>
+            )}
+            {isTooLong && (
+              <span className="enm-error-text">
+                Note is {overBy.toLocaleString()} character{overBy !== 1 ? 's' : ''} over the {EGI_NOTE_MAX_LENGTH.toLocaleString()} limit. Shorten it before approving.
+              </span>
+            )}
+            <span className={`enm-counter${isTooLong ? ' enm-counter--over' : ''}`}>
+              {trimmed.length.toLocaleString()} / {EGI_NOTE_MAX_LENGTH.toLocaleString()}
+            </span>
+          </div>
           <p className="enm-hint">
             This note is sent to EGI along with the candidate record. It's separate from internal admin notes.
           </p>

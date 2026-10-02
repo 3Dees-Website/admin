@@ -129,18 +129,18 @@ export function SuperadminApprovedCandidates() {
   }
 
   const handleUpdateApplicantStatus = async (status, egiNote) => {
-    if (!activeApp) return;
-    addToast('info', 'Execute Oversight Trigger', `Writing compliance check to ${status}...`);
+    if (!activeApp) return null;
     const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
     if (updated) setActiveApp(updated);
     refetch();
+    return updated;
   };
 
   const handleApproveConfirm = async (egiNote) => {
     setApproving(true);
-    await handleUpdateApplicantStatus('Approved', egiNote);
+    const updated = await handleUpdateApplicantStatus('Approved', egiNote);
     setApproving(false);
-    setShowApproveModal(false);
+    if (updated) setShowApproveModal(false);
   };
 
   const handleExportCSV = async () => {

@@ -104,8 +104,11 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
     setResendBusy(true);
     const updated = await resendToEgi(app.id, egiNote);
     setResendBusy(false);
-    setResendModalOpen(false);
-    if (updated) onAppUpdated?.(updated);
+    // On failure the modal stays open with the typed note for a retry.
+    if (updated) {
+      setResendModalOpen(false);
+      onAppUpdated?.(updated);
+    }
   };
 
   const handleDeleteConfirm = async () => {

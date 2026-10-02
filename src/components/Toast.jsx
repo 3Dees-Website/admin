@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useToast } from '../hooks/useToast';
-import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 import './styles/Toast.css';
+
+// Warnings and errors carry the messages an admin most needs to read in
+// full (e.g. a partial bulk failure listing reasons), so they stay longer.
+const TOAST_DURATION_MS = { warning: 8000, error: 8000 };
+const DEFAULT_TOAST_DURATION_MS = 4000;
 
 export function ToastContainer() {
   const { toasts, removeToast } = useToast();
@@ -19,12 +24,14 @@ export function ToastContainer() {
 }
 
 function ToastItem({ toast, onClose }) {
+  const durationMs = TOAST_DURATION_MS[toast.type] ?? DEFAULT_TOAST_DURATION_MS;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000);
+    }, durationMs);
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [onClose, durationMs]);
 
   const styleMap = {
     success: {
@@ -34,6 +41,10 @@ function ToastItem({ toast, onClose }) {
     error: {
       borderClass: 'toast--error',
       icon: <AlertCircle size={20} className="toast-icon toast-icon--error" />,
+    },
+    warning: {
+      borderClass: 'toast--warning',
+      icon: <AlertTriangle size={20} className="toast-icon toast-icon--warning" />,
     },
     info: {
       borderClass: 'toast--info',
@@ -71,7 +82,7 @@ function ToastItem({ toast, onClose }) {
       <motion.div
         initial={{ width: '100%' }}
         animate={{ width: '0%' }}
-        transition={{ duration: 4, ease: 'linear' }}
+        transition={{ duration: durationMs / 1000, ease: 'linear' }}
         className="toast-progress"
       />
     </motion.div>

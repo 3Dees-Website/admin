@@ -6,6 +6,7 @@ import { userService } from '../services/userService';
 import { categoryService } from '../services/categoryService';
 import { notificationService } from '../services/notificationService';
 import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
+import { mapLockError } from '../utils/applicationLock';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
 const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
@@ -117,6 +118,45 @@ export function PortalProvider({ children }) {
   const handleApiError = useCallback((err, fallbackTitle, fallbackMsg) => {
     const message = err?.message || fallbackMsg || 'An unexpected error occurred.';
     addToast('error', fallbackTitle, message);
+  }, [addToast]);
+
+  // ── Bulk result reporting ─────────────────────────────────────────────────
+  //
+  // Shared by both bulk shapes (the real bulk endpoint and the one-request-
+  // per-applicant loop), so an admin always sees exactly how many changed
+  // and, when some didn't, why.
+
+  const reportBulkResult = useCallback((result, status) => {
+    const successCount = result.success.length;
+    const failCount = result.failed.length;
+    const total = successCount + failCount;
+    const plural = (n) => `applicant${n !== 1 ? 's' : ''}`;
+
+    if (failCount === 0) {
+      addToast('success', 'Bulk Update Complete', `All ${total} ${plural(total)} set to ${status}.`);
+      return;
+    }
+
+    // Group identical reasons with a count; cap at 3 groups.
+    const counts = new Map();
+    for (const { reason } of result.failed) {
+      const key = reason || 'Unknown error';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const groups = [...counts.entries()].map(([reason, n]) => `${reason} (${n})`);
+    const extra = groups.length - 3;
+    const reasons = groups.slice(0, 3).join('; ')
+      + (extra > 0 ? `; +${extra} other reason${extra !== 1 ? 's' : ''}` : '');
+
+    if (successCount === 0) {
+      addToast('error', 'Bulk Update Failed', `None of the ${total} ${plural(total)} could be set to ${status} — ${reasons}.`);
+    } else {
+      addToast(
+        'warning',
+        'Partial Bulk Update',
+        `${successCount} of ${total} applicants set to ${status}. ${failCount} failed and remain selected — ${reasons}.`
+      );
+    }
   }, [addToast]);
 
   // ── Data loaders ──────────────────────────────────────────────────────────
@@ -391,7 +431,9 @@ export function PortalProvider({ children }) {
   /**
    * Returns the updated application on success (or null on failure) so the
    * calling page can update its local view without a global applications
-   * array. Callers are responsible for refetching their current page/stats
+   * array. This raises the only toast for the change, success or error —
+   * callers must check the return value and must not toast themselves.
+   * Callers are responsible for refetching their current page/stats
    * afterward.
    */
   const reviewApplication = async (appId, status, notes, egiNote) => {
@@ -403,10 +445,16 @@ export function PortalProvider({ children }) {
         egiNote,
         changedBy: adminUser,
       });
-      addToast('info', 'Status Updated', `Applicant status set to ${status}.`);
 
+      const name = updated?.applicantName || 'Applicant';
       if (status === 'Approved') {
-        addToast('success', 'Client Sync Initiated', 'Candidate synced to EGI portal by the server.');
+        addToast('success', 'Approved & Sent to EGI', `${name} approved. Your note is queued for delivery to the EGI portal.`);
+      } else if (status === 'Shortlisted') {
+        addToast('success', 'Applicant Shortlisted', `${name} moved to Shortlisted.`);
+      } else if (status === 'Rejected') {
+        addToast('success', 'Applicant Rejected', `${name} moved to Rejected.`);
+      } else {
+        addToast('success', 'Status Updated', `${name} moved to ${status}.`);
       }
 
       return updated;
@@ -421,7 +469,7 @@ export function PortalProvider({ children }) {
       const updated = await applicationService.updateApplication(appId, updates);
       return updated;
     } catch (err) {
-      addToast('error', 'Update Failed', err?.message || 'Could not save candidate file.');
+      addToast('error', 'Update Failed', mapLockError(err));
       return null;
     }
   };
@@ -432,7 +480,7 @@ export function PortalProvider({ children }) {
       addToast('success', 'Document Attached', 'Verification document uploaded.');
       return updated;
     } catch (err) {
-      addToast('error', 'Upload Failed', err?.message || 'Could not attach the verification document.');
+      addToast('error', 'Upload Failed', mapLockError(err));
       return null;
     }
   };
@@ -443,7 +491,7 @@ export function PortalProvider({ children }) {
       addToast('info', 'Document Removed', 'Verification document deleted.');
       return updated;
     } catch (err) {
-      addToast('error', 'Delete Failed', err?.message || 'Could not remove the verification document.');
+      addToast('error', 'Delete Failed', mapLockError(err));
       return null;
     }
   };
@@ -493,28 +541,41 @@ export function PortalProvider({ children }) {
         changedBy: adminUser,
       });
 
-      const successCount = result.success?.length ?? appIds.length;
-      const failCount = result.failed?.length ?? 0;
-
-      if (failCount > 0) {
-        addToast(
-          'warning',
-          'Partial Bulk Update',
-          `${successCount} updated; ${failCount} could not transition to ${status}.`
-        );
-      } else {
-        addToast(
-          'success',
-          'Bulk Action Complete',
-          `Successfully marked ${successCount} applicant${successCount !== 1 ? 's' : ''} as ${status}.`
-        );
-      }
-
-      return result;
+      // Missing arrays are treated as empty, never as "everything succeeded".
+      const normalized = {
+        success: Array.isArray(result?.success) ? result.success : [],
+        failed: Array.isArray(result?.failed) ? result.failed : [],
+      };
+      reportBulkResult(normalized, status);
+      return normalized;
     } catch (err) {
       handleApiError(err, 'Bulk Update Failed', 'Could not complete bulk status update.');
       return null;
     }
+  };
+
+  /**
+   * Bulk change made as one PATCH /:id/status per applicant, in sequence —
+   * the same requests the pages used to loop over themselves. Raises a single
+   * summary toast (via reportBulkResult) instead of one per applicant, and
+   * returns the same { success: [ids], failed: [{ id, reason }] } shape as
+   * bulkReviewApplications so callers can keep only the failures selected.
+   */
+  const reviewApplicationsIndividually = async (items, status) => {
+    const adminUser = state.currentUser?.name || 'Admin';
+    const result = { success: [], failed: [] };
+
+    for (const { id, notes } of items) {
+      try {
+        await applicationService.updateStatus(id, { status, notes, changedBy: adminUser });
+        result.success.push(id);
+      } catch (err) {
+        result.failed.push({ id, reason: err?.message || 'Could not update application status.' });
+      }
+    }
+
+    reportBulkResult(result, status);
+    return result;
   };
 
   // ── Admin user management (superadmin only) ───────────────────────────────
@@ -655,6 +716,7 @@ export function PortalProvider({ children }) {
         deleteApplication,
         getDocumentUrl,
         bulkReviewApplications,
+        reviewApplicationsIndividually,
         registerAdmin,
         toggleAdminSuspension,
         resetAdminPass,

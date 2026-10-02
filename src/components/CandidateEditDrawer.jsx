@@ -29,11 +29,13 @@ export function CandidateEditDrawer({
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
 
+  // onStatusChange resolves true on success, false on failure. On failure the
+  // modal stays open with the typed note so the admin can fix and retry.
   const handleApproveConfirm = async (egiNote) => {
     setApproving(true);
-    await onStatusChange('Approved', egiNote);
+    const ok = await onStatusChange('Approved', egiNote);
     setApproving(false);
-    setShowApproveModal(false);
+    if (ok) setShowApproveModal(false);
   };
 
   return (
