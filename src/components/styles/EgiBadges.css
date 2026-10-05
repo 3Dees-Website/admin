@@ -29,3 +29,25 @@
   background-color: #fee2e2;
   color: #b91c1c;
 }
+
+.egi-badge--amber {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.egi-badge--amber-outline {
+  background-color: #fffbeb;
+  color: #92400e;
+  box-shadow: inset 0 0 0 1px #f59e0b;
+}
+
+.egi-badge--red-solid {
+  background-color: #dc2626;
+  color: #fff;
+  gap: 0.25rem;
+}
+
+.egi-badge-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}

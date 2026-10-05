@@ -499,7 +499,12 @@ export function PortalProvider({ children }) {
   const resendToEgi = async (appId, egiNote) => {
     try {
       const updated = await applicationService.resendToEgi(appId, egiNote);
-      addToast('success', 'Resent to EGI', 'Candidate resubmitted to the EGI portal.');
+      const ref = updated.referenceId || 'The application';
+      if (updated.egiResendKind === 'redelivery') {
+        addToast('success', 'Queued for Redelivery', `${ref} will be sent to EGI shortly.`);
+      } else {
+        addToast('success', 'Resent to EGI', 'Queued for delivery; EGI decision reset to awaiting.');
+      }
       return updated;
     } catch (err) {
       addToast('error', 'Resend Failed', err?.message || 'Could not resend to the EGI portal.');

@@ -19,6 +19,11 @@ function normalizeApplication(app) {
     egiDecisionAt: app.egi_decision_at,
     egiReferenceId: app.egi_reference_id,
     egiResendCount: app.egi_resend_count || 0,
+    // Only GET /applications/:id carries these. Left undefined when absent
+    // ("not loaded"), which is distinct from egi_delivery: null ("never queued").
+    egiDelivery: app.egi_delivery,
+    egiCanResend: app.egi_can_resend,
+    egiResendKind: app.egi_resend_kind,
     applicantName: app.applicant_name || '',
     applicantEmail: app.applicant_email || '',
     stateOfOrigin: app.form_data?.stateOfOrigin || null,

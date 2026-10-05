@@ -33,6 +33,12 @@
   border: 1px solid #fde68a;
 }
 
+.ad-lock-banner--danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
 .ad-lock-banner--success {
   background: #f0fdf4;
   color: #15803d;
@@ -121,6 +127,28 @@
   font-size: 0.6rem;
   font-weight: 600;
   color: #9ca3af;
+}
+
+.ad-egi-delivery-line {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #4b5563;
+  margin: 0;
+}
+
+.ad-egi-delivery-line--alert {
+  color: #b91c1c;
+}
+
+.ad-egi-error {
+  font-size: 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  margin: 0;
+  word-break: break-word;
 }
 
 .ad-resend-btn {

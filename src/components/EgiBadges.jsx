@@ -1,3 +1,5 @@
+import { AlertTriangle } from 'lucide-react';
+import { DELIVERY_STATE_MAP } from '../utils/egiDeliveryState';
 import './styles/EgiBadges.css';
 
 const SYNC_MAP = {
@@ -16,6 +18,16 @@ const DECISION_MAP = {
 export function EgiSyncBadge({ status }) {
   const entry = SYNC_MAP[status] || SYNC_MAP.Pending;
   return <span className={`egi-badge egi-badge--${entry.tone}`}>{entry.label}</span>;
+}
+
+export function EgiDeliveryBadge({ state }) {
+  const entry = DELIVERY_STATE_MAP[state] || DELIVERY_STATE_MAP.pending;
+  return (
+    <span className={`egi-badge egi-badge--${entry.tone}`}>
+      {entry.icon && <AlertTriangle className="egi-badge-icon" aria-hidden="true" />}
+      {entry.label}
+    </span>
+  );
 }
 
 export function EgiDecisionBadge({ decision }) {

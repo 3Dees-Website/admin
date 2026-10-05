@@ -46,7 +46,11 @@
 }
 
 @media (min-width: 768px) {
-  .ses-stats-row { grid-template-columns: repeat(4, 1fr); }
+  .ses-stats-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1100px) {
+  .ses-stats-row { grid-template-columns: repeat(5, 1fr); }
 }
 
 .ses-stat-card {
@@ -67,6 +71,32 @@
 .ses-icon-red   { color: #dc2626; }
 
 .ses-stat-card > div { display: flex; flex-direction: column; gap: 0.1rem; }
+
+/* Cards that set the filter are buttons; reset button chrome. */
+.ses-stat-card--clickable {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ses-stat-card--clickable:hover { border-color: #d1d5db; }
+.ses-stat-card--active { border-color: var(--color-brand-primary); }
+
+/* Gave up with a non-zero count: nothing will happen unless someone acts. */
+.ses-stat-card--alert {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.ses-stat-note {
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: #6b7280;
+  line-height: 1.3;
+  margin-top: 0.2rem;
+}
+
+.ses-icon-amber { color: #d97706; }
 
 .ses-stat-val { font-size: 1.5rem; font-weight: 800; color: var(--color-brand-dark); line-height: 1; }
 .ses-stat-key { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; }
@@ -192,6 +222,17 @@
 .ses-tone-blue  { background-color: #dbeafe; color: #1d4ed8; }
 .ses-tone-green { background-color: #dcfce7; color: #15803d; }
 .ses-tone-red   { background-color: #fee2e2; color: #b91c1c; }
+
+/* Rows that gave up (and are not superseded) need a person: red left edge
+   and a faint red wash, so they stand out while scanning. */
+.ses-row--attention { background-color: #fef2f2; }
+.ses-row--attention > td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+.ses-next--never { color: #b91c1c; font-weight: 700; }
+
+.ses-row--superseded > td { color: #9ca3af; }
+
+.ses-state-cell { display: inline-flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.ses-state-was { font-size: 0.55rem; font-weight: 600; color: #9ca3af; white-space: nowrap; }
 
 .ses-retry-btn {
   display: inline-flex; align-items: center; gap: 0.35rem;

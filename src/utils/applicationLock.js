@@ -4,7 +4,7 @@
  * copy, disabling controls) only — the server is the real enforcement, and
  * mapLockError() below translates its error codes if a race slips through.
  */
-export function getLockInfo(app, currentUser) {
+export function getLockInfo(app, currentUser, delivery) {
   const { status, egiDecision } = app;
   const isSuperadmin = currentUser?.role === 'superadmin';
 
@@ -13,7 +13,7 @@ export function getLockInfo(app, currentUser) {
   }
 
   if (status === 'Approved' && egiDecision === 'Pending') {
-    return { locked: true, tone: 'info', banner: 'Locked — under EGI review' };
+    return { locked: true, ...pendingEgiBanner(app.egiSyncStatus, delivery, isSuperadmin) };
   }
 
   if (egiDecision === 'Declined') {
@@ -42,6 +42,32 @@ export function getLockInfo(app, currentUser) {
   return { locked: false };
 }
 
+/**
+ * "Under EGI review" is only true once EGI has the application. The sync
+ * status (always present) says whether it does; the delivery state from
+ * egi_delivery (only once loaded) tells retrying apart from given up.
+ */
+function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
+  if (egiSyncStatus === 'Synced') {
+    return { tone: 'info', banner: 'Locked — under EGI review' };
+  }
+  if (egiSyncStatus === 'Queued') {
+    return { tone: 'info', banner: 'Locked — being delivered to EGI (not yet received)' };
+  }
+  if (egiSyncStatus === 'Failed') {
+    if (delivery?.deliveryState === 'exhausted') {
+      return {
+        tone: 'danger',
+        banner: `Locked — delivery to EGI failed; EGI has not received this application${isSuperadmin ? ' · you can redeliver it below' : ''}`,
+      };
+    }
+    return { tone: 'warning', banner: 'Locked — delivery to EGI is failing and being retried; EGI has not received it' };
+  }
+  return { tone: 'info', banner: 'Locked — approved, not yet sent to EGI' };
+}
+
+// Fallback copy only: the server's own message wins, because it can say more
+// (e.g. LockedPendingEgi now says whether EGI actually has the application).
 const LOCK_ERROR_COPY = {
   LockedPendingEgi: 'This application is approved and awaiting an EGI decision — content is locked until a decision is recorded.',
   LockedAccepted: 'This application has been accepted by EGI and can no longer be edited.',
@@ -49,5 +75,5 @@ const LOCK_ERROR_COPY = {
 };
 
 export function mapLockError(err) {
-  return LOCK_ERROR_COPY[err?.error] || err?.message || 'This action is not allowed right now.';
+  return err?.message || LOCK_ERROR_COPY[err?.error] || 'This action is not allowed right now.';
 }

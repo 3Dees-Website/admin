@@ -11,6 +11,14 @@ function normalizeQueueItem(item) {
     lastError: item.last_error,
     nextAttemptAt: item.next_attempt_at,
     createdAt: item.created_at,
+    // Delivery truth derived server-side from status + attempts + lease.
+    deliveryState: item.delivery_state,
+    superseded: Boolean(item.superseded),
+    canRetry: Boolean(item.can_retry),
+    maxAttempts: item.max_attempts,
+    applicationStatus: item.application_status,
+    egiDecision: item.egi_decision,
+    applicationEgiSyncStatus: item.application_egi_sync_status,
   };
 }
 
@@ -19,6 +27,9 @@ function normalizeStat(stat) {
     status: stat.status,
     count: stat.count,
     oldest: stat.oldest,
+    exhausted: stat.exhausted || 0,
+    retrying: stat.retrying || 0,
+    stuck: stat.stuck || 0,
   };
 }
 

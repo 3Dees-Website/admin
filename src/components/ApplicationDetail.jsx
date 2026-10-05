@@ -5,11 +5,40 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
-import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
+import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
 import { VERIFICATION_DOC_TYPES } from '../utils/verificationDocTypes';
 import './styles/ApplicationDetail.css';
+
+const formatWhen = (value) => (value ? new Date(value).toLocaleString() : null);
+
+/**
+ * One line saying what is actually happening with the latest delivery, and
+ * whether EGI has the application. `alert` marks the state no one will fix
+ * automatically.
+ */
+function describeDelivery(delivery) {
+  const { deliveryState, attempts, maxAttempts, nextAttemptAt, updatedAt } = delivery;
+  switch (deliveryState) {
+    case 'pending':
+      return { text: 'Queued for delivery to EGI. EGI has not received it yet.' };
+    case 'sending':
+      return { text: `Delivery in progress (attempt ${attempts + 1} of ${maxAttempts}).` };
+    case 'stuck':
+      return { text: 'The last send was interrupted. It will be retried automatically. EGI has not confirmed receipt.' };
+    case 'retrying':
+      return {
+        text: `Attempt ${attempts} of ${maxAttempts} failed.${nextAttemptAt ? ` Next attempt ${formatWhen(nextAttemptAt)}.` : ''} EGI has not received this application yet.`,
+      };
+    case 'exhausted':
+      return { text: `Delivery failed after ${maxAttempts} attempts. EGI has not received this application.`, alert: true };
+    case 'synced':
+      return { text: `Received by EGI${updatedAt ? ` on ${formatWhen(updatedAt)}` : ''}.` };
+    default:
+      return null;
+  }
+}
 
 const renderFieldValue = (field, value) => {
   if (value === undefined || value === null || value === '') return '—';
@@ -38,12 +67,63 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Delivery truth (egi_delivery / egi_can_resend / egi_resend_kind) only comes
+  // from GET /applications/:id, and most callers open this drawer with a list
+  // row. So it is fetched here, keyed on the fields that change it: a result
+  // for a stale key counts as "not loaded" and is refetched.
+  const [egiInfoTick, setEgiInfoTick] = useState(0);
+  const [egiInfo, setEgiInfo] = useState(null);
+  const egiInfoKey = `${app.id}|${app.egiSyncStatus}|${app.egiDecision}|${app.egiResendCount}|${egiInfoTick}`;
+
   useEffect(() => {
     setEditedFormData(app.formData);
     setIsEditing(false);
   }, [app.id]);
 
-  const lockInfo = useMemo(() => getLockInfo(app, currentUser), [app, currentUser]);
+  useEffect(() => {
+    let cancelled = false;
+    applicationService.getApplication(app.id)
+      .then((fresh) => {
+        if (cancelled) return;
+        setEgiInfo({
+          key: egiInfoKey,
+          failed: false,
+          delivery: fresh.egiDelivery ?? null,
+          canResend: Boolean(fresh.egiCanResend),
+          resendKind: fresh.egiResendKind ?? null,
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setEgiInfo({ key: egiInfoKey, failed: true, error: err });
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [egiInfoKey]);
+
+  const egiLoaded = egiInfo?.key === egiInfoKey;
+  const egiDelivery = egiLoaded && !egiInfo.failed ? egiInfo.delivery : undefined;
+
+  const lockInfo = useMemo(() => getLockInfo(app, currentUser, egiDelivery), [app, currentUser, egiDelivery]);
+
+  // The server decides whether a resend is allowed and which kind. If that
+  // lookup failed, fall back to the old Declined-only rule rather than hide
+  // Resend entirely; the server still enforces the real rules on submit.
+  const egiFallback = egiLoaded && egiInfo.failed;
+  const canResend = egiLoaded && (egiFallback ? Boolean(lockInfo.canResend) : egiInfo.canResend);
+  const resendKind = egiFallback ? (lockInfo.canResend ? 'resubmission' : null) : egiInfo?.resendKind;
+  const isRedelivery = canResend && resendKind === 'redelivery';
+
+  useEffect(() => {
+    if (egiFallback) {
+      console.warn(
+        `[ApplicationDetail] Could not load EGI delivery info for application ${app.id}; `
+        + `Resend visibility is using the Declined-only fallback rule (shown: ${Boolean(lockInfo.canResend)}).`,
+        egiInfo.error,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [egiFallback, app.id]);
 
   const canDelete =
     currentUser?.role === 'superadmin' &&
@@ -103,11 +183,27 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
   const handleResendConfirm = async (egiNote) => {
     setResendBusy(true);
     const updated = await resendToEgi(app.id, egiNote);
-    setResendBusy(false);
-    // On failure the modal stays open with the typed note for a retry.
     if (updated) {
+      setResendBusy(false);
       setResendModalOpen(false);
       onAppUpdated?.(updated);
+      setEgiInfoTick((t) => t + 1);
+      return;
+    }
+
+    // The failure (e.g. 409 Conflict: the application changed underneath) has
+    // already been toasted with the server's message. Reload so the drawer
+    // shows the current state; keep the modal and its typed note open only if
+    // a resend is still allowed.
+    try {
+      const fresh = await applicationService.getApplication(app.id);
+      onAppUpdated?.(fresh);
+      setEgiInfoTick((t) => t + 1);
+      if (!fresh.egiCanResend) setResendModalOpen(false);
+    } catch {
+      // Best-effort refresh; the modal stays open for another attempt.
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -155,8 +251,11 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
       <div className="ad-egi-panel">
         <div className="ad-egi-row">
           <span>Delivery to EGI</span>
-          <EgiSyncBadge status={app.egiSyncStatus} />
+          {egiDelivery
+            ? <EgiDeliveryBadge state={egiDelivery.deliveryState} />
+            : <EgiSyncBadge status={app.egiSyncStatus} />}
         </div>
+        {egiDelivery && <DeliveryDetail delivery={egiDelivery} />}
         <div className="ad-egi-row">
           <span>EGI Decision</span>
           <div className="ad-egi-row-right">
@@ -177,9 +276,9 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
         )}
         {app.egiReferenceId && <span className="ad-egi-meta">EGI reference: {app.egiReferenceId}</span>}
 
-        {lockInfo.canResend && (
+        {canResend && (
           <button type="button" className="ad-resend-btn" onClick={() => setResendModalOpen(true)}>
-            <Send size={14} /> Resend to EGI
+            <Send size={14} /> {isRedelivery ? 'Redeliver to EGI' : 'Resend to EGI'}
           </button>
         )}
       </div>
@@ -338,15 +437,30 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
         </section>
       )}
 
-      <EgiNoteModal
-        open={resendModalOpen}
-        busy={resendBusy}
-        title="Resend to EGI"
-        confirmLabel="Resend & Sync"
-        description={`Resending ${app.applicantName} sends a new note to EGI and resets the decision to pending.`}
-        onCancel={() => setResendModalOpen(false)}
-        onConfirm={handleResendConfirm}
-      />
+      {isRedelivery ? (
+        <EgiNoteModal
+          open={resendModalOpen}
+          busy={resendBusy}
+          title="Redeliver to EGI"
+          confirmLabel="Redeliver"
+          description={`Delivery of ${app.applicantName}'s application failed after ${egiDelivery?.maxAttempts ?? 'several'} attempts, so EGI never received it. This sends it again as a new delivery. The approval stays as it is, and there is no EGI decision to reset.`}
+          noteRequired={false}
+          placeholder="Leave blank to send the original note."
+          hint="If you leave this blank, EGI receives the same note as the failed delivery. If you write one, it replaces that note, both in what EGI receives and on this record."
+          onCancel={() => setResendModalOpen(false)}
+          onConfirm={handleResendConfirm}
+        />
+      ) : (
+        <EgiNoteModal
+          open={resendModalOpen}
+          busy={resendBusy}
+          title="Resend to EGI"
+          confirmLabel="Resend & Sync"
+          description={`Resending ${app.applicantName} sends a new note to EGI and resets the decision to pending.`}
+          onCancel={() => setResendModalOpen(false)}
+          onConfirm={handleResendConfirm}
+        />
+      )}
 
       {deleteConfirmOpen && (
         <div className="ad-delete-overlay">
@@ -451,6 +565,20 @@ function DocumentsPanel({ fields, documents, appId }) {
 }
 
 /* ── Verification documents (admin-uploaded, with upload/delete) ─────────── */
+function DeliveryDetail({ delivery }) {
+  const line = describeDelivery(delivery);
+  const showError = delivery.lastError
+    && ['retrying', 'stuck', 'exhausted'].includes(delivery.deliveryState);
+  return (
+    <>
+      {line && (
+        <p className={`ad-egi-delivery-line${line.alert ? ' ad-egi-delivery-line--alert' : ''}`}>{line.text}</p>
+      )}
+      {showError && <p className="ad-egi-error">Last error: {delivery.lastError}</p>}
+    </>
+  );
+}
+
 function VerificationDocumentsPanel({ appId, verificationDocuments, locked, onUpload, onDelete }) {
   const [confirmingId, setConfirmingId] = useState(null);
   const [docType, setDocType] = useState(VERIFICATION_DOC_TYPES[0].value);

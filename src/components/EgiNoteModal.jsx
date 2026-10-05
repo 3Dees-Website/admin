@@ -21,6 +21,11 @@ export function EgiNoteModal({
   description,
   confirmLabel = 'Approve & Sync',
   busy = false,
+  // A redelivery's note is optional (blank resends the original note); every
+  // other use keeps the defaults, so the Approve flow is unchanged.
+  noteRequired = true,
+  placeholder = 'e.g. Approved — strong fit for the Osun cohort.',
+  hint = "This note is sent to EGI along with the candidate record. It's separate from internal admin notes.",
   verificationDocuments,
   onCancel,
   onConfirm,
@@ -47,7 +52,7 @@ export function EgiNoteModal({
   const isTooLong = overBy > 0;
 
   const handleConfirm = () => {
-    if (isEmpty) {
+    if (noteRequired && isEmpty) {
       setTouched(true);
       return;
     }
@@ -77,19 +82,21 @@ export function EgiNoteModal({
 
         <div className="enm-body">
           <label className="enm-label">
-            Note to EGI <span className="enm-required">*</span>
+            Note to EGI {noteRequired
+              ? <span className="enm-required">*</span>
+              : <span className="enm-optional">(optional)</span>}
           </label>
           <textarea
-            className={`enm-textarea${(touched && isEmpty) || isTooLong ? ' enm-textarea--error' : ''}`}
+            className={`enm-textarea${(noteRequired && touched && isEmpty) || isTooLong ? ' enm-textarea--error' : ''}`}
             rows={4}
             value={note}
             onChange={(e) => { setNote(e.target.value); if (touched) setTouched(false); }}
-            placeholder="e.g. Approved — strong fit for the Osun cohort."
+            placeholder={placeholder}
             autoFocus
             disabled={busy}
           />
           <div className="enm-counter-row">
-            {touched && isEmpty && (
+            {noteRequired && touched && isEmpty && (
               <span className="enm-error-text">A note to EGI is required before approving.</span>
             )}
             {isTooLong && (
@@ -101,9 +108,7 @@ export function EgiNoteModal({
               {trimmed.length.toLocaleString()} / {EGI_NOTE_MAX_LENGTH.toLocaleString()}
             </span>
           </div>
-          <p className="enm-hint">
-            This note is sent to EGI along with the candidate record. It's separate from internal admin notes.
-          </p>
+          <p className="enm-hint">{hint}</p>
           {verificationDocuments !== undefined && (
             <p className="enm-verification-reminder">
               {verificationDocuments.length > 0
