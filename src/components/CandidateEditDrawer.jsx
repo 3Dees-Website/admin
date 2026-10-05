@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { X, ShieldAlert, Check } from 'lucide-react';
 import { ApplicationDetail } from './ApplicationDetail';
 import { EgiNoteModal } from './EgiNoteModal';
+import { useNotesDraft } from '../hooks/useNotesDraft';
 import './styles/CandidateEditDrawer.css';
 
 /**
@@ -14,33 +15,49 @@ import './styles/CandidateEditDrawer.css';
  * content. Status transitions (Reject/Shortlist/Approve) stay here since
  * they're page-orchestrated; everything else (view/edit/documents/
  * verification/resend) lives in ApplicationDetail.
+ *
+ * The owning pages close the drawer after a successful status change, so the
+ * notepad is saved first: if it can't be saved the status is not changed,
+ * rather than the draft being lost with the drawer.
  */
 export function CandidateEditDrawer({
   app,
   jobTitle,
   isSuperadmin = false,
   currentUser,
-  notes,
-  onNotesChange,
   onClose,
   onStatusChange,
   onAppUpdated,
 }) {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
+  const notesDraft = useNotesDraft(app);
+
+  const handleClose = () => notesDraft.requestClose(onClose);
+
+  // Resolves false without calling onStatusChange when the notes can't be
+  // saved (ensureSaved has already said why).
+  const changeStatus = async (status, egiNote) => {
+    if (!(await notesDraft.ensureSaved())) return false;
+    return onStatusChange(status, egiNote);
+  };
+
+  const handleOpenApprove = async () => {
+    if (await notesDraft.ensureSaved()) setShowApproveModal(true);
+  };
 
   // onStatusChange resolves true on success, false on failure. On failure the
   // modal stays open with the typed note so the admin can fix and retry.
   const handleApproveConfirm = async (egiNote) => {
     setApproving(true);
-    const ok = await onStatusChange('Approved', egiNote);
+    const ok = await changeStatus('Approved', egiNote);
     setApproving(false);
     if (ok) setShowApproveModal(false);
   };
 
   return (
     <div className="ced-overlay">
-      <div className="ced-backdrop" onClick={onClose} />
+      <div className="ced-backdrop" onClick={handleClose} />
 
       <div className="ced-drawer">
 
@@ -53,7 +70,7 @@ export function CandidateEditDrawer({
             <h2 className="ced-name">{app.applicantName}</h2>
             <span className="ced-meta">{jobTitle}&nbsp;·&nbsp;Ref:&nbsp;{app.referenceId}</span>
           </div>
-          <button onClick={onClose} className="ced-close-btn">
+          <button onClick={handleClose} className="ced-close-btn">
             <X className="ced-close-icon" />
           </button>
         </div>
@@ -74,8 +91,7 @@ export function CandidateEditDrawer({
           <ApplicationDetail
             app={app}
             currentUser={currentUser}
-            notes={notes}
-            onNotesChange={onNotesChange}
+            notesDraft={notesDraft}
             onAppUpdated={onAppUpdated}
           />
         </div>
@@ -91,10 +107,10 @@ export function CandidateEditDrawer({
             </span>
             {onStatusChange && (
               <div className="ced-status-btns">
-                <button type="button" onClick={() => onStatusChange('Rejected')} className="ced-btn-reject">Reject</button>
-                <button type="button" onClick={() => onStatusChange('Shortlisted')} className="ced-btn-shortlist">Shortlist</button>
+                <button type="button" onClick={() => changeStatus('Rejected')} className="ced-btn-reject">Reject</button>
+                <button type="button" onClick={() => changeStatus('Shortlisted')} className="ced-btn-shortlist">Shortlist</button>
                 {isSuperadmin && (
-                  <button type="button" onClick={() => setShowApproveModal(true)} className="ced-btn-approve">
+                  <button type="button" onClick={handleOpenApprove} className="ced-btn-approve">
                     <Check size={14} /> Approve &amp; Sync
                   </button>
                 )}
@@ -102,7 +118,7 @@ export function CandidateEditDrawer({
             )}
           </div>
           <div className="ced-footer-save">
-            <button type="button" onClick={onClose} className="ced-btn-cancel">Close</button>
+            <button type="button" onClick={handleClose} className="ced-btn-cancel">Close</button>
           </div>
         </div>
 

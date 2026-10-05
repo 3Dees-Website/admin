@@ -23,7 +23,6 @@ export function AdminPendingApplications() {
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
   const [editingApp,     setEditingApp]     = useState(null);
-  const [drawerNotes,    setDrawerNotes]    = useState('');
   const [selectedIds,    setSelectedIds]    = useState(new Set());
 
   const {
@@ -86,7 +85,7 @@ export function AdminPendingApplications() {
   /* Single status change from drawer */
   const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return false;
-    const updated = await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
+    const updated = await reviewApplication(editingApp.id, status, { egiNote });
     refetch();
     refetchStats();
     if (!updated) return false;
@@ -96,12 +95,11 @@ export function AdminPendingApplications() {
 
   const handleOpenEdit = (app) => {
     setEditingApp(app);
-    setDrawerNotes(app.notes || '');
   };
 
   /* Quick single-row shortlist */
   const handleQuickShortlist = async (app) => {
-    await reviewApplication(app.id, 'Shortlisted', app.notes || '');
+    await reviewApplication(app.id, 'Shortlisted');
     refetch();
     refetchStats();
   };
@@ -110,10 +108,10 @@ export function AdminPendingApplications() {
      page, one request per row; only failures stay selected */
   const bulkAction = async (status) => {
     if (selectedIds.size === 0) return;
-    const items = pendingApps
+    const ids = pendingApps
       .filter((a) => selectedIds.has(a.id))
-      .map((a) => ({ id: a.id, notes: a.notes || '' }));
-    const result = await reviewApplicationsIndividually(items, status);
+      .map((a) => a.id);
+    const result = await reviewApplicationsIndividually(ids, status);
     setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
@@ -334,8 +332,6 @@ export function AdminPendingApplications() {
           jobTitle={getJobTitle(editingApp.jobId)}
           isSuperadmin={false}
           currentUser={currentUser}
-          notes={drawerNotes}
-          onNotesChange={setDrawerNotes}
           onClose={() => setEditingApp(null)}
           onStatusChange={handleStatusChange}
           onAppUpdated={setEditingApp}

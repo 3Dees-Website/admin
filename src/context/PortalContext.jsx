@@ -435,13 +435,19 @@ export function PortalProvider({ children }) {
    * callers must check the return value and must not toast themselves.
    * Callers are responsible for refetching their current page/stats
    * afterward.
+   *
+   * Never sends the internal notepad (that is saved on its own via
+   * PATCH /:id/notes). The options object is deliberate: with a positional
+   * (appId, status, notes, egiNote) signature, a caller still passing notes
+   * would send a private vetting remark to EGI as the egiNote. Here any
+   * stray third positional argument is simply ignored.
    */
-  const reviewApplication = async (appId, status, notes, egiNote) => {
+  const reviewApplication = async (appId, status, options) => {
     const adminUser = state.currentUser?.name || 'Admin';
+    const egiNote = options?.egiNote;
     try {
       const updated = await applicationService.updateStatus(appId, {
         status,
-        notes,
         egiNote,
         changedBy: adminUser,
       });
@@ -583,14 +589,15 @@ export function PortalProvider({ children }) {
    * summary toast (via reportBulkResult) instead of one per applicant, and
    * returns the same { success: [ids], failed: [{ id, reason }] } shape as
    * bulkReviewApplications so callers can keep only the failures selected.
+   * Takes ids only — the notepad is never sent with a status change.
    */
-  const reviewApplicationsIndividually = async (items, status) => {
+  const reviewApplicationsIndividually = async (ids, status) => {
     const adminUser = state.currentUser?.name || 'Admin';
     const result = { success: [], failed: [] };
 
-    for (const { id, notes } of items) {
+    for (const id of ids) {
       try {
-        await applicationService.updateStatus(id, { status, notes, changedBy: adminUser });
+        await applicationService.updateStatus(id, { status, changedBy: adminUser });
         result.success.push(id);
       } catch (err) {
         result.failed.push({ id, reason: err?.message || 'Could not update application status.' });

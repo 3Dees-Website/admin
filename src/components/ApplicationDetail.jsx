@@ -5,6 +5,7 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
+import { AdminNotesPanel } from './AdminNotesPanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
@@ -55,7 +56,7 @@ const renderFieldValue = (field, value) => {
  * viewing, editing form_data, applicant documents, verification documents,
  * and EGI resend.
  */
-export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAppUpdated, onDeleted, onDeleteFailed }) {
+export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, onDeleted, onDeleteFailed }) {
   const { catalog, isLoading } = useFieldCatalog();
   const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi, deleteApplication } = useApplications();
 
@@ -85,6 +86,10 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
     applicationService.getApplication(app.id)
       .then((fresh) => {
         if (cancelled) return;
+        // List rows can be up to a poll old; the fresh notes become
+        // previousNotes (while the draft is untouched) so a stale row
+        // can't cause a false conflict.
+        notesDraft?.adoptServerNotes(fresh.id, fresh.notes);
         setEgiInfo({
           key: egiInfoKey,
           failed: false,
@@ -397,16 +402,7 @@ export function ApplicationDetail({ app, currentUser, notes, onNotesChange, onAp
         />
       </section>
 
-      <section className="ad-section">
-        <h3 className="ad-section-title">Administrative Notes</h3>
-        <textarea
-          rows={3}
-          value={notes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          placeholder="Annotate credential discrepancies, background check remarks, or vetting approvals here..."
-          className="ad-notes-textarea"
-        />
-      </section>
+      <AdminNotesPanel notesDraft={notesDraft} />
 
       <section className="ad-section">
         <h3 className="ad-section-title">Evaluation Audit Trace</h3>

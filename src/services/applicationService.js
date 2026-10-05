@@ -100,13 +100,26 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
+  // The dashboard no longer sends the notepad with a status change — a copy
+  // taken when the drawer opened could overwrite a newer note. Notes are
+  // saved on their own through saveNotes; `notes` here is only sent if a
+  // caller explicitly passes it.
   async updateStatus(id, { status, notes, egiNote, changedBy }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/status`, {
       status,
-      notes,
+      ...(notes !== undefined ? { notes } : {}),
       ...(egiNote !== undefined ? { egiNote } : {}),
       changedBy,
     });
+    return normalizeApplication(res.data);
+  },
+
+  // The internal notepad. `notes` is the exact new value ('' clears it);
+  // `previousNotes` is the value last loaded or saved. If the stored notes no
+  // longer match previousNotes the server answers 409 { error: 'Conflict',
+  // data: { notes } } with the current value instead of overwriting it.
+  async saveNotes(id, { notes, previousNotes }) {
+    const res = await apiClient.patch(`/api/admin/applications/${id}/notes`, { notes, previousNotes });
     return normalizeApplication(res.data);
   },
 

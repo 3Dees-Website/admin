@@ -1,0 +1,179 @@
+/* Administrative Notes — save status, conflict panel, unsaved dialog.
+   The textarea itself keeps .ad-notes-textarea from ApplicationDetail.css. */
+
+.anp-textarea--saved {
+  animation: anp-saved-flash 1.6s ease-out;
+}
+
+@keyframes anp-saved-flash {
+  0%   { border-color: #16a34a; box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2); }
+  100% { border-color: #e5e7eb; box-shadow: none; }
+}
+
+.anp-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.anp-status-wrap {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.anp-status {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.anp-status--dirty { color: #b45309; }
+.anp-status--saved { color: #15803d; }
+.anp-status--error { color: #b91c1c; }
+
+.anp-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #d97706;
+}
+
+.anp-counter {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.anp-link-btn {
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.anp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 0.375rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.anp-btn--primary {
+  background: var(--color-brand-primary);
+  color: #fff;
+  border-color: var(--color-brand-primary);
+}
+
+.anp-btn--danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.anp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Conflict panel */
+.anp-conflict {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.anp-conflict-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #92400e;
+}
+
+.anp-conflict-icon { color: #d97706; flex-shrink: 0; }
+
+.anp-conflict-desc {
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: #78350f;
+  margin: 0;
+}
+
+.anp-conflict-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .anp-conflict-grid { grid-template-columns: 1fr; }
+}
+
+.anp-conflict-label {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #92400e;
+  margin-bottom: 0.25rem;
+}
+
+.anp-conflict-text {
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--color-brand-dark);
+  background: #fff;
+  border: 1px solid #fde68a;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 10rem;
+  overflow-y: auto;
+}
+
+.anp-conflict-text em { color: #9ca3af; }
+
+.anp-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+/* Unsaved-changes dialog (reuses the .ad-delete-* modal shell) */
+.anp-unsaved-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #d97706;
+}
+
+.anp-unsaved-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

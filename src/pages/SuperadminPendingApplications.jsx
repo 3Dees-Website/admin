@@ -27,7 +27,6 @@ export function SuperadminPendingApplications() {
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [editingApp,    setEditingApp]    = useState(null);
-  const [drawerNotes,   setDrawerNotes]   = useState('');
   const [selectedIds,   setSelectedIds]   = useState(new Set());
   const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
@@ -98,7 +97,7 @@ export function SuperadminPendingApplications() {
      drawer's approve modal knows whether to close. */
   const handleStatusChange = async (status, egiNote) => {
     if (!editingApp) return false;
-    const updated = await reviewApplication(editingApp.id, status, drawerNotes, egiNote);
+    const updated = await reviewApplication(editingApp.id, status, { egiNote });
     refetch();
     refetchStats();
     if (!updated) return false;
@@ -108,11 +107,10 @@ export function SuperadminPendingApplications() {
 
   const handleOpenEdit = (app) => {
     setEditingApp(app);
-    setDrawerNotes(app.notes || '');
   };
 
   const handleQuickShortlist = async (app) => {
-    await reviewApplication(app.id, 'Shortlisted', app.notes || '');
+    await reviewApplication(app.id, 'Shortlisted');
     refetch();
     refetchStats();
   };
@@ -120,10 +118,10 @@ export function SuperadminPendingApplications() {
   /* Bulk shortlist/reject — one request per row; only failures stay selected */
   const bulkAction = async (status) => {
     if (selectedIds.size === 0) return;
-    const items = pendingApps
+    const ids = pendingApps
       .filter((a) => selectedIds.has(a.id))
-      .map((a) => ({ id: a.id, notes: a.notes || '' }));
-    const result = await reviewApplicationsIndividually(items, status);
+      .map((a) => a.id);
+    const result = await reviewApplicationsIndividually(ids, status);
     setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
@@ -132,7 +130,7 @@ export function SuperadminPendingApplications() {
   const handleQuickApproveConfirm = async (egiNote) => {
     if (!approveTarget) return;
     setApproveBusy(true);
-    const updated = await reviewApplication(approveTarget.id, 'Approved', approveTarget.notes || '', egiNote);
+    const updated = await reviewApplication(approveTarget.id, 'Approved', { egiNote });
     setApproveBusy(false);
     if (updated) setApproveTarget(null);
     refetch();
@@ -389,8 +387,6 @@ export function SuperadminPendingApplications() {
           jobTitle={getJobTitle(editingApp.jobId)}
           isSuperadmin={true}
           currentUser={currentUser}
-          notes={drawerNotes}
-          onNotesChange={setDrawerNotes}
           onClose={() => setEditingApp(null)}
           onStatusChange={handleStatusChange}
           onAppUpdated={setEditingApp}

@@ -11,6 +11,7 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useToast } from '../hooks/useToast';
+import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
@@ -36,7 +37,7 @@ export function SuperadminApprovedCandidates() {
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
-  const [adminNotes, setAdminNotes] = useState('');
+  const notesDraft = useNotesDraft(activeApp);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -94,8 +95,8 @@ export function SuperadminApprovedCandidates() {
       try {
         const app = await applicationService.getApplication(openAppId);
         if (!cancelled) {
-          setActiveApp(app);
-          setAdminNotes(app.notes || '');
+          // An open drawer with unsaved notes asks before it is replaced.
+          notesDraft.requestClose(() => setActiveApp(app));
         }
       } catch {
         if (!cancelled) {
@@ -125,12 +126,13 @@ export function SuperadminApprovedCandidates() {
 
   function handleInitiateReview(app) {
     setActiveApp(app);
-    setAdminNotes(app.notes || '');
   }
+
+  const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
 
   const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return null;
-    const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
+    const updated = await reviewApplication(activeApp.id, status, { egiNote });
     if (updated) setActiveApp(updated);
     refetch();
     return updated;
@@ -309,7 +311,7 @@ export function SuperadminApprovedCandidates() {
       {/* Drawer Overlay */}
       {activeApp && (
         <div className="sac-overlay">
-          <div className="sac-overlay-backdrop" onClick={() => setActiveApp(null)} />
+          <div className="sac-overlay-backdrop" onClick={closeDrawer} />
 
           <div className="sac-drawer">
             {/* Drawer Header */}
@@ -318,7 +320,7 @@ export function SuperadminApprovedCandidates() {
                 <span className="sac-drawer-label">SUPERADMIN SECURE OVERRIDE</span>
                 <h2 className="sac-drawer-name">{activeApp.applicantName}</h2>
               </div>
-              <button onClick={() => setActiveApp(null)} className="sac-drawer-close">
+              <button onClick={closeDrawer} className="sac-drawer-close">
                 <X className="sac-close-icon" />
               </button>
             </div>
@@ -348,8 +350,7 @@ export function SuperadminApprovedCandidates() {
               <ApplicationDetail
                 app={activeApp}
                 currentUser={currentUser}
-                notes={adminNotes}
-                onNotesChange={setAdminNotes}
+                notesDraft={notesDraft}
                 onAppUpdated={setActiveApp}
                 onDeleted={() => {
                   setActiveApp(null);

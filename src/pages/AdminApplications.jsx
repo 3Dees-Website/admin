@@ -5,6 +5,7 @@ import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, Download, Eye, Check, X, RefreshCw } from 'lucide-react';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
@@ -31,7 +32,7 @@ export function AdminApplications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [activeApp, setActiveApp] = useState(null);
-  const [adminNotes, setAdminNotes] = useState('');
+  const notesDraft = useNotesDraft(activeApp);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,8 +88,8 @@ export function AdminApplications() {
       try {
         const app = await applicationService.getApplication(openAppId);
         if (!cancelled) {
-          setActiveApp(app);
-          setAdminNotes(app.notes || '');
+          // An open drawer with unsaved notes asks before it is replaced.
+          notesDraft.requestClose(() => setActiveApp(app));
         }
       } catch {
         if (!cancelled) {
@@ -152,12 +153,13 @@ export function AdminApplications() {
 
   const handleInitiateReview = (app) => {
     setActiveApp(app);
-    setAdminNotes(app.notes || '');
   };
+
+  const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
 
   const handleUpdateApplicantStatus = async (status, egiNote) => {
     if (!activeApp) return null;
-    const updated = await reviewApplication(activeApp.id, status, adminNotes, egiNote);
+    const updated = await reviewApplication(activeApp.id, status, { egiNote });
     if (updated) setActiveApp(updated);
     refetch();
     return updated;
@@ -399,7 +401,7 @@ export function AdminApplications() {
       {/* Slide-out Drawer */}
       {activeApp && (
         <div className="drawer-overlay">
-          <div className="drawer-backdrop" onClick={() => setActiveApp(null)} />
+          <div className="drawer-backdrop" onClick={closeDrawer} />
           <div className="drawer">
 
             {/* Drawer Header */}
@@ -408,7 +410,7 @@ export function AdminApplications() {
                 <span className="drawer-eyebrow">Candidacy Sheet Audit</span>
                 <h2 className="drawer-title">{activeApp.applicantName}</h2>
               </div>
-              <button onClick={() => setActiveApp(null)} className="drawer-close" aria-label="Close drawer">
+              <button onClick={closeDrawer} className="drawer-close" aria-label="Close drawer">
                 <X size={24} />
               </button>
             </div>
@@ -431,8 +433,7 @@ export function AdminApplications() {
               <ApplicationDetail
                 app={activeApp}
                 currentUser={currentUser}
-                notes={adminNotes}
-                onNotesChange={setAdminNotes}
+                notesDraft={notesDraft}
                 onAppUpdated={setActiveApp}
                 onDeleted={() => {
                   setActiveApp(null);
