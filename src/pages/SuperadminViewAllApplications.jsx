@@ -154,7 +154,7 @@ export function SuperadminViewAllApplications() {
       downloadBlob(blob, '3DEES_All_Sponsor_Dossiers_Evaluations.csv');
       addToast('success', 'Master Ledger Exported', 'Generated superadmin summary report.');
     } catch (err) {
-      addToast('error', 'CSV Crash', err?.message || 'Encountered compilation failure.');
+      addToast('error', 'Export Failed', err?.message || 'Could not export the applications.');
     } finally {
       setIsExporting(false);
     }

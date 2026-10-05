@@ -11,6 +11,8 @@ import { useCategories } from '../hooks/useCategories';
 import { RequirementsSummary } from '../components/RequirementsSummary';
 import { JobFormModal } from '../components/JobFormModal';
 import { effectiveStatus } from '../utils/jobStatus';
+import { csvEscape } from '../utils/csvEscape';
+import { downloadBlob } from '../utils/downloadBlob';
 import { Search, X, Briefcase, MapPin, Users, CalendarClock, ShieldAlert, Plus } from 'lucide-react';
 import './styles/SuperadminAllVacancies.css';
 
@@ -94,21 +96,16 @@ export function SuperadminAllVacancies() {
     try {
       const header = 'Title,ClientOrg,Category,Type,Location,Openings,SalaryRange,Status,ClosingDate,PostedBy,TotalApplicants,Approved';
       const rows = filteredJobs.map((j) => [
-        `"${j.title}"`, `"${j.clientOrg}"`, `"${j.category}"`,
-        `"${j.type}"`,  `"${j.location}"`,  `"${j.openings}"`,
-        `"${j.salaryRange}"`, `"${j.status}"`, `"${j.closingDate}"`,
-        `"${j.postedBy}"`,
-        `"${appCountFor(j.id)}"`,
-        `"${approvedCountFor(j.id)}"`,
-      ]);
+        j.title, j.clientOrg, j.category,
+        j.type,  j.location,  j.openings,
+        j.salaryRange, j.status, j.closingDate,
+        j.postedBy,
+        appCountFor(j.id),
+        approvedCountFor(j.id),
+      ].map(csvEscape));
       const csv  = [header, ...rows.map((r) => r.join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href     = URL.createObjectURL(blob);
-      link.download = '3DEES_All_Vacancies_Ledger.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadBlob(blob, '3DEES_All_Vacancies_Ledger.csv');
       addToast('success', 'Vacancies Exported', 'Full vacancies ledger downloaded as CSV.');
     } catch {
       addToast('error', 'Export Failed', 'Could not generate CSV report.');

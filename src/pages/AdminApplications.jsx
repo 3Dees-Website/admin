@@ -177,7 +177,7 @@ export function AdminApplications() {
       downloadBlob(blob, `3DEES_Candidates_Vetting_Report_${new Date().toISOString().slice(0, 10)}.csv`);
       addToast('success', 'CSV Statement Exported', 'Your filtered report has downloaded.');
     } catch (err) {
-      addToast('error', 'CSV Compilation Issue', err?.message || 'Could not assemble tabular files.');
+      addToast('error', 'Export Failed', err?.message || 'Could not export the applications.');
     } finally {
       setIsExporting(false);
     }

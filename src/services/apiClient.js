@@ -346,8 +346,22 @@ export const apiClient = {
   get: (path, params, { timeoutMs } = {}) => {
     return request('GET', `${path}${buildQueryString(params)}`, { timeoutMs });
   },
-  getBlob: (path, params) => {
-    return request('GET', `${path}${buildQueryString(params)}`, { isBlob: true });
+  // A connection that drops or never opens surfaces as a native TypeError
+  // whose text varies by browser ("Failed to fetch", "Load failed", ...).
+  // Every error request() raises itself is a plain object, so those pass
+  // through untouched. The cause can't be known here, so none is claimed.
+  getBlob: async (path, params) => {
+    try {
+      return await request('GET', `${path}${buildQueryString(params)}`, { isBlob: true });
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw {
+          error: 'DownloadIncomplete',
+          message: "The export didn't finish downloading, so no file was saved. Please try again.",
+        };
+      }
+      throw err;
+    }
   },
   post: (path, body, { timeoutMs } = {}) => request('POST', path, { body, timeoutMs }),
   postForm: (path, formData) => request('POST', path, { body: formData, isFormData: true }),

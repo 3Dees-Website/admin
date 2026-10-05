@@ -150,7 +150,7 @@ export function SuperadminApprovedCandidates() {
       downloadBlob(blob, '3DEES_Approved_Candidates.csv');
       addToast('success', 'Ledger Exported', 'Generated approved-candidates report.');
     } catch (err) {
-      addToast('error', 'CSV Crash', err?.message || 'Encountered compilation failure.');
+      addToast('error', 'Export Failed', err?.message || 'Could not export the approved candidates.');
     } finally {
       setIsExporting(false);
     }
