@@ -1,5 +1,15 @@
 import { apiClient } from './apiClient';
 
+// Bulk status updates run server-side four at a time (up to 100 ids), so a
+// large batch can outlast apiClient's ordinary 45s timeout.
+//
+// 90s is NOT arbitrary — do not raise it. api.3deesrecruitment.com sits
+// behind Cloudflare, which cuts off a request that goes 100s without a
+// response. Above that, Cloudflare ends the request first and the admin gets
+// its error page instead of our "Still Processing" warning, which tells them
+// their approvals are probably going through. This must stay under 100s.
+const BULK_STATUS_TIMEOUT_MS = 90000;
+
 function normalizeApplication(app) {
   return {
     id: app.id,
@@ -114,7 +124,7 @@ export const applicationService = {
       status,
       ...(egiNote !== undefined ? { egiNote } : {}),
       changedBy,
-    });
+    }, { timeoutMs: BULK_STATUS_TIMEOUT_MS });
     return res.data; // { success: [...ids], failed: [{ id, reason }] }
   },
 

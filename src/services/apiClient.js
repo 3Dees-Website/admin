@@ -30,7 +30,7 @@ function processQueue(error) {
 // clearing tokens or redirecting for one.
 
 const REFRESH_TIMEOUT_MS = 8000; // per refresh attempt
-const REQUEST_TIMEOUT_MS = 45000; // ordinary JSON calls only — see request()
+const REQUEST_TIMEOUT_MS = 45000; // ordinary JSON calls only, unless a call passes timeoutMs — see request()
 const REFRESH_BACKOFF_MS = [1000, 3000, 7000]; // delay before attempts 2, 3, 4
 const MAX_REFRESH_ATTEMPTS = REFRESH_BACKOFF_MS.length + 1; // 4 total attempts
 // The backend's rate-limit response (429) doesn't expose Retry-After or
@@ -218,7 +218,7 @@ function revokeRefreshTokenBestEffort(refreshToken) {
 }
 
 async function request(method, path, options = {}, depth = 0) {
-  const { body, isFormData = false, isBlob = false } = options;
+  const { body, isFormData = false, isBlob = false, timeoutMs = REQUEST_TIMEOUT_MS } = options;
 
   const accessToken = localStorage.getItem(TOKEN_STORAGE_KEYS.access);
   const headers = {};
@@ -230,8 +230,10 @@ async function request(method, path, options = {}, depth = 0) {
   // are exactly the large, slow transfers a short timeout would wrongly
   // kill, especially over a shared office connection. The timeout exists to
   // stop indefinite hangs, not to enforce speed, hence the generous value.
+  // A caller may pass timeoutMs to change the duration for one call; it
+  // never changes which calls are exempt.
   const controller = (!isBlob && !isFormData) ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   let res;
   try {
@@ -341,15 +343,15 @@ function buildQueryString(params) {
 }
 
 export const apiClient = {
-  get: (path, params) => {
-    return request('GET', `${path}${buildQueryString(params)}`);
+  get: (path, params, { timeoutMs } = {}) => {
+    return request('GET', `${path}${buildQueryString(params)}`, { timeoutMs });
   },
   getBlob: (path, params) => {
     return request('GET', `${path}${buildQueryString(params)}`, { isBlob: true });
   },
-  post: (path, body) => request('POST', path, { body }),
+  post: (path, body, { timeoutMs } = {}) => request('POST', path, { body, timeoutMs }),
   postForm: (path, formData) => request('POST', path, { body: formData, isFormData: true }),
-  put: (path, body) => request('PUT', path, { body }),
-  patch: (path, body) => request('PATCH', path, { body }),
-  delete: (path) => request('DELETE', path),
+  put: (path, body, { timeoutMs } = {}) => request('PUT', path, { body, timeoutMs }),
+  patch: (path, body, { timeoutMs } = {}) => request('PATCH', path, { body, timeoutMs }),
+  delete: (path, { timeoutMs } = {}) => request('DELETE', path, { timeoutMs }),
 };

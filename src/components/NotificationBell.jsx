@@ -62,6 +62,10 @@ export function NotificationBell({ role }) {
 
     if (notif.application_id) {
       navigate(`/${role}/applications?openApp=${notif.application_id}`);
+    } else if (role === 'superadmin' && notif.type === 'status_change') {
+      // A bulk approval covers several applications, so it carries no single
+      // application id — the batch is on the Approved Candidates page.
+      navigate('/superadmin/approved');
     } else if (role === 'superadmin') {
       navigate('/superadmin/admins');
     } else {

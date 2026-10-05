@@ -316,3 +316,5 @@
   width: 2.5rem; height: 2.5rem; color: #d1d5db;
   display: block; margin: 0 auto 0.5rem;
 }
+/* Bulk approve modal — irreversibility warning */
+.spa-bulk-final { color: #dc2626; }

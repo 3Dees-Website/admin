@@ -148,6 +148,13 @@ export function SuperadminPendingApplications() {
     refetchStats();
     // null = whole request rejected (e.g. note too long): keep modal, note and selection.
     if (!result) return;
+    // Timed out: the server is most likely still approving. Close the modal
+    // and drop the selection so nothing invites a duplicate resubmit.
+    if (result.timedOut) {
+      setSelectedIds(new Set());
+      setBulkApproveOpen(false);
+      return;
+    }
     setSelectedIds(new Set(result.failed.map((f) => f.id)));
     if (result.success.length > 0) setBulkApproveOpen(false);
   };
@@ -405,8 +412,18 @@ export function SuperadminPendingApplications() {
         open={bulkApproveOpen}
         busy={approveBusy}
         title="Bulk Approve & Notify EGI"
-        confirmLabel="Bulk Approve & Sync"
-        description={`One shared note will be sent to EGI for all ${selectedIds.size} selected applicant(s).`}
+        confirmLabel={`Approve ${selectedIds.size} & Send to EGI`}
+        description={
+          <>
+            <strong>
+              {selectedIds.size} applicant{selectedIds.size !== 1 ? 's' : ''} will be sent to EGI
+            </strong>
+            , each as {selectedIds.size !== 1 ? 'its own record, all' : 'a record'} with the note below.
+            <br />
+            <strong className="spa-bulk-final">Approval is final. It cannot be undone.</strong>
+          </>
+        }
+        hint={`This one note is attached to every record sent. It's separate from internal admin notes.`}
         onCancel={() => setBulkApproveOpen(false)}
         onConfirm={handleBulkApproveConfirm}
       />

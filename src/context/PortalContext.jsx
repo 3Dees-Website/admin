@@ -554,6 +554,24 @@ export function PortalProvider({ children }) {
       reportBulkResult(normalized, status);
       return normalized;
     } catch (err) {
+      // Our own request timeout is the only thing that aborts a fetch. The
+      // server keeps processing after we stop waiting, so this must not read
+      // as a failure — the items most likely went through.
+      // Empty arrays alongside the flag so callers that only read
+      // success/failed clear their selection rather than crash.
+      if (err?.name === 'AbortError') {
+        addToast(
+          'warning',
+          'Still Processing',
+          status === 'Approved'
+            ? "The server hasn't answered within 90 seconds, but your approvals are most likely still going through. "
+              + "Don't approve again — wait a minute, refresh, and check Approved Candidates. "
+              + 'Only applicants still listed under Pending need another try.'
+            : `The server hasn't answered within 90 seconds, but your changes to ${status} are most likely still going through. `
+              + "Don't try again yet — wait a minute, then refresh before retrying any that didn't change."
+        );
+        return { success: [], failed: [], timedOut: true };
+      }
       handleApiError(err, 'Bulk Update Failed', 'Could not complete bulk status update.');
       return null;
     }
