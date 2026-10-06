@@ -192,6 +192,14 @@ function errorContent(error) {
   if (error?.error === 'ValidationError') {
     return { message: "That account link isn't valid.", action: 'clear' };
   }
+  // The API's own 404, not this page's route: the backend this dashboard is
+  // connected to doesn't have the account activity endpoint.
+  if (error?.error === 'NotFound') {
+    return {
+      message: "The server this dashboard is connected to doesn't provide account activity yet (it answered “Route not found”). The backend may need restarting or updating.",
+      action: 'retry',
+    };
+  }
   return {
     message: error?.message || 'Account activity could not be loaded.',
     action: 'retry',
