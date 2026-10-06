@@ -10,6 +10,24 @@ export const TOKEN_STORAGE_KEYS = {
   user: '3dees_current_user',
 };
 
+/**
+ * Reads the saved user without ever throwing. Anything other than a plain
+ * object — missing, not JSON (e.g. the literal "undefined"), or JSON that
+ * parses to null, a number, a string or an array — returns null, so callers
+ * treat it exactly as having no session. Never clears storage: a bad value
+ * is ignored, not acted on.
+ */
+export function readStoredUser() {
+  try {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEYS.user);
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user && typeof user === 'object' && !Array.isArray(user) ? user : null;
+  } catch {
+    return null;
+  }
+}
+
 // Tracks whether a token refresh is already in flight so concurrent
 // requests don't each try to refresh independently.
 let isRefreshing = false;

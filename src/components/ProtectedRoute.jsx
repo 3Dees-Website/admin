@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
+import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 
 export function ProtectedRoute({ children, allowedRole = 'any' }) {
   const { currentUser, token } = useAuth();
@@ -12,11 +12,8 @@ export function ProtectedRoute({ children, allowedRole = 'any' }) {
   const resolvedToken =
     token || localStorage.getItem(TOKEN_STORAGE_KEYS.access);
 
-  const resolvedUser = (() => {
-    if (currentUser) return currentUser;
-    const raw = localStorage.getItem(TOKEN_STORAGE_KEYS.user);
-    return raw ? JSON.parse(raw) : null;
-  })();
+  // A corrupted stored user reads as null → redirect, same as no session.
+  const resolvedUser = currentUser || readStoredUser();
 
   if (!resolvedToken || !resolvedUser) {
     return <Navigate to="/" state={{ from: location }} replace />;

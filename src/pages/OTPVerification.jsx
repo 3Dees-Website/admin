@@ -121,7 +121,7 @@ export function OTPVerification() {
       setDigits(Array(OTP_LENGTH).fill(''));
       inputRefs.current[0]?.focus();
 
-      const terminalErrors = ['TooManyAttempts', 'OTPExpired', 'InvalidToken'];
+      const terminalErrors = ['TooManyAttempts', 'OTPExpired', 'InvalidToken', 'SessionCommitFailed'];
       if (terminalErrors.includes(err?.error)) {
         setError(err.message || 'Session expired. Please log in again.');
         setTimeout(() => navigate('/', { replace: true }), 2000);

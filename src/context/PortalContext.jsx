@@ -5,7 +5,7 @@ import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
 import { categoryService } from '../services/categoryService';
 import { notificationService } from '../services/notificationService';
-import { TOKEN_STORAGE_KEYS } from '../services/apiClient';
+import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 import { mapLockError } from '../utils/applicationLock';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
@@ -237,9 +237,14 @@ export function PortalProvider({ children }) {
         // Same tab reloaded (tabMarker survives reload), OR another tab of
         // this browser is currently alive (recent heartbeat) → rehydrate.
         sessionStorage.setItem(SESSION_MARKER_KEY, '1');
-        const user = JSON.parse(raw);
-        dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
-        loadInitialData(user);
+        // An unreadable stored user leaves state signed out — no auth, no
+        // data load — rather than half-restoring. Storage is left as is; the
+        // next sign-in overwrites it.
+        const user = readStoredUser();
+        if (user) {
+          dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
+          loadInitialData(user);
+        }
       } else {
         // No marker for this tab AND no other tab has been alive recently →
         // the browser was fully closed and reopened. Stored tokens are stale.
@@ -328,6 +333,20 @@ export function PortalProvider({ children }) {
    * Persists the session and loads all portal data.
    */
   const commitSession = async (user, accessToken, refreshToken) => {
+    // Refuse to persist anything that can't be read back as a session —
+    // otherwise e.g. an undefined user is saved as the string "undefined".
+    // Nothing is written; the OTP is already spent, so OTPVerification
+    // treats this as terminal and returns to login.
+    const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
+    const userIsValid = user && typeof user === 'object' && !Array.isArray(user);
+    if (!userIsValid || !isNonEmptyString(accessToken) || !isNonEmptyString(refreshToken)) {
+      if (isNonEmptyString(refreshToken)) authService.logout(refreshToken); // best-effort revoke
+      throw {
+        error: 'SessionCommitFailed',
+        message: 'Sign-in could not be completed. Please sign in again.',
+      };
+    }
+
     localStorage.setItem(TOKEN_STORAGE_KEYS.access, accessToken);
     localStorage.setItem(TOKEN_STORAGE_KEYS.refresh, refreshToken);
     localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify(user));
