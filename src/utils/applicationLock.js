@@ -43,8 +43,8 @@ export function getLockInfo(app, currentUser, delivery) {
 }
 
 /**
- * "Under EGI review" is only true once EGI has the application. The sync
- * status (always present) says whether it does; the delivery state from
+ * "Under EGI review" is only true once EGI has confirmed the application. The
+ * sync status (always present) says whether it has; the delivery state from
  * egi_delivery (only once loaded) tells retrying apart from given up.
  */
 function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
@@ -52,16 +52,16 @@ function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
     return { tone: 'info', banner: 'Locked — under EGI review' };
   }
   if (egiSyncStatus === 'Queued') {
-    return { tone: 'info', banner: 'Locked — being delivered to EGI (not yet received)' };
+    return { tone: 'info', banner: 'Locked — being delivered to EGI (not yet confirmed)' };
   }
   if (egiSyncStatus === 'Failed') {
     if (delivery?.deliveryState === 'exhausted') {
       return {
         tone: 'danger',
-        banner: `Locked — delivery to EGI failed; EGI has not received this application${isSuperadmin ? ' · you can redeliver it below' : ''}`,
+        banner: `Locked — delivery to EGI failed; 3DEES has not had a confirmation from EGI${isSuperadmin ? ' · you can redeliver it below' : ''}`,
       };
     }
-    return { tone: 'warning', banner: 'Locked — delivery to EGI is failing and being retried; EGI has not received it' };
+    return { tone: 'warning', banner: 'Locked — delivery to EGI is failing and being retried; no confirmation from EGI yet' };
   }
   return { tone: 'info', banner: 'Locked — approved, not yet sent to EGI' };
 }

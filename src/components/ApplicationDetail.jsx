@@ -16,8 +16,8 @@ const formatWhen = (value) => (value ? new Date(value).toLocaleString() : null);
 
 /**
  * One line saying what is actually happening with the latest delivery, and
- * whether EGI has the application. `alert` marks the state no one will fix
- * automatically.
+ * whether 3DEES has had a confirmation from EGI. `alert` marks the state no
+ * one will fix automatically.
  */
 function describeDelivery(delivery) {
   const { deliveryState, attempts, maxAttempts, nextAttemptAt, updatedAt } = delivery;
@@ -30,10 +30,10 @@ function describeDelivery(delivery) {
       return { text: 'The last send was interrupted. It will be retried automatically. EGI has not confirmed receipt.' };
     case 'retrying':
       return {
-        text: `Attempt ${attempts} of ${maxAttempts} failed.${nextAttemptAt ? ` Next attempt ${formatWhen(nextAttemptAt)}.` : ''} EGI has not received this application yet.`,
+        text: `Attempt ${attempts} of ${maxAttempts} failed.${nextAttemptAt ? ` Next attempt ${formatWhen(nextAttemptAt)}.` : ''} 3DEES has not had a confirmation from EGI yet.`,
       };
     case 'exhausted':
-      return { text: `Delivery failed after ${maxAttempts} attempts. EGI has not received this application.`, alert: true };
+      return { text: `Delivery failed after ${maxAttempts} attempts. 3DEES has not had a confirmation from EGI.`, alert: true };
     case 'synced':
       return { text: `Received by EGI${updatedAt ? ` on ${formatWhen(updatedAt)}` : ''}.` };
     default:
@@ -441,7 +441,7 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
           busy={resendBusy}
           title="Redeliver to EGI"
           confirmLabel="Redeliver"
-          description={`Delivery of ${app.applicantName}'s application failed after ${egiDelivery?.maxAttempts ?? 'several'} attempts, so EGI never received it. This sends it again as a new delivery. The approval stays as it is, and there is no EGI decision to reset.`}
+          description={`Delivery of ${app.applicantName}'s application failed after ${egiDelivery?.maxAttempts ?? 'several'} attempts, and 3DEES has not had a confirmation from EGI. EGI may still have received it. This sends it again as a new delivery. The approval stays as it is, and there is no EGI decision to reset.`}
           noteRequired={false}
           placeholder="Leave blank to send the original note."
           hint="If you leave this blank, EGI receives the same note as the failed delivery. If you write one, it replaces that note, both in what EGI receives and on this record."
