@@ -28,6 +28,7 @@ import { SuperadminApprovedCandidates } from './pages/SuperadminApprovedCandidat
 import { SuperadminPendingApplications } from './pages/SuperadminPendingApplications';
 import { SuperadminAuditTrail } from './pages/SuperadminAuditTrail';
 import { SuperadminEgiSync } from './pages/SuperadminEgiSync';
+import { SuperadminAccountActivity } from './pages/SuperadminAccountActivity';
 
 function PanelLoaderPlaceholder() {
   return (
@@ -96,6 +97,7 @@ export default function App() {
             <Route path="jobs"         element={<SuperadminAllVacancies />} />
             <Route path="admins"       element={<SuperadminManageAdmins />} />
             <Route path="audit"        element={<SuperadminAuditTrail />} />
+            <Route path="account-activity" element={<SuperadminAccountActivity />} />
             <Route path="egi-sync"     element={<SuperadminEgiSync />} />
             <Route path="profile"      element={<Profile />} />
           </Route>

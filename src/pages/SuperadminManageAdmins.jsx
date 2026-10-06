@@ -4,9 +4,10 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import { Plus, ToggleLeft, ToggleRight, Trash2, Key, X, Check, ShieldAlert } from 'lucide-react';
+import { Plus, ToggleLeft, ToggleRight, Trash2, Key, X, Check, ShieldAlert, History } from 'lucide-react';
 import './styles/SuperadminManageAdmins.css';
 
 export function SuperadminManageAdmins() {
@@ -114,6 +115,14 @@ export function SuperadminManageAdmins() {
                   </td>
                   <td className="sma-td sma-td-right">
                     <div className="sma-actions">
+                      <Link
+                        to={`/superadmin/account-activity?userId=${encodeURIComponent(adm.id)}`}
+                        className="sma-icon-btn"
+                        title="View account activity"
+                        aria-label={`View account activity for ${adm.name}`}
+                      >
+                        <History className="sma-icon" />
+                      </Link>
                       {adm.role !== 'superadmin' && (
                         <>
                           <button

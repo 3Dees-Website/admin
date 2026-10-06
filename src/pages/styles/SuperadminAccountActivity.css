@@ -1,0 +1,430 @@
+/* Mirrors SuperadminAuditTrail.css so the two logs read as one system; kept
+   separate so changes here can never alter the audit trail page. */
+
+/* ── Wrapper ── */
+.saa-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Header Card ── */
+.saa-header-card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+@media (min-width: 640px) {
+  .saa-header-card {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.saa-compliance-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-brand-primary);
+  font-family: monospace;
+}
+
+.saa-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  letter-spacing: -0.02em;
+  margin-top: 0.125rem;
+}
+
+.saa-subtitle {
+  font-size: 0.65rem;
+  color: var(--color-brand-text);
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.saa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.saa-secure-tag {
+  font-size: 0.6rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: #9ca3af;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* ── Filters Card ── */
+.saa-filters-card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .saa-filters-card {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.saa-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.saa-filter-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.saa-select {
+  font-size: 0.75rem;
+  padding: 0.625rem;
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  outline: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+  min-width: 0;
+}
+
+.saa-select:focus {
+  border-color: var(--color-brand-primary);
+}
+
+.saa-filter-chip-row {
+  grid-column: 1 / -1;
+}
+
+.saa-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  background-color: rgba(255, 102, 0, 0.05);
+  border: 1px solid rgba(255, 102, 0, 0.15);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.saa-filter-chip-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-brand-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+}
+
+/* ── Table Card ── */
+.saa-table-card {
+  background: #fff;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+}
+
+.saa-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.saa-table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: var(--color-brand-dark);
+}
+
+.saa-thead-row {
+  background-color: rgba(245, 245, 245, 0.7);
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.saa-th {
+  padding: 1rem 1.5rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.saa-tbody tr + tr {
+  border-top: 1px solid #f3f4f6;
+}
+
+.saa-row {
+  transition: background-color 0.15s;
+  font-weight: 500;
+}
+
+.saa-row:hover {
+  background-color: rgba(245, 245, 245, 0.4);
+}
+
+.saa-td {
+  padding: 1rem 1.5rem;
+  vertical-align: top;
+}
+
+.saa-muted {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+/* Timestamp */
+.saa-timestamp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  color: #6b7280;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.saa-timestamp-time {
+  font-size: 0.6rem;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+/* Action badge */
+.saa-action-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+.saa-action-created     { background: #f0fdf4; color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+.saa-action-reactivated { background: #f0fdf4; color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+.saa-action-suspended   { background: rgba(255,102,0,0.1); color: var(--color-brand-primary); border: 1px solid rgba(255,102,0,0.2); }
+.saa-action-reset       { background: #eef2ff; color: #4338ca; border: 1px solid rgba(99,102,241,0.2); }
+.saa-action-deleted     { background: #fef2f2; color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+.saa-action-self        { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+.saa-action-unknown     { background: #f3f4f6; color: #6b7280; border: 1px dashed #d1d5db; }
+
+/* Account cell */
+.saa-account {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 10rem;
+  max-width: 18rem;
+}
+
+.saa-account-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.saa-account-name {
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  overflow-wrap: anywhere;
+}
+
+.saa-account-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saa-account-link:hover {
+  color: var(--color-brand-primary);
+  text-decoration: underline;
+}
+
+.saa-account-email {
+  font-size: 0.65rem;
+  color: #6b7280;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.saa-account-now {
+  font-size: 0.6rem;
+  color: #4338ca;
+  font-weight: 600;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.saa-role-chip {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: rgba(255, 102, 0, 0.05);
+  color: var(--color-brand-primary);
+  border: 1px solid rgba(255, 102, 0, 0.15);
+}
+
+.saa-deleted-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  cursor: help;
+}
+
+.saa-self {
+  color: #6b7280;
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* Details */
+.saa-details {
+  min-width: 10rem;
+}
+
+.saa-shift {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.saa-arrow {
+  color: #9ca3af;
+  font-size: 0.6rem;
+}
+
+.saa-name-old {
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.saa-name-new {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.saa-status-badge {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 800;
+}
+
+.saa-status-active    { background: #f0fdf4; color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+.saa-status-suspended { background: #fef2f2; color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+.saa-status-other     { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+
+.saa-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+}
+
+.saa-details-pair {
+  display: flex;
+  gap: 0.375rem;
+  font-size: 0.65rem;
+}
+
+.saa-details-pair dt {
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+.saa-details-pair dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Empty / error rows */
+.saa-empty-row {
+  text-align: center;
+  padding: 3rem;
+  color: #9ca3af;
+}
+
+.saa-empty-row p {
+  max-width: 32rem;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.saa-empty-title {
+  font-weight: 700;
+  color: #6b7280;
+  margin-bottom: 0.375rem !important;
+}
+
+.saa-error-row {
+  color: #b91c1c;
+}
+
+.saa-empty-btn {
+  margin-top: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-brand-primary);
+  background: #fff;
+  color: var(--color-brand-primary);
+  cursor: pointer;
+}
