@@ -180,17 +180,21 @@ export function SuperadminDashboard() {
                       {l.prevStatus ? `${l.prevStatus} ➔ ${l.newStatus}` : l.newStatus}
                     </span>
                   </div>
-                  {/* Entries not about an application (e.g. account changes)
-                      carry no applicant or application id. */}
+                  {/* Application entries name the applicant; job entries carry
+                      only a job title; entries with neither (e.g. account
+                      changes) are not linked to anything shown here. */}
                   <span className="sd-audit-meta">
                     {l.applicantName && (
                       <>Applicant: <strong className="sd-audit-bold">{l.applicantName}</strong></>
                     )}
                     {l.applicantName && l.applicationId && ' • '}
                     {l.applicationId && (
-                      <>Job ID Ref: <span className="sd-audit-ref">{l.applicationId.slice(0, 8)}</span></>
+                      <>Application Ref: <span className="sd-audit-ref">{l.applicationId.slice(0, 8)}</span></>
                     )}
-                    {!l.applicantName && !l.applicationId && 'Not linked to an application'}
+                    {!l.applicantName && !l.applicationId && l.jobTitle && (
+                      <>Vacancy: <strong className="sd-audit-bold">{l.jobTitle}</strong></>
+                    )}
+                    {!l.applicantName && !l.applicationId && !l.jobTitle && 'Not linked to an application'}
                   </span>
                 </div>
                 <span className="sd-audit-time">

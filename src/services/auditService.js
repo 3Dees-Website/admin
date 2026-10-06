@@ -1,5 +1,18 @@
 import { apiClient } from './apiClient';
 
+// details is JSONB; anything other than a plain object becomes null.
+function normalizeDetails(details) {
+  let value = details;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
 function normalizeLog(log) {
   return {
     id: log.id,
@@ -10,6 +23,7 @@ function normalizeLog(log) {
     newStatus: log.new_status,
     changedBy: log.changed_by,
     timestamp: log.timestamp,
+    details: normalizeDetails(log.details),
   };
 }
 

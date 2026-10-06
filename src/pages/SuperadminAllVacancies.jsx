@@ -345,7 +345,7 @@ export function SuperadminAllVacancies() {
                 <div>
                   <strong className="sav-warning-title">Warning: Superadmin Override Mode Active</strong>
                   <div className="sav-warning-text">
-                    Vacancy status changes and force-deletions executed here bypass standard admin workflows. They are not yet recorded in the compliance audit register.
+                    Vacancy status changes and deletions executed here bypass standard admin workflows. Every change is recorded in the compliance audit register at the moment it is saved.
                   </div>
                 </div>
               </div>
@@ -493,11 +493,11 @@ export function SuperadminAllVacancies() {
             <div className="sav-confirm-body">
               <ShieldAlert className="sav-confirm-icon" />
               <div>
-                <h3 className="sav-confirm-title">Force-Delete Vacancy</h3>
+                <h3 className="sav-confirm-title">Delete Vacancy</h3>
                 <p className="sav-confirm-desc">
                   This will permanently remove{' '}
                   <strong className="sav-confirm-bold">"{confirmDelete.title}"</strong> from{' '}
-                  <strong className="sav-confirm-bold">{confirmDelete.clientOrg}</strong> and all associated pipeline records. This action cannot be undone.
+                  <strong className="sav-confirm-bold">{confirmDelete.clientOrg}</strong>. A vacancy can only be deleted if no one has applied to it — if it has any applications, the server refuses and nothing is removed. This action cannot be undone.
                 </p>
               </div>
             </div>

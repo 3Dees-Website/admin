@@ -13,6 +13,37 @@ import { auditService } from '../services/auditService';
 import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminAuditTrail.css';
 
+// Job columns as the backend records them in a "Job edited" entry's
+// details.fields.
+const JOB_FIELD_LABELS = {
+  title: 'Title',
+  client_org: 'Client organisation',
+  category: 'Category',
+  type: 'Job type',
+  location: 'Location',
+  openings: 'Openings',
+  salary_range: 'Salary range',
+  description: 'Description',
+  responsibilities: 'Responsibilities',
+  requirements: 'Requirements',
+  closing_date: 'Closing date',
+  status: 'Status',
+  application_requirements: 'Application requirements',
+};
+
+const humanizeField = (key) => {
+  const words = String(key).replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+// Field names only; the from/to values are in the CSV export.
+function describeJobEdit(details) {
+  const fields = Array.isArray(details?.fields) ? details.fields : null;
+  if (!fields) return 'Changed fields not recorded';
+  if (fields.length === 0) return 'No fields changed';
+  return `Changed: ${fields.map((f) => JOB_FIELD_LABELS[f] || humanizeField(f)).join(', ')}`;
+}
+
 export function SuperadminAuditTrail() {
   const { addToast } = useToast();
 
@@ -73,7 +104,7 @@ export function SuperadminAuditTrail() {
           <span className="sat-compliance-label">REGULATORY COMPLIANCE</span>
           <h1 className="sat-title">Immutable Operations Audit Ledger</h1>
           <p className="sat-subtitle">
-            Logs every application status change, record and note edit, document change and deletion, plus EGI decisions and EGI delivery retries.
+            Logs every application status change, record and note edit, document change and deletion, EGI decisions and EGI delivery retries, and every vacancy created, edited or deleted.
           </p>
         </div>
         <div className="sat-header-actions">
@@ -172,9 +203,18 @@ export function SuperadminAuditTrail() {
                         <span className="sat-applicant-name">{log.applicantName}</span>
                         <span className="sat-applicant-job">{log.jobTitle}</span>
                       </div>
+                    ) : log.jobTitle ? (
+                      // Job create/edit/delete entries: a job title, no application.
+                      <div className="sat-applicant">
+                        <span className="sat-applicant-name">Vacancy: {log.jobTitle}</span>
+                        <span className="sat-applicant-job">Job record · No application</span>
+                        {log.newStatus === 'Job edited' && (
+                          <span className="sat-applicant-changes">{describeJobEdit(log.details)}</span>
+                        )}
+                      </div>
                     ) : (
-                      // Entries not about an application (e.g. account changes)
-                      // carry no applicant, job or application id.
+                      // Entries with neither (e.g. account changes) carry no
+                      // applicant, job or application id.
                       <div className="sat-applicant">
                         <span className="sat-applicant-name">—</span>
                         <span className="sat-applicant-job">Not linked to an application</span>
