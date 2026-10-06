@@ -9,6 +9,7 @@ export function useNotifications() {
   return {
     notifications: context.notifications,
     unreadCount: context.unreadCount,
+    notificationsStatus: context.notificationsStatus,
     markRead: context.markNotificationRead,
     markAllRead: context.markAllNotificationsRead,
     refetch: context.refetchNotifications,

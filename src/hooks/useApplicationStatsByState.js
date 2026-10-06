@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { applicationService } from '../services/applicationService';
 
 /**
@@ -9,17 +9,32 @@ import { applicationService } from '../services/applicationService';
 export function useApplicationStatsByState() {
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Set when the load failed, so the chart says so instead of "no data yet".
+  const [error, setError] = useState(null);
+
+  const refetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      setStats(await applicationService.getStatsByState());
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     applicationService.getStatsByState()
       .then((data) => { if (!cancelled) setStats(data); })
-      .catch(() => {
-        // Silent — chart is supplementary, dashboard stays usable without it.
+      .catch((err) => {
+        // No toast — chart is supplementary, dashboard stays usable without it.
+        if (!cancelled) setError(err);
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  return { stats, isLoading };
+  return { stats, isLoading, error, refetch };
 }

@@ -20,7 +20,7 @@ const TYPE_META = {
 const DEFAULT_TYPE_META = { icon: Bell, tone: 'gray' };
 
 export function NotificationBell({ role }) {
-  const { notifications, unreadCount, markRead, markAllRead, refetch } = useNotifications();
+  const { notifications, notificationsStatus, unreadCount, markRead, markAllRead, refetch } = useNotifications();
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
@@ -100,7 +100,15 @@ export function NotificationBell({ role }) {
           </div>
 
           <div className="notif-panel-list">
-            {notifications.length === 0 && (
+            {/* Only the first load can leave the status at 'error'; a later
+                poll that fails keeps the last good list, as before. */}
+            {notificationsStatus === 'error' && notifications.length === 0 && (
+              <div className="notif-panel-empty">
+                <Bell size={22} />
+                <span>Couldn't load notifications.</span>
+              </div>
+            )}
+            {notificationsStatus !== 'error' && notifications.length === 0 && (
               <div className="notif-panel-empty">
                 <Bell size={22} />
                 <span>No notifications yet</span>

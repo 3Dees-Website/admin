@@ -10,6 +10,9 @@ import { useToast } from '../hooks/useToast';
 import { useCategories } from '../hooks/useCategories';
 import { RequirementsSummary } from '../components/RequirementsSummary';
 import { JobFormModal } from '../components/JobFormModal';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { effectiveStatus } from '../utils/jobStatus';
 import { csvEscape } from '../utils/csvEscape';
 import { downloadBlob } from '../utils/downloadBlob';
@@ -19,8 +22,9 @@ import './styles/SuperadminAllVacancies.css';
 const STATUSES = ['All', 'Active', 'Closed', 'Draft', 'Expired'];
 
 export function SuperadminAllVacancies() {
-  const { jobs, removeJob, editJob } = useJobs();
-  const { statsByJob } = useJobStats();
+  const { jobs, jobsStatus, jobsError, reloadJobs, removeJob, editJob } = useJobs();
+  const { statsByJob, error: statsError } = useJobStats();
+  const loadError = jobsStatus === 'error' ? describeLoadError(jobsError, 'the vacancies') : null;
   const { addToast } = useToast();
   const { categories } = useCategories();
   const categoryOptions = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories]);
@@ -40,6 +44,10 @@ export function SuperadminAllVacancies() {
   const approvedCountFor = (jobId) => statsByJob[jobId]?.approved || 0;
   const shortlistedCountFor = (jobId) => statsByJob[jobId]?.shortlisted || 0;
   const rejectedCountFor = (jobId) => statsByJob[jobId]?.rejected || 0;
+  // For display only: "—" when the counts failed to load, since 0 would be a
+  // claim. The CSV export and delete warning keep the numeric helpers above.
+  const shown = (n) => (statsError ? '—' : n);
+  const statusFor = (job) => effectiveStatus(job, statsError ? null : appCountFor(job.id));
 
   /* ── Filtered list ── */
   const filteredJobs = useMemo(() => {
@@ -264,7 +272,15 @@ export function SuperadminAllVacancies() {
               </tr>
             </thead>
             <tbody className="sav-tbody">
-              {filteredJobs.map((job) => (
+              {jobsStatus === 'loading' && <TableLoadingRows colSpan={7} />}
+              {jobsStatus === 'error' && (
+                <TableErrorRow
+                  colSpan={7}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? reloadJobs : undefined}
+                />
+              )}
+              {jobsStatus === 'ready' && filteredJobs.map((job) => (
                 <tr key={job.id} className="sav-row">
 
                   {/* Vacancy / Client */}
@@ -296,15 +312,15 @@ export function SuperadminAllVacancies() {
                   {/* Applicants */}
                   <td className="sav-td sav-td-center">
                     <div className="sav-applicant-counts">
-                      <span className="sav-total-apps">{appCountFor(job.id)} total</span>
-                      <span className="sav-approved-apps">{approvedCountFor(job.id)} approved</span>
+                      <span className="sav-total-apps">{shown(appCountFor(job.id))} total</span>
+                      <span className="sav-approved-apps">{shown(approvedCountFor(job.id))} approved</span>
                     </div>
                   </td>
 
                   {/* Pipeline State */}
                   <td className="sav-td sav-td-center">
-                    <span className={`sav-status-badge sav-status-${effectiveStatus(job, appCountFor(job.id)).toLowerCase()}`}>
-                      {effectiveStatus(job, appCountFor(job.id))}
+                    <span className={`sav-status-badge sav-status-${statusFor(job).toLowerCase()}`}>
+                      {statusFor(job)}
                     </span>
                   </td>
 
@@ -334,7 +350,7 @@ export function SuperadminAllVacancies() {
 
                 </tr>
               ))}
-              {filteredJobs.length === 0 && (
+              {jobsStatus === 'ready' && filteredJobs.length === 0 && (
                 <tr>
                   <td colSpan={7} className="sav-empty-row">
                     No vacancy records correspond with currently active query terms.
@@ -413,8 +429,8 @@ export function SuperadminAllVacancies() {
                 </div>
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Pipeline State</span>
-                  <span className={`sav-status-badge sav-status-${effectiveStatus(activeJob, appCountFor(activeJob.id)).toLowerCase()}`}>
-                    {effectiveStatus(activeJob, appCountFor(activeJob.id))}
+                  <span className={`sav-status-badge sav-status-${statusFor(activeJob).toLowerCase()}`}>
+                    {statusFor(activeJob)}
                   </span>
                 </div>
               </div>
@@ -426,24 +442,24 @@ export function SuperadminAllVacancies() {
                 </h4>
                 <div className="sav-app-stats">
                   <div className="sav-app-stat">
-                    <span className="sav-app-stat-val">{appCountFor(activeJob.id)}</span>
+                    <span className="sav-app-stat-val">{shown(appCountFor(activeJob.id))}</span>
                     <span className="sav-app-stat-key">Total Received</span>
                   </div>
                   <div className="sav-app-stat">
                     <span className="sav-app-stat-val sav-stat-shortlisted">
-                      {shortlistedCountFor(activeJob.id)}
+                      {shown(shortlistedCountFor(activeJob.id))}
                     </span>
                     <span className="sav-app-stat-key">Shortlisted</span>
                   </div>
                   <div className="sav-app-stat">
                     <span className="sav-app-stat-val sav-stat-approved">
-                      {approvedCountFor(activeJob.id)}
+                      {shown(approvedCountFor(activeJob.id))}
                     </span>
                     <span className="sav-app-stat-key">Approved</span>
                   </div>
                   <div className="sav-app-stat">
                     <span className="sav-app-stat-val sav-stat-rejected">
-                      {rejectedCountFor(activeJob.id)}
+                      {shown(rejectedCountFor(activeJob.id))}
                     </span>
                     <span className="sav-app-stat-key">Rejected</span>
                   </div>

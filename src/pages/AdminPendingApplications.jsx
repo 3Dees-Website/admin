@@ -12,6 +12,8 @@ import { useAuth } from '../hooks/useAuth';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
@@ -26,13 +28,19 @@ export function AdminPendingApplications() {
   const [selectedIds,    setSelectedIds]    = useState(new Set());
 
   const {
-    items, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, refetch,
+    items: loadedItems, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, error, refetch,
   } = usePaginatedApplications({
     status: 'Pending',
     jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
     search: searchTerm,
   });
   const { stats: globalStats, refetch: refetchStats } = useApplicationStats();
+
+  // On a failed load the hook still holds the last good rows (possibly from
+  // a different filter). Drop them so nothing — rows, select-all, bulk
+  // actions — treats them as the current list.
+  const items = useMemo(() => (error ? [] : loadedItems), [error, loadedItems]);
+  const loadError = error ? describeLoadError(error, 'the applications') : null;
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);
@@ -58,11 +66,12 @@ export function AdminPendingApplications() {
 
   /* Stats — from the global stats endpoint, not the page's rows */
   const stats = {
-    total: globalStats?.byStatus?.Pending ?? 0,
+    // "—" until the counts are known: 0 would claim an empty queue.
+    total: globalStats ? (globalStats.byStatus?.Pending ?? 0) : '—',
     // submittedToday is all-status (the stats endpoint doesn't break down by
     // status + date); close enough since same-day submissions are rarely
     // triaged same-day, but not an exact "Pending received today" count.
-    today: globalStats?.submittedToday ?? 0,
+    today: globalStats ? (globalStats.submittedToday ?? 0) : '—',
   };
 
   /* Checkbox selection */
@@ -234,6 +243,13 @@ export function AdminPendingApplications() {
             </thead>
             <tbody className="apa-tbody">
               {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && loadError && (
+                <TableErrorRow
+                  colSpan={7}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? refetch : undefined}
+                />
+              )}
               {!isLoading && pendingApps.map((app) => (
                 <tr key={app.id} className={`apa-row${selectedIds.has(app.id) ? ' apa-row--selected' : ''}`}>
 
@@ -305,7 +321,7 @@ export function AdminPendingApplications() {
 
                 </tr>
               ))}
-              {!isLoading && pendingApps.length === 0 && (
+              {!isLoading && !loadError && pendingApps.length === 0 && (
                 <tr>
                   <td colSpan={7} className="apa-empty">
                     <Inbox className="apa-empty-icon" />
@@ -319,7 +335,7 @@ export function AdminPendingApplications() {
         <PaginationControls
           page={page}
           pageSize={pageSize}
-          total={totalItems}
+          total={loadError ? 0 : totalItems}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />

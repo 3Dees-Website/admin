@@ -8,6 +8,9 @@ export function useJobs() {
   }
   return {
     jobs: context.jobs,
+    jobsStatus: context.jobsStatus,
+    jobsError: context.jobsError,
+    reloadJobs: context.reloadJobs,
     postJob: context.postJob,
     editJob: context.editJob,
     removeJob: context.removeJob,

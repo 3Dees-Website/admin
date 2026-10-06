@@ -15,26 +15,39 @@ import { Briefcase, Users, FileLock2, CheckCircle, ShieldAlert, Activity, MapPin
 import { egiService } from '../services/egiService';
 import { auditService } from '../services/auditService';
 import { formatCount } from '../utils/formatCount';
+import { LoadErrorMessage } from '../components/TableErrorRow';
 import './styles/SuperadminDashboard.css';
 
 const RECENT_AUDITS_SIZE = 20;
 
+// null means unknown (loading or failed): "—", never 0.
+const countText = (n) => (n == null ? '—' : formatCount(n));
+
 export function SuperadminDashboard() {
-  const { jobs } = useJobs();
-  const { admins } = useAuth();
+  const { jobs, jobsStatus } = useJobs();
+  const { admins, adminsStatus } = useAuth();
   const { addToast } = useToast();
   const { stats: globalStats } = useApplicationStats();
-  const { stats: stateStats, isLoading: stateStatsLoading } = useApplicationStatsByState();
+  const {
+    stats: stateStats, isLoading: stateStatsLoading, error: stateStatsError, refetch: refetchStateStats,
+  } = useApplicationStatsByState();
 
   const [egiStats, setEgiStats] = useState(null);
   const [egiStatsLoading, setEgiStatsLoading] = useState(true);
+  const [egiStatsFailed, setEgiStatsFailed] = useState(false);
   const [recentAudits, setRecentAudits] = useState([]);
+  // 'loading' | 'ready' | 'error' — the panel's empty text only when 'ready'.
+  const [recentAuditsStatus, setRecentAuditsStatus] = useState('loading');
 
   useEffect(() => {
     let cancelled = false;
     egiService.getQueueStats()
       .then((stats) => { if (!cancelled) setEgiStats(stats); })
-      .catch(() => { if (!cancelled) addToast('error', 'EGI Sync Health', 'Could not load EGI queue stats.'); })
+      .catch(() => {
+        if (cancelled) return;
+        setEgiStatsFailed(true);
+        addToast('error', 'EGI Sync Health', 'Could not load EGI queue stats.');
+      })
       .finally(() => { if (!cancelled) setEgiStatsLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,10 +59,22 @@ export function SuperadminDashboard() {
       .then(({ items }) => {
         if (cancelled) return;
         setRecentAudits(items);
+        setRecentAuditsStatus('ready');
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setRecentAuditsStatus('error'); });
     return () => { cancelled = true; };
   }, []);
+
+  const reloadRecentAudits = async () => {
+    setRecentAuditsStatus('loading');
+    try {
+      const { items } = await auditService.getAuditLogsPage({ page: 1, pageSize: RECENT_AUDITS_SIZE });
+      setRecentAudits(items);
+      setRecentAuditsStatus('ready');
+    } catch {
+      setRecentAuditsStatus('error');
+    }
+  };
 
   const egiCounts = useMemo(() => {
     const byStatus = { Pending: 0, Queued: 0, Synced: 0, Failed: 0 };
@@ -60,14 +85,18 @@ export function SuperadminDashboard() {
   }, [egiStats]);
 
   const adminStats = useMemo(() => {
+    if (adminsStatus !== 'ready') {
+      return { totalAdmins: null, activeAdmins: null, suspendedAdmins: null };
+    }
     const totalAdmins = admins.filter((u) => u.role === 'admin').length;
     const activeAdmins = admins.filter((u) => u.role === 'admin' && u.status === 'Active').length;
     const suspendedAdmins = admins.filter((u) => u.role === 'admin' && u.status === 'Suspended').length;
     return { totalAdmins, activeAdmins, suspendedAdmins };
-  }, [admins]);
+  }, [admins, adminsStatus]);
 
-  const globalTotal = globalStats?.total ?? 0;
-  const egiAccepted = globalStats?.byEgiDecision?.Accepted ?? 0;
+  const jobCount = jobsStatus === 'ready' ? jobs.length : null;
+  const globalTotal = globalStats ? (globalStats.total ?? 0) : null;
+  const egiAccepted = globalStats ? (globalStats.byEgiDecision?.Accepted ?? 0) : null;
 
   const stateRows = useMemo(() => {
     const total = stateStats?.total ?? 0;
@@ -114,8 +143,8 @@ export function SuperadminDashboard() {
             <Users className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value" title={String(adminStats.activeAdmins)}>{formatCount(adminStats.activeAdmins)}</p>
-            <span className="sd-metric-sub">{adminStats.suspendedAdmins} officers suspended</span>
+            <p className="sd-metric-value" title={String(countText(adminStats.activeAdmins))}>{countText(adminStats.activeAdmins)}</p>
+            <span className="sd-metric-sub">{countText(adminStats.suspendedAdmins)} officers suspended</span>
           </div>
         </div>
 
@@ -125,7 +154,7 @@ export function SuperadminDashboard() {
             <Briefcase className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value" title={String(jobs.length)}>{formatCount(jobs.length)}</p>
+            <p className="sd-metric-value" title={String(countText(jobCount))}>{countText(jobCount)}</p>
             <span className="sd-metric-sub">Across all client sectors</span>
           </div>
         </div>
@@ -136,7 +165,7 @@ export function SuperadminDashboard() {
             <FileLock2 className="sd-metric-icon" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value" title={String(globalTotal)}>{formatCount(globalTotal)}</p>
+            <p className="sd-metric-value" title={String(countText(globalTotal))}>{countText(globalTotal)}</p>
             <span className="sd-metric-sub">Synced to local environment</span>
           </div>
         </div>
@@ -147,7 +176,7 @@ export function SuperadminDashboard() {
             <CheckCircle className="sd-metric-icon sd-metric-icon-green" />
           </div>
           <div className="sd-metric-bottom">
-            <p className="sd-metric-value" title={String(egiAccepted)}>{formatCount(egiAccepted)}</p>
+            <p className="sd-metric-value" title={String(countText(egiAccepted))}>{countText(egiAccepted)}</p>
             <span className="sd-metric-sub">Accepted by EGI</span>
           </div>
         </div>
@@ -170,7 +199,15 @@ export function SuperadminDashboard() {
           </div>
 
           <div className="sd-audit-body">
-            {recentAudits.map((l) => (
+            {recentAuditsStatus === 'loading' && (
+              <div className="sd-audit-empty">Loading…</div>
+            )}
+            {recentAuditsStatus === 'error' && (
+              <div className="sd-audit-empty">
+                <LoadErrorMessage message="Couldn't load recent audit entries." onRetry={reloadRecentAudits} />
+              </div>
+            )}
+            {recentAuditsStatus === 'ready' && recentAudits.map((l) => (
               <div key={l.id} className="sd-audit-entry">
                 <div className="sd-audit-entry-left">
                   <div className="sd-audit-action">
@@ -203,7 +240,7 @@ export function SuperadminDashboard() {
                 </span>
               </div>
             ))}
-            {recentAudits.length === 0 && (
+            {recentAuditsStatus === 'ready' && recentAudits.length === 0 && (
               <div className="sd-audit-empty">
                 No security or candidacy audit logs recorded in local storage database yet.
               </div>
@@ -221,6 +258,9 @@ export function SuperadminDashboard() {
                 <span>Queue status</span>
                 {egiStatsLoading ? (
                   <span className="sd-health-count">Loading…</span>
+                ) : egiStatsFailed ? (
+                  // Never HEALTHY when the stats couldn't be read.
+                  <span className="sd-health-failed">UNAVAILABLE</span>
                 ) : egiCounts.Failed > 0 ? (
                   <span className="sd-health-failed">{egiCounts.Failed} FAILED</span>
                 ) : (
@@ -229,15 +269,15 @@ export function SuperadminDashboard() {
               </div>
               <div className="sd-health-row">
                 <span>Total Synced to EGI</span>
-                <span className="sd-health-count">{egiStatsLoading ? '—' : egiCounts.Synced} Records</span>
+                <span className="sd-health-count">{egiStatsLoading || egiStatsFailed ? '—' : egiCounts.Synced} Records</span>
               </div>
               <div className="sd-health-row">
                 <span>Awaiting delivery (Pending/Queued)</span>
-                <span className="sd-health-count">{egiStatsLoading ? '—' : egiCounts.Pending + egiCounts.Queued}</span>
+                <span className="sd-health-count">{egiStatsLoading || egiStatsFailed ? '—' : egiCounts.Pending + egiCounts.Queued}</span>
               </div>
               <div className="sd-health-row">
                 <span>Sync Failure rate</span>
-                <span className="sd-health-rate">{egiStatsLoading ? '—' : `${egiCounts.failureRate.toFixed(2)}%`}</span>
+                <span className="sd-health-rate">{egiStatsLoading || egiStatsFailed ? '—' : `${egiCounts.failureRate.toFixed(2)}%`}</span>
               </div>
             </div>
           </div>
@@ -261,7 +301,7 @@ export function SuperadminDashboard() {
             <MapPin className="sd-state-title-icon" />
             <span>EGI Approvals by State of Origin</span>
           </h3>
-          {stateRows.length > 0 && (
+          {!stateStatsError && stateRows.length > 0 && (
             <span className="sd-state-total">{stateStats.total} Accepted Total</span>
           )}
         </div>
@@ -271,13 +311,19 @@ export function SuperadminDashboard() {
             <div className="sd-state-empty">Loading…</div>
           )}
 
-          {!stateStatsLoading && stateRows.length === 0 && (
+          {!stateStatsLoading && stateStatsError && (
+            <div className="sd-state-empty">
+              <LoadErrorMessage message="Couldn't load state data." onRetry={refetchStateStats} />
+            </div>
+          )}
+
+          {!stateStatsLoading && !stateStatsError && stateRows.length === 0 && (
             <div className="sd-state-empty">
               No state data yet — appears as EGI-accepted applicants with state of origin accumulate.
             </div>
           )}
 
-          {stateRows.map((row, index) => (
+          {!stateStatsError && stateRows.map((row, index) => (
             <div className="sd-state-row" key={row.state}>
               <span className="sd-state-label" title={row.state}>{row.state}</span>
               <div className="sd-state-track">

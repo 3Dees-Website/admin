@@ -5,33 +5,55 @@ import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useAuth } from '../hooks/useAuth';
 import { applicationService } from '../services/applicationService';
 import { formatCount } from '../utils/formatCount';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
 import { Briefcase, FileText, CheckCircle, Clock, Ban, PlusCircle, ArrowUpRight } from 'lucide-react';
 import './styles/AdminDashboard.css';
 
 const RECENT_FEED_SIZE = 20;
 
+// null means unknown (loading or failed): "—", never 0.
+const countText = (n) => (n == null ? '—' : formatCount(n));
+
 export function AdminDashboard() {
-  const { jobs } = useJobs();
+  const { jobs, jobsStatus } = useJobs();
   const { currentUser } = useAuth();
   const { stats: globalStats } = useApplicationStats();
 
   const [recentApplications, setRecentApplications] = useState([]);
+  // 'loading' | 'ready' | 'error' — the feed's empty text only when 'ready'.
+  const [feedStatus, setFeedStatus] = useState('loading');
 
   useEffect(() => {
     let cancelled = false;
     applicationService.getApplicationsPage({ page: 1, pageSize: RECENT_FEED_SIZE })
-      .then(({ items }) => { if (!cancelled) setRecentApplications(items); })
-      .catch(() => {});
+      .then(({ items }) => {
+        if (cancelled) return;
+        setRecentApplications(items);
+        setFeedStatus('ready');
+      })
+      .catch(() => { if (!cancelled) setFeedStatus('error'); });
     return () => { cancelled = true; };
   }, []);
 
+  const reloadFeed = async () => {
+    setFeedStatus('loading');
+    try {
+      const { items } = await applicationService.getApplicationsPage({ page: 1, pageSize: RECENT_FEED_SIZE });
+      setRecentApplications(items);
+      setFeedStatus('ready');
+    } catch {
+      setFeedStatus('error');
+    }
+  };
+
   const stats = {
-    totalJobs: jobs.length,
-    totalApps: globalStats?.total ?? 0,
-    pending: globalStats?.byStatus?.Pending ?? 0,
-    shortlisted: globalStats?.byStatus?.Shortlisted ?? 0,
-    approved: globalStats?.byStatus?.Approved ?? 0,
-    rejected: globalStats?.byStatus?.Rejected ?? 0,
+    totalJobs: jobsStatus === 'ready' ? jobs.length : null,
+    totalApps: globalStats ? (globalStats.total ?? 0) : null,
+    pending: globalStats ? (globalStats.byStatus?.Pending ?? 0) : null,
+    shortlisted: globalStats ? (globalStats.byStatus?.Shortlisted ?? 0) : null,
+    approved: globalStats ? (globalStats.byStatus?.Approved ?? 0) : null,
+    rejected: globalStats ? (globalStats.byStatus?.Rejected ?? 0) : null,
   };
 
   const statusBadgeClass = {
@@ -88,7 +110,7 @@ export function AdminDashboard() {
             <span className="stat-label">Posted Positions</span>
             <Briefcase size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value" title={String(stats.totalJobs)}>{formatCount(stats.totalJobs)}</p>
+          <p className="stat-value" title={String(countText(stats.totalJobs))}>{countText(stats.totalJobs)}</p>
         </div>
 
         <div className="stat-card">
@@ -96,7 +118,7 @@ export function AdminDashboard() {
             <span className="stat-label">Applications</span>
             <FileText size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value" title={String(stats.totalApps)}>{formatCount(stats.totalApps)}</p>
+          <p className="stat-value" title={String(countText(stats.totalApps))}>{countText(stats.totalApps)}</p>
         </div>
 
         <div className="stat-card">
@@ -104,7 +126,7 @@ export function AdminDashboard() {
             <span className="stat-label">Pending Audit</span>
             <Clock size={18} className="stat-icon stat-icon--primary" />
           </div>
-          <p className="stat-value" title={String(stats.pending)}>{formatCount(stats.pending)}</p>
+          <p className="stat-value" title={String(countText(stats.pending))}>{countText(stats.pending)}</p>
         </div>
 
         <div className="stat-card">
@@ -112,7 +134,7 @@ export function AdminDashboard() {
             <span className="stat-label">Shortlisted</span>
             <Clock size={18} className="stat-icon stat-icon--indigo" />
           </div>
-          <p className="stat-value" title={String(stats.shortlisted)}>{formatCount(stats.shortlisted)}</p>
+          <p className="stat-value" title={String(countText(stats.shortlisted))}>{countText(stats.shortlisted)}</p>
         </div>
 
         <div className="stat-card">
@@ -120,7 +142,7 @@ export function AdminDashboard() {
             <span className="stat-label">Approved Placements</span>
             <CheckCircle size={18} className="stat-icon stat-icon--green" />
           </div>
-          <p className="stat-value" title={String(stats.approved)}>{formatCount(stats.approved)}</p>
+          <p className="stat-value" title={String(countText(stats.approved))}>{countText(stats.approved)}</p>
         </div>
 
         <div className="stat-card">
@@ -128,7 +150,7 @@ export function AdminDashboard() {
             <span className="stat-label">Rejected Dossiers</span>
             <Ban size={18} className="stat-icon stat-icon--red" />
           </div>
-          <p className="stat-value" title={String(stats.rejected)}>{formatCount(stats.rejected)}</p>
+          <p className="stat-value" title={String(countText(stats.rejected))}>{countText(stats.rejected)}</p>
         </div>
       </div>
 
@@ -156,7 +178,11 @@ export function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentApplications.map((app) => (
+              {feedStatus === 'loading' && <TableLoadingRows colSpan={5} />}
+              {feedStatus === 'error' && (
+                <TableErrorRow colSpan={5} message="Couldn't load recent applications." onRetry={reloadFeed} />
+              )}
+              {feedStatus === 'ready' && recentApplications.map((app) => (
                 <tr key={app.id} className="table-body-row">
                   <td>
                     <div className="candidate-cell">
@@ -177,7 +203,7 @@ export function AdminDashboard() {
                   </td>
                 </tr>
               ))}
-              {recentApplications.length === 0 && (
+              {feedStatus === 'ready' && recentApplications.length === 0 && (
                 <tr>
                   <td colSpan={5} className="table-empty">
                     No candidacies have been submitted to this platform yet.

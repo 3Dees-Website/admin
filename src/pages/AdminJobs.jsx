@@ -9,13 +9,19 @@ import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { JobFormModal } from '../components/JobFormModal';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { Plus, Edit2, ToggleLeft, ToggleRight, Trash2, ShieldAlert } from 'lucide-react';
 import { effectiveStatus } from '../utils/jobStatus';
 import './styles/AdminJobs.css';
 
 export function AdminJobs() {
-  const { jobs, editJob, removeJob } = useJobs();
-  const { statsByJob } = useJobStats();
+  const { jobs, jobsStatus, jobsError, reloadJobs, editJob, removeJob } = useJobs();
+  const { statsByJob, error: statsError } = useJobStats();
+  const loadError = jobsStatus === 'error' ? describeLoadError(jobsError, 'the vacancies') : null;
+  // Unknown counts: "—" in the table, and no count-based status override.
+  const submissionsFor = (jobId) => (statsError ? null : statsByJob[jobId]?.total ?? 0);
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -113,7 +119,15 @@ export function AdminJobs() {
               </tr>
             </thead>
             <tbody className="aj-tbody">
-              {jobs.map((j) => (
+              {jobsStatus === 'loading' && <TableLoadingRows colSpan={6} />}
+              {jobsStatus === 'error' && (
+                <TableErrorRow
+                  colSpan={6}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? reloadJobs : undefined}
+                />
+              )}
+              {jobsStatus === 'ready' && jobs.map((j) => (
                 <tr key={j.id} className="aj-row">
                   <td className="aj-td">
                     <div className="aj-job-info">
@@ -123,9 +137,9 @@ export function AdminJobs() {
                   </td>
                   <td className="aj-td aj-muted">{j.clientOrg}</td>
                   <td className="aj-td aj-muted">{j.location}</td>
-                  <td className="aj-td aj-td-center aj-app-count">{statsByJob[j.id]?.total || 0} / {j.openings ?? '—'}</td>
+                  <td className="aj-td aj-td-center aj-app-count">{submissionsFor(j.id) ?? '—'} / {j.openings ?? '—'}</td>
                   <td className="aj-td aj-td-center">
-                    <span className={`aj-status-badge aj-status-${effectiveStatus(j, statsByJob[j.id]?.total ?? 0).toLowerCase()}`}>{effectiveStatus(j, statsByJob[j.id]?.total ?? 0)}</span>
+                    <span className={`aj-status-badge aj-status-${effectiveStatus(j, submissionsFor(j.id)).toLowerCase()}`}>{effectiveStatus(j, submissionsFor(j.id))}</span>
                   </td>
                   <td className="aj-td aj-td-right">
                     <div className="aj-actions">
@@ -150,7 +164,7 @@ export function AdminJobs() {
                   </td>
                 </tr>
               ))}
-              {jobs.length === 0 && (
+              {jobsStatus === 'ready' && jobs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="aj-empty-row">
                     No vacancies are currently posted in the local database storage.

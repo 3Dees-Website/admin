@@ -9,6 +9,8 @@ import { useToast } from '../hooks/useToast';
 import { Search, Download } from 'lucide-react';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { auditService } from '../services/auditService';
 import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminAuditTrail.css';
@@ -59,8 +61,12 @@ export function SuperadminAuditTrail() {
   };
 
   const {
-    items: logs, total, page, pageSize, setPage, setPageSize, isLoading,
+    items: logs, total, page, pageSize, setPage, setPageSize, isLoading, error, refetch,
   } = usePaginatedAuditLogs(filters);
+
+  // On a failed load the hook still holds the last good rows (possibly from
+  // a different filter), so they are hidden, not shown as if they matched.
+  const loadError = error ? describeLoadError(error, 'the audit trail') : null;
 
   // The officer filter can no longer be derived from every log (that would
   // mean fetching all of them). It's populated from officers seen on the
@@ -182,7 +188,16 @@ export function SuperadminAuditTrail() {
             </thead>
             <tbody className="sat-tbody">
               {isLoading && <TableLoadingRows colSpan={5} />}
-              {!isLoading && logs.map((log) => (
+              {!isLoading && loadError && (
+                <TableErrorRow
+                  colSpan={5}
+                  message={loadError.canRetry
+                    ? `${loadError.message} This does not mean the log is empty.`
+                    : loadError.message}
+                  onRetry={loadError.canRetry ? refetch : undefined}
+                />
+              )}
+              {!isLoading && !loadError && logs.map((log) => (
                 <tr key={log.id} className="sat-row">
 
                   {/* Timestamp */}
@@ -246,7 +261,7 @@ export function SuperadminAuditTrail() {
 
                 </tr>
               ))}
-              {!isLoading && logs.length === 0 && (
+              {!isLoading && !loadError && logs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="sat-empty-row">
                     No matching compliance logs exist under currently specified query terms.
@@ -259,7 +274,7 @@ export function SuperadminAuditTrail() {
         <PaginationControls
           page={page}
           pageSize={pageSize}
-          total={total}
+          total={loadError ? 0 : total}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />

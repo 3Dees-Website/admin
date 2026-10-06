@@ -13,6 +13,8 @@ import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import {
   Search, Inbox, Clock, UserCheck, UserX,
   ShieldAlert, Zap
@@ -33,13 +35,19 @@ export function SuperadminPendingApplications() {
   const [approveBusy, setApproveBusy] = useState(false);
 
   const {
-    items, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, refetch,
+    items: loadedItems, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, error, refetch,
   } = usePaginatedApplications({
     status: 'Pending',
     jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
     search: searchTerm,
   });
   const { stats: globalStats, refetch: refetchStats } = useApplicationStats();
+
+  // On a failed load the hook still holds the last good rows (possibly from
+  // a different filter). Drop them so nothing — rows, select-all, bulk
+  // actions — treats them as the current list.
+  const items = useMemo(() => (error ? [] : loadedItems), [error, loadedItems]);
+  const loadError = error ? describeLoadError(error, 'the applications') : null;
 
   const getJobTitle = (jobId) => {
     const j = jobs.find((j) => j.id === jobId);
@@ -65,14 +73,15 @@ export function SuperadminPendingApplications() {
 
   const stats = {
     // Global counts from the stats endpoint.
-    pending: globalStats?.byStatus?.Pending ?? 0,
+    // "—" until the counts are known: 0 would claim an empty queue.
+    pending: globalStats ? (globalStats.byStatus?.Pending ?? 0) : '—',
     // submittedToday is all-status (the stats endpoint doesn't break down by
     // status + date); close enough since same-day submissions are rarely
     // triaged same-day, but not an exact "Pending received today" count.
-    today: globalStats?.submittedToday ?? 0,
+    today: globalStats ? (globalStats.submittedToday ?? 0) : '—',
     // Overdue has no backend aggregate — this only reflects the current
     // page's rows, not the full pending queue.
-    overdue: pendingApps.filter(
+    overdue: loadError ? '—' : pendingApps.filter(
       (a) => Date.now() - new Date(a.submittedAt).getTime() >= 7 * 24 * 60 * 60 * 1000
     ).length,
   };
@@ -284,6 +293,13 @@ export function SuperadminPendingApplications() {
             </thead>
             <tbody className="spa-tbody">
               {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && loadError && (
+                <TableErrorRow
+                  colSpan={7}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? refetch : undefined}
+                />
+              )}
               {!isLoading && pendingApps.map((app) => {
                 const job = jobs.find((j) => j.id === app.jobId);
                 return (
@@ -360,7 +376,7 @@ export function SuperadminPendingApplications() {
                   </tr>
                 );
               })}
-              {!isLoading && pendingApps.length === 0 && (
+              {!isLoading && !loadError && pendingApps.length === 0 && (
                 <tr>
                   <td colSpan={7} className="spa-empty">
                     <Inbox className="spa-empty-icon" />
@@ -374,7 +390,7 @@ export function SuperadminPendingApplications() {
         <PaginationControls
           page={page}
           pageSize={pageSize}
-          total={totalItems}
+          total={loadError ? 0 : totalItems}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />

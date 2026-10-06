@@ -7,11 +7,18 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { Plus, ToggleLeft, ToggleRight, Trash2, Key, X, Check, ShieldAlert, History } from 'lucide-react';
 import './styles/SuperadminManageAdmins.css';
 
 export function SuperadminManageAdmins() {
-  const { admins, registerAdmin, toggleAdminSuspension, resetAdminPass, removeAdmin } = useAuth();
+  const {
+    admins, adminsStatus, adminsError, reloadAdmins,
+    registerAdmin, toggleAdminSuspension, resetAdminPass, removeAdmin,
+  } = useAuth();
+  const loadError = adminsStatus === 'error' ? describeLoadError(adminsError, 'the admin accounts') : null;
   const { addToast } = useToast();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -125,7 +132,15 @@ export function SuperadminManageAdmins() {
               </tr>
             </thead>
             <tbody className="sma-tbody">
-              {admins.map((adm) => (
+              {adminsStatus === 'loading' && <TableLoadingRows colSpan={6} />}
+              {adminsStatus === 'error' && (
+                <TableErrorRow
+                  colSpan={6}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? reloadAdmins : undefined}
+                />
+              )}
+              {adminsStatus === 'ready' && admins.map((adm) => (
                 <tr key={adm.id} className="sma-row">
                   <td className="sma-td">
                     <div className="sma-officer-cell">
@@ -193,7 +208,7 @@ export function SuperadminManageAdmins() {
                   </td>
                 </tr>
               ))}
-              {admins.length === 0 && (
+              {adminsStatus === 'ready' && admins.length === 0 && (
                 <tr>
                   <td colSpan={6} className="sma-empty-row">
                     No active recruitment administrative staff logged inside registry.

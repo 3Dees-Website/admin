@@ -18,6 +18,8 @@ import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/Eg
 import { ApplicationDetail } from '../components/ApplicationDetail';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { applicationService } from '../services/applicationService';
 import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminApprovedCandidates.css';
@@ -54,15 +56,22 @@ export function SuperadminApprovedCandidates() {
   };
 
   const {
-    items,
+    items: loadedItems,
     total,
     page,
     pageSize,
     setPage,
     setPageSize,
     isLoading,
+    error,
     refetch,
   } = usePaginatedApplications(filters);
+
+  // On a failed load the hook still holds the last good rows (possibly from
+  // a different filter). Drop them so nothing — rows, select-all, bulk
+  // actions — treats them as the current list.
+  const items = error ? [] : loadedItems;
+  const loadError = error ? describeLoadError(error, 'the applications') : null;
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -260,6 +269,13 @@ export function SuperadminApprovedCandidates() {
             </thead>
             <tbody className="sac-tbody">
               {isLoading && <TableLoadingRows colSpan={7} />}
+              {!isLoading && loadError && (
+                <TableErrorRow
+                  colSpan={7}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? refetch : undefined}
+                />
+              )}
               {!isLoading && items.map((a) => (
                 <tr key={a.id} className="sac-row">
                   <td className="sac-td">
@@ -289,7 +305,7 @@ export function SuperadminApprovedCandidates() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && items.length === 0 && (
+              {!isLoading && !loadError && items.length === 0 && (
                 <tr>
                   <td colSpan={7} className="sac-empty-row">
                     No approved candidates correspond with currently active queries.
@@ -302,7 +318,7 @@ export function SuperadminApprovedCandidates() {
         <PaginationControls
           page={page}
           pageSize={pageSize}
-          total={total}
+          total={loadError ? 0 : total}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />

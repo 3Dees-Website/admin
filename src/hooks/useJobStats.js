@@ -9,16 +9,21 @@ import { applicationService } from '../services/applicationService';
 export function useJobStats() {
   const [statsByJob, setStatsByJob] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  // Set when the counts failed to load, so pages show "—" rather than 0.
+  const [error, setError] = useState(null);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const items = await applicationService.getStatsByJob();
       const map = {};
       items.forEach((stat) => { map[stat.jobId] = stat; });
       setStatsByJob(map);
-    } catch {
-      // Silent — counts are supplementary, the jobs pages stay usable without them.
+    } catch (err) {
+      // No toast — counts are supplementary, the jobs pages stay usable
+      // without them; they show "—" instead.
+      setError(err);
     } finally {
       setIsLoading(false);
     }
@@ -33,11 +38,11 @@ export function useJobStats() {
         items.forEach((stat) => { map[stat.jobId] = stat; });
         setStatsByJob(map);
       })
-      .catch(() => {})
+      .catch((err) => { if (!cancelled) setError(err); })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
      
   }, []);
 
-  return { statsByJob, isLoading, refetch };
+  return { statsByJob, isLoading, error, refetch };
 }

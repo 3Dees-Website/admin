@@ -12,6 +12,8 @@ import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/Eg
 import { ApplicationDetail } from '../components/ApplicationDetail';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { applicationService } from '../services/applicationService';
 import { downloadBlob } from '../utils/downloadBlob';
 import './styles/AdminApplications.css';
@@ -47,15 +49,22 @@ export function AdminApplications() {
   };
 
   const {
-    items,
+    items: loadedItems,
     total,
     page,
     pageSize,
     setPage,
     setPageSize,
     isLoading,
+    error,
     refetch,
   } = usePaginatedApplications(filters);
+
+  // On a failed load the hook still holds the last good rows (possibly from
+  // a different filter). Drop them so nothing — rows, select-all, bulk
+  // actions — treats them as the current list.
+  const items = error ? [] : loadedItems;
+  const loadError = error ? describeLoadError(error, 'the applications') : null;
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -336,6 +345,13 @@ export function AdminApplications() {
             </thead>
             <tbody>
               {isLoading && <TableLoadingRows colSpan={8} />}
+              {!isLoading && loadError && (
+                <TableErrorRow
+                  colSpan={8}
+                  message={loadError.message}
+                  onRetry={loadError.canRetry ? refetch : undefined}
+                />
+              )}
               {!isLoading && items.map((a) => {
                 const isSelected = selectedAppIds.includes(a.id);
                 return (
@@ -379,7 +395,7 @@ export function AdminApplications() {
                   </tr>
                 );
               })}
-              {!isLoading && items.length === 0 && (
+              {!isLoading && !loadError && items.length === 0 && (
                 <tr>
                   <td colSpan={8} className="table-empty">
                     No active candidacies match your currently selected filters.
@@ -392,7 +408,7 @@ export function AdminApplications() {
         <PaginationControls
           page={page}
           pageSize={pageSize}
-          total={total}
+          total={loadError ? 0 : total}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />

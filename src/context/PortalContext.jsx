@@ -29,6 +29,15 @@ const initialState = {
   notifications: [],
   unreadCount: 0,
   toasts: [],
+  // Whether each server-loaded list is known: 'loading' | 'ready' | 'error'.
+  // Lets a page say "couldn't load" instead of showing its empty state.
+  jobsStatus: 'loading',
+  adminsStatus: 'loading',
+  notificationsStatus: 'loading',
+  // The failure behind an 'error' status, so a page can tell a 403 from a
+  // dropped connection. Only meaningful while that status is 'error'.
+  jobsError: null,
+  adminsError: null,
 };
 
 function portalReducer(state, action) {
@@ -42,6 +51,9 @@ function portalReducer(state, action) {
     case 'UPDATE_CURRENT_USER':
       return { ...state, currentUser: { ...state.currentUser, ...action.payload } };
     case 'SET_INITIAL_DATA':
+      // A list arriving here came from the server (or was reset), so it is
+      // known: its status becomes 'ready'. This covers every existing caller,
+      // e.g. the notification poll recovering after a failed first load.
       return {
         ...state,
         jobs: action.payload.jobs ?? state.jobs,
@@ -49,7 +61,12 @@ function portalReducer(state, action) {
         categories: action.payload.categories ?? state.categories,
         notifications: action.payload.notifications ?? state.notifications,
         unreadCount: action.payload.unreadCount ?? state.unreadCount,
+        jobsStatus: action.payload.jobs ? 'ready' : state.jobsStatus,
+        adminsStatus: action.payload.admins ? 'ready' : state.adminsStatus,
+        notificationsStatus: action.payload.notifications ? 'ready' : state.notificationsStatus,
       };
+    case 'SET_LIST_STATUS':
+      return { ...state, ...action.payload };
     case 'ADD_JOB':
       return { ...state, jobs: [...state.jobs, action.payload] };
     case 'UPDATE_JOB':
@@ -171,37 +188,77 @@ export function PortalProvider({ children }) {
     });
 
     // Notifications fail silently (no toast): a bell that can't load shouldn't
-    // interrupt the rest of the dashboard load with an error banner.
+    // interrupt the rest of the dashboard load with an error banner. The bell
+    // says so itself via notificationsStatus.
     const notificationsPromise = notificationService
       .getNotifications()
-      .catch(() => ({ items: [], unreadCount: 0 }));
+      .then((data) => ({ ok: true, ...data }), () => ({ ok: false }));
 
-    try {
-      const jobs = await jobService.getAdminJobs();
+    dispatch({
+      type: 'SET_LIST_STATUS',
+      payload: { jobsStatus: 'loading', adminsStatus: 'loading', notificationsStatus: 'loading' },
+    });
 
-      let admins = [];
-      // Only superadmins can fetch the users list
-      if (user?.role === 'superadmin') {
-        admins = await userService.getUsers();
-      }
+    // Jobs and admins settle independently, so one failing neither hides nor
+    // blocks the other, and each page can say which list is missing.
+    const settle = (promise) => promise.then(
+      (value) => ({ ok: true, value }),
+      (err) => ({ ok: false, err })
+    );
+    const jobsPromise = settle(jobService.getAdminJobs());
+    // Only superadmins can fetch the users list
+    const adminsPromise = user?.role === 'superadmin'
+      ? settle(userService.getUsers())
+      : Promise.resolve({ ok: true, value: [] });
 
-      const categories = await categoriesPromise;
-      const notifData = await notificationsPromise;
+    const [jobsResult, adminsResult, categories, notifData] = await Promise.all([
+      jobsPromise, adminsPromise, categoriesPromise, notificationsPromise,
+    ]);
 
-      dispatch({
-        type: 'SET_INITIAL_DATA',
-        payload: { jobs, admins, categories, notifications: notifData.items, unreadCount: notifData.unreadCount },
-      });
-    } catch (err) {
-      handleApiError(err, 'Data Load Error', 'Could not load portal data from the server.');
-      const categories = await categoriesPromise;
-      const notifData = await notificationsPromise;
-      dispatch({
-        type: 'SET_INITIAL_DATA',
-        payload: { categories, notifications: notifData.items, unreadCount: notifData.unreadCount },
-      });
+    const failed = [jobsResult, adminsResult].find((r) => !r.ok);
+    if (failed) {
+      handleApiError(failed.err, 'Data Load Error', 'Could not load portal data from the server.');
+    }
+
+    const payload = { categories };
+    if (jobsResult.ok) payload.jobs = jobsResult.value;
+    if (adminsResult.ok) payload.admins = adminsResult.value;
+    if (notifData.ok) {
+      payload.notifications = notifData.items;
+      payload.unreadCount = notifData.unreadCount;
+    }
+    dispatch({ type: 'SET_INITIAL_DATA', payload });
+
+    const failedStatus = {};
+    if (!jobsResult.ok) Object.assign(failedStatus, { jobsStatus: 'error', jobsError: jobsResult.err });
+    if (!adminsResult.ok) Object.assign(failedStatus, { adminsStatus: 'error', adminsError: adminsResult.err });
+    if (!notifData.ok) failedStatus.notificationsStatus = 'error';
+    if (Object.keys(failedStatus).length) {
+      dispatch({ type: 'SET_LIST_STATUS', payload: failedStatus });
     }
   }, [handleApiError]);
+
+  // Try again for a list whose load failed. No toast: the page that offers
+  // this shows the outcome in place of the list.
+  const reloadJobs = useCallback(async () => {
+    dispatch({ type: 'SET_LIST_STATUS', payload: { jobsStatus: 'loading' } });
+    try {
+      const jobs = await jobService.getAdminJobs();
+      dispatch({ type: 'SET_INITIAL_DATA', payload: { jobs } });
+    } catch (err) {
+      dispatch({ type: 'SET_LIST_STATUS', payload: { jobsStatus: 'error', jobsError: err } });
+    }
+  }, []);
+
+  const reloadAdmins = useCallback(async () => {
+    dispatch({ type: 'SET_LIST_STATUS', payload: { adminsStatus: 'loading' } });
+    try {
+      const admins = await userService.getUsers();
+      dispatch({ type: 'SET_INITIAL_DATA', payload: { admins } });
+    } catch (err) {
+      dispatch({ type: 'SET_LIST_STATUS', payload: { adminsStatus: 'error', adminsError: err } });
+    }
+  }, []);
 
   // ── Session teardown (shared by manual logout, idle timeout, and the ─────
   // ── browser-reopen check below) ───────────────────────────────────────────
@@ -785,6 +842,8 @@ export function PortalProvider({ children }) {
         addCategory,
         removeCategory,
         refetchNotifications,
+        reloadJobs,
+        reloadAdmins,
         markNotificationRead,
         markAllNotificationsRead,
       }}

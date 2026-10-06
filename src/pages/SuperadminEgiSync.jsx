@@ -8,6 +8,8 @@ import { egiService } from '../services/egiService';
 import { useToast } from '../hooks/useToast';
 import { EgiDeliveryBadge } from '../components/EgiBadges';
 import { DELIVERY_STATE_MAP } from '../utils/egiDeliveryState';
+import { TableErrorRow } from '../components/TableErrorRow';
+import { describeLoadError } from '../utils/describeLoadError';
 import { Search, Inbox, AlertTriangle, RefreshCw, Clock, PauseCircle } from 'lucide-react';
 import './styles/SuperadminEgiSync.css';
 
@@ -60,9 +62,14 @@ function nextAttemptLabel(item) {
 export function SuperadminEgiSync() {
   const { addToast } = useToast();
 
-  const [stats, setStats] = useState([]);
+  // null = counts unknown (still loading, or the last load failed): the
+  // cards show "—", never 0, since 0 failed deliveries is a claim.
+  const [stats, setStats] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  // A failed list load is said inline in the table, in place of the rows
+  // (which may be from a different filter) — not with a toast.
+  const [itemsError, setItemsError] = useState(null);
   const [retryingId, setRetryingId] = useState(null);
 
   const [stateFilter, setStateFilter] = useState('Failed');
@@ -77,17 +84,19 @@ export function SuperadminEgiSync() {
       const data = await egiService.getQueueStats();
       setStats(data);
     } catch (err) {
+      setStats(null);
       reportLoadError(err, 'Could not load queue stats.');
     }
   }
 
   async function loadItems() {
     setLoading(true);
+    setItemsError(null);
     try {
       const data = await egiService.getQueueItems(buildFilters(stateFilter, searchTerm));
       setItems(data);
     } catch (err) {
-      reportLoadError(err, 'Could not load queue items.');
+      setItemsError(err);
     } finally {
       setLoading(false);
     }
@@ -107,18 +116,21 @@ export function SuperadminEgiSync() {
     Promise.resolve().then(() => {
       if (cancelled) return;
       setLoading(true);
+      setItemsError(null);
       egiService.getQueueItems(buildFilters(stateFilter, searchTerm))
         .then((data) => { if (!cancelled) setItems(data); })
-        .catch((err) => { if (!cancelled) reportLoadError(err, 'Could not load queue items.'); })
+        .catch((err) => { if (!cancelled) setItemsError(err); })
         .finally(() => { if (!cancelled) setLoading(false); });
     });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateFilter, searchTerm]);
 
   // One stats row per queue status; exhausted/retrying/stuck split the Failed
   // and Processing rows. The queue has no 'Queued' status, hence no card for it.
   const statCounts = useMemo(() => {
+    if (!stats) {
+      return { waiting: '—', retrying: '—', exhausted: '—', stuck: '—', synced: '—' };
+    }
     const byStatus = {};
     stats.forEach((s) => { byStatus[s.status] = s; });
     const pending = byStatus.Pending?.count || 0;
@@ -154,6 +166,10 @@ export function SuperadminEgiSync() {
       setRetryingId(null);
     }
   };
+
+  const itemsLoadError = !itemsError ? null
+    : isForbidden(itemsError) ? { message: FORBIDDEN_MESSAGE, canRetry: false }
+    : describeLoadError(itemsError, 'the EGI queue');
 
   const statCards = [
     { key: 'waiting',   label: 'Waiting to send', icon: Clock,         tone: 'gray' },
@@ -260,7 +276,15 @@ export function SuperadminEgiSync() {
               </tr>
             </thead>
             <tbody className="ses-tbody">
-              {items.map((item) => {
+              {!loading && itemsLoadError && (
+                <TableErrorRow
+                  colSpan={7}
+                  message={itemsLoadError.message}
+                  onRetry={itemsLoadError.canRetry ? loadItems : undefined}
+                  retryLabel="Reload queue"
+                />
+              )}
+              {!itemsLoadError && items.map((item) => {
                 const needsAttention = item.deliveryState === 'exhausted' && !item.superseded;
                 const rowClass = [
                   'ses-row',
@@ -307,7 +331,7 @@ export function SuperadminEgiSync() {
                   </tr>
                 );
               })}
-              {!loading && items.length === 0 && (
+              {!loading && !itemsLoadError && items.length === 0 && (
                 <tr>
                   <td colSpan={7} className="ses-empty">
                     <Inbox className="ses-empty-icon" />
