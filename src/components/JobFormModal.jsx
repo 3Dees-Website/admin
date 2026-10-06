@@ -62,6 +62,7 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
   const [categoryError, setCategoryError] = useState('');
   const [managingCategories, setManagingCategories] = useState(false);
   const [confirmDeleteCatId, setConfirmDeleteCatId] = useState(null);
+  const [deletingCatId, setDeletingCatId] = useState(null);
 
   const handleAddCategory = async () => {
     const trimmed = newCategoryName.trim();
@@ -79,8 +80,13 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
     }
   };
 
+  // One request per click: a second "Yes" before the first answers would get
+  // a not-found error for a delete that actually succeeded.
   const handleDeleteCategory = async (id) => {
+    if (deletingCatId) return;
+    setDeletingCatId(id);
     await removeCategory(id);
+    setDeletingCatId(null);
     setConfirmDeleteCatId(null);
   };
 
@@ -190,9 +196,9 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
                       <span className="jfm-cat-manage-name">{c.name}</span>
                       {confirmDeleteCatId === c.id ? (
                         <span className="jfm-cat-confirm">
-                          Delete?
-                          <button type="button" onClick={() => handleDeleteCategory(c.id)} className="jfm-cat-confirm-yes">Yes</button>
-                          <button type="button" onClick={() => setConfirmDeleteCatId(null)} className="jfm-cat-confirm-no">No</button>
+                          {deletingCatId === c.id ? 'Deleting…' : 'Delete?'}
+                          <button type="button" onClick={() => handleDeleteCategory(c.id)} className="jfm-cat-confirm-yes" disabled={deletingCatId === c.id}>Yes</button>
+                          <button type="button" onClick={() => setConfirmDeleteCatId(null)} className="jfm-cat-confirm-no" disabled={deletingCatId === c.id}>No</button>
                         </span>
                       ) : (
                         <button type="button"

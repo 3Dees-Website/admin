@@ -386,18 +386,22 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // Resolves to { ok, message } so a confirm dialog can stay open on failure
+  // and show the same reason the toast gives.
   const removeJob = async (jobId) => {
     const targetJob = state.jobs.find((j) => j.id === jobId);
     try {
       await jobService.deleteJob(jobId);
       dispatch({ type: 'DELETE_JOB', payload: jobId });
       addToast('info', 'Job Deleted', `"${targetJob?.title || 'Job'}" was removed.`);
+      return { ok: true };
     } catch (err) {
       const message =
         err?.error === 'HasApplications'
           ? 'This job cannot be deleted because it has associated applications.'
           : err?.message || 'Could not delete job.';
       addToast('error', 'Delete Failed', message);
+      return { ok: false, message };
     }
   };
 
@@ -631,8 +635,10 @@ export function PortalProvider({ children }) {
       const updated = await userService.toggleStatus(adminId);
       dispatch({ type: 'UPDATE_ADMIN', payload: updated });
       addToast('info', 'Status Changed', `${updated.name}'s account is now ${updated.status}.`);
+      return true;
     } catch (err) {
       handleApiError(err, 'Status Change Failed', 'Could not update user status.');
+      return false;
     }
   };
 
@@ -640,8 +646,10 @@ export function PortalProvider({ children }) {
     try {
       await userService.resetPassword(adminId, newPassword);
       addToast('success', 'Password Updated', 'The representative\'s credential has been reassigned.');
+      return true;
     } catch (err) {
       handleApiError(err, 'Password Reset Failed', 'Could not reset the password.');
+      return false;
     }
   };
 
@@ -651,8 +659,10 @@ export function PortalProvider({ children }) {
       await userService.deleteUser(adminId);
       dispatch({ type: 'DELETE_ADMIN', payload: adminId });
       addToast('info', 'Admin Deleted', `Advisory account for ${targetAdmin?.name || 'Admin'} was deleted.`);
+      return true;
     } catch (err) {
       handleApiError(err, 'Delete Failed', 'Could not delete admin account.');
+      return false;
     }
   };
 
@@ -679,8 +689,10 @@ export function PortalProvider({ children }) {
       await categoryService.deleteCategory(id);
       dispatch({ type: 'DELETE_CATEGORY', payload: id });
       addToast('info', 'Category Deleted', `"${target?.name || 'Category'}" was removed.`);
+      return true;
     } catch (err) {
       handleApiError(err, 'Delete Failed', 'Could not delete category.');
+      return false;
     }
   };
 

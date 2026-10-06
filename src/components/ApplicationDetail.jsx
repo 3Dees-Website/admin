@@ -178,11 +178,13 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     if (label) formData.append('label', label);
     const updated = await uploadVerificationDocument(app.id, formData);
     if (updated) onAppUpdated?.(updated);
+    return Boolean(updated);
   };
 
   const handleDeleteVerificationDoc = async (docId) => {
     const updated = await deleteVerificationDocument(app.id, docId);
     if (updated) onAppUpdated?.(updated);
+    return Boolean(updated);
   };
 
   const handleResendConfirm = async (egiNote) => {
@@ -577,24 +579,38 @@ function DeliveryDetail({ delivery }) {
 
 function VerificationDocumentsPanel({ appId, verificationDocuments, locked, onUpload, onDelete }) {
   const [confirmingId, setConfirmingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [docType, setDocType] = useState(VERIFICATION_DOC_TYPES[0].value);
   const [label, setLabel] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  // Remounts the (uncontrolled) file input, so a successful upload clears the
+  // chosen file on screen as well as in state.
+  const [fileInputKey, setFileInputKey] = useState(0);
 
+  // Clears the form only once the upload succeeded; a failure keeps the
+  // chosen file and label for another attempt.
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (!file || uploading) return;
     setUploading(true);
-    await onUpload(file, docType, docType === 'other' ? label : undefined);
+    const success = await onUpload(file, docType, docType === 'other' ? label : undefined);
     setUploading(false);
-    setFile(null);
-    setLabel('');
+    if (success) {
+      setFile(null);
+      setLabel('');
+      setFileInputKey((k) => k + 1);
+    }
   };
 
-  const handleConfirmDelete = (docId) => {
-    onDelete(docId);
-    setConfirmingId(null);
+  // Confirm/Cancel stay until the server answers; on failure they remain so
+  // the delete can be retried or cancelled.
+  const handleConfirmDelete = async (docId) => {
+    if (deletingId) return;
+    setDeletingId(docId);
+    const success = await onDelete(docId);
+    setDeletingId(null);
+    if (success) setConfirmingId(null);
   };
 
   return (
@@ -617,10 +633,20 @@ function VerificationDocumentsPanel({ appId, verificationDocuments, locked, onUp
                 {!locked && (
                   confirmingId === doc.id ? (
                     <>
-                      <button type="button" className="ad-doc-confirm-btn" onClick={() => handleConfirmDelete(doc.id)}>
-                        Confirm
+                      <button
+                        type="button"
+                        className="ad-doc-confirm-btn"
+                        onClick={() => handleConfirmDelete(doc.id)}
+                        disabled={deletingId === doc.id}
+                      >
+                        {deletingId === doc.id ? 'Removing…' : 'Confirm'}
                       </button>
-                      <button type="button" className="ad-doc-cancel-btn" onClick={() => setConfirmingId(null)}>
+                      <button
+                        type="button"
+                        className="ad-doc-cancel-btn"
+                        onClick={() => setConfirmingId(null)}
+                        disabled={deletingId === doc.id}
+                      >
                         Cancel
                       </button>
                     </>
@@ -654,6 +680,7 @@ function VerificationDocumentsPanel({ appId, verificationDocuments, locked, onUp
             />
           )}
           <input
+            key={fileInputKey}
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="ad-upload-file-input"

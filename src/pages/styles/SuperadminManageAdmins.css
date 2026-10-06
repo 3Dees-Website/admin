@@ -479,3 +479,12 @@
 .sma-delete-btn:hover {
   background-color: #b91c1c;
 }
+/* Disabled while a request is in flight */
+.sma-toggle-btn:disabled,
+.sma-modal-close:disabled,
+.sma-cancel-btn:disabled,
+.sma-submit-btn:disabled,
+.sma-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

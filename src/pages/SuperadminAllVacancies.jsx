@@ -31,6 +31,9 @@ export function SuperadminAllVacancies() {
   const [activeJob,       setActiveJob]       = useState(null);
   const [confirmDelete,   setConfirmDelete]   = useState(null);
   const [modalOpen,       setModalOpen]       = useState(false);
+  const [isDeleting,      setIsDeleting]      = useState(false);
+  const [deleteError,     setDeleteError]     = useState('');
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   /* ── Derived counts ── */
   const appCountFor = (jobId) => statsByJob[jobId]?.total || 0;
@@ -73,21 +76,47 @@ export function SuperadminAllVacancies() {
   }), [jobs]);
 
   /* ── Status toggle (Active ↔ Closed) ── */
-  const handleToggleStatus = (job) => {
+  // Waits for the save: the drawer and the toast only change once the server
+  // has accepted the new status (editJob toasts its own failure).
+  const handleToggleStatus = async (job) => {
+    if (isTogglingStatus) return;
     const newStatus = job.status === 'Active' ? 'Closed' : 'Active';
-    editJob({ ...job, status: newStatus });
-    addToast('info', 'Vacancy Status Updated', `"${job.title}" is now ${newStatus}.`);
-    if (activeJob && activeJob.id === job.id) {
-      setActiveJob({ ...job, status: newStatus });
-    }
+    setIsTogglingStatus(true);
+    const saved = await editJob({ ...job, status: newStatus });
+    setIsTogglingStatus(false);
+    if (!saved) return;
+    addToast('info', 'Vacancy Status Updated', `"${saved.title}" is now ${saved.status}.`);
+    setActiveJob((current) => (current && current.id === saved.id ? saved : current));
   };
 
-  /* ── Force-delete ── */
-  const handleConfirmDelete = () => {
-    if (!confirmDelete) return;
-    removeJob(confirmDelete.id);
+  /* ── Delete ── */
+  // The dialog stays open until the server answers. A refusal (e.g. the job
+  // has applications) keeps it open with the reason, over the drawer the
+  // superadmin was working in.
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete || isDeleting) return;
+    const target = confirmDelete;
+    setIsDeleting(true);
+    setDeleteError('');
+    const result = await removeJob(target.id);
+    setIsDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.message);
+      return;
+    }
     setConfirmDelete(null);
-    if (activeJob && activeJob.id === confirmDelete.id) setActiveJob(null);
+    setActiveJob((current) => (current && current.id === target.id ? null : current));
+  };
+
+  const openDeleteConfirm = (job) => {
+    setDeleteError('');
+    setConfirmDelete(job);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (isDeleting) return;
+    setDeleteError('');
+    setConfirmDelete(null);
   };
 
   /* ── CSV export ── */
@@ -459,16 +488,19 @@ export function SuperadminAllVacancies() {
                   Edit Vacancy
                 </button>
                 <button
-                  onClick={() => setConfirmDelete(activeJob)}
+                  onClick={() => openDeleteConfirm(activeJob)}
                   className="sav-btn-delete"
                 >
-                  Force Delete
+                  Delete
                 </button>
                 <button
                   onClick={() => handleToggleStatus(activeJob)}
                   className={activeJob.status === 'Active' ? 'sav-btn-close' : 'sav-btn-reopen'}
+                  disabled={isTogglingStatus}
                 >
-                  {activeJob.status === 'Active' ? 'Close Vacancy' : 'Reopen Vacancy'}
+                  {isTogglingStatus
+                    ? 'Saving…'
+                    : activeJob.status === 'Active' ? 'Close Vacancy' : 'Reopen Vacancy'}
                 </button>
               </div>
             </div>
@@ -499,14 +531,24 @@ export function SuperadminAllVacancies() {
                   <strong className="sav-confirm-bold">"{confirmDelete.title}"</strong> from{' '}
                   <strong className="sav-confirm-bold">{confirmDelete.clientOrg}</strong>. A vacancy can only be deleted if no one has applied to it — if it has any applications, the server refuses and nothing is removed. This action cannot be undone.
                 </p>
+                {/* Only a positive count is claimed: the counts load once and
+                    read as 0 if they failed to load, so 0 may mean unknown. */}
+                {appCountFor(confirmDelete.id) > 0 && (
+                  <p className="sav-confirm-warning">
+                    This vacancy has <strong>{appCountFor(confirmDelete.id)} application{appCountFor(confirmDelete.id) === 1 ? '' : 's'}</strong>, so the server will refuse to delete it.
+                  </p>
+                )}
+                {deleteError && (
+                  <p className="sav-confirm-error" role="alert">{deleteError}</p>
+                )}
               </div>
             </div>
             <div className="sav-confirm-footer">
-              <button onClick={() => setConfirmDelete(null)} className="sav-confirm-cancel">
+              <button onClick={closeDeleteConfirm} className="sav-confirm-cancel" disabled={isDeleting}>
                 Cancel
               </button>
-              <button onClick={handleConfirmDelete} className="sav-confirm-delete">
-                Delete Permanently
+              <button onClick={handleConfirmDelete} className="sav-confirm-delete" disabled={isDeleting}>
+                {isDeleting ? 'Deleting…' : 'Delete Permanently'}
               </button>
             </div>
           </div>

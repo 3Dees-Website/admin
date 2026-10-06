@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -23,13 +23,29 @@ export function SuperadminManageAdmins() {
   const [newPass, setNewPass] = useState('');
   const [overridePass, setOverridePass] = useState('');
 
-  const handleRegister = (e) => {
+  // Every action below waits for the server before closing, so a failure
+  // keeps the modal and whatever was typed.
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Ids with a status toggle in flight. Each request flips the status, so a
+  // second click before the first answers would undo it — and leave two
+  // entries in the account activity log.
+  // The ref is the guard (it updates synchronously, so even two clicks inside
+  // one render can't both pass); the state drives the disabled button.
+  const togglingRef = useRef(new Set());
+  const [togglingIds, setTogglingIds] = useState(() => new Set());
+
+  const handleRegister = async (e) => {
     e.preventDefault();
+    if (isRegistering) return;
     if (!newName.trim() || !newEmail.trim() || !newPass.trim()) {
       addToast('error', 'Incomplete Fields', 'Please fill out all administrative parameters.');
       return;
     }
-    const success = registerAdmin(newName, newEmail, newPass);
+    setIsRegistering(true);
+    const success = await registerAdmin(newName, newEmail, newPass);
+    setIsRegistering(false);
     if (success) {
       setNewName('');
       setNewEmail('');
@@ -38,23 +54,41 @@ export function SuperadminManageAdmins() {
     }
   };
 
-  const handlePasswordOverride = (e) => {
+  const handlePasswordOverride = async (e) => {
     e.preventDefault();
-    if (!resetPassTarget) return;
+    if (!resetPassTarget || isResetting) return;
     if (!overridePass.trim()) {
       addToast('error', 'Placeholder Field Empty', 'Please write a new alphanumeric passcode.');
       return;
     }
-    resetAdminPass(resetPassTarget.id, overridePass);
-    setResetPassTarget(null);
-    setOverridePass('');
+    setIsResetting(true);
+    const success = await resetAdminPass(resetPassTarget.id, overridePass);
+    setIsResetting(false);
+    if (success) {
+      setResetPassTarget(null);
+      setOverridePass('');
+    }
   };
 
-  const handleDeleteStaff = () => {
-    if (confirmDeleteTarget) {
-      removeAdmin(confirmDeleteTarget.id);
-      setConfirmDeleteTarget(null);
-    }
+  const handleDeleteStaff = async () => {
+    if (!confirmDeleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    const success = await removeAdmin(confirmDeleteTarget.id);
+    setIsDeleting(false);
+    if (success) setConfirmDeleteTarget(null);
+  };
+
+  const handleToggleSuspension = async (adminId) => {
+    if (togglingRef.current.has(adminId)) return;
+    togglingRef.current.add(adminId);
+    setTogglingIds((prev) => new Set(prev).add(adminId));
+    await toggleAdminSuspension(adminId);
+    togglingRef.current.delete(adminId);
+    setTogglingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(adminId);
+      return next;
+    });
   };
 
   return (
@@ -126,7 +160,8 @@ export function SuperadminManageAdmins() {
                       {adm.role !== 'superadmin' && (
                         <>
                           <button
-                            onClick={() => toggleAdminSuspension(adm.id)}
+                            onClick={() => handleToggleSuspension(adm.id)}
+                            disabled={togglingIds.has(adm.id)}
                             className="sma-toggle-btn"
                             title={adm.status === 'Active' ? 'Freeze Account / Suspend' : 'Activate Account'}
                           >
@@ -134,7 +169,7 @@ export function SuperadminManageAdmins() {
                               ? <ToggleRight className="sma-toggle-icon sma-toggle-active" />
                               : <ToggleLeft className="sma-toggle-icon sma-toggle-inactive" />
                             }
-                            <span>Toggle Suspension</span>
+                            <span>{togglingIds.has(adm.id) ? 'Saving…' : 'Toggle Suspension'}</span>
                           </button>
 
                           <button
@@ -179,7 +214,7 @@ export function SuperadminManageAdmins() {
                 <h3 className="sma-modal-title">Register Vetting Officer</h3>
                 <p className="sma-modal-subtitle">Authorise dynamic credentials for recruitment reviews.</p>
               </div>
-              <button onClick={() => setCreateModalOpen(false)} className="sma-modal-close">
+              <button onClick={() => setCreateModalOpen(false)} className="sma-modal-close" disabled={isRegistering}>
                 <X className="sma-close-icon" />
               </button>
             </div>
@@ -222,12 +257,12 @@ export function SuperadminManageAdmins() {
               </div>
 
               <div className="sma-form-footer">
-                <button type="button" onClick={() => setCreateModalOpen(false)} className="sma-cancel-btn">
+                <button type="button" onClick={() => setCreateModalOpen(false)} className="sma-cancel-btn" disabled={isRegistering}>
                   Cancel
                 </button>
-                <button type="submit" className="sma-submit-btn">
+                <button type="submit" className="sma-submit-btn" disabled={isRegistering}>
                   <Check className="sma-btn-icon" />
-                  <span>Register Officer</span>
+                  <span>{isRegistering ? 'Registering…' : 'Register Officer'}</span>
                 </button>
               </div>
             </form>
@@ -241,7 +276,7 @@ export function SuperadminManageAdmins() {
           <div className="sma-modal sma-modal-sm">
             <div className="sma-modal-header">
               <h3 className="sma-modal-title">Overwrite Password Passcode</h3>
-              <button onClick={() => setResetPassTarget(null)} className="sma-modal-close">
+              <button onClick={() => setResetPassTarget(null)} className="sma-modal-close" disabled={isResetting}>
                 <X className="sma-close-icon" />
               </button>
             </div>
@@ -264,11 +299,11 @@ export function SuperadminManageAdmins() {
               </div>
 
               <div className="sma-form-footer sma-form-footer-tight">
-                <button type="button" onClick={() => setResetPassTarget(null)} className="sma-cancel-btn">
+                <button type="button" onClick={() => setResetPassTarget(null)} className="sma-cancel-btn" disabled={isResetting}>
                   Cancel
                 </button>
-                <button type="submit" className="sma-submit-btn">
-                  Override Now
+                <button type="submit" className="sma-submit-btn" disabled={isResetting}>
+                  {isResetting ? 'Saving…' : 'Override Now'}
                 </button>
               </div>
             </form>
@@ -291,11 +326,11 @@ export function SuperadminManageAdmins() {
             </div>
 
             <div className="sma-delete-footer">
-              <button onClick={() => setConfirmDeleteTarget(null)} className="sma-cancel-btn">
+              <button onClick={() => setConfirmDeleteTarget(null)} className="sma-cancel-btn" disabled={isDeleting}>
                 Cancel Delete
               </button>
-              <button onClick={handleDeleteStaff} className="sma-delete-btn">
-                Delete Profile
+              <button onClick={handleDeleteStaff} className="sma-delete-btn" disabled={isDeleting}>
+                {isDeleting ? 'Deleting…' : 'Delete Profile'}
               </button>
             </div>
           </div>

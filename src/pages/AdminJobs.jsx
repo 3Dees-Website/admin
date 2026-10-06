@@ -22,6 +22,9 @@ export function AdminJobs() {
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [togglingId, setTogglingId] = useState(null);
 
   useEffect(() => {
     if (searchParams.get('create') === 'open') {
@@ -36,18 +39,45 @@ export function AdminJobs() {
     setModalOpen(true);
   };
 
-  const handleToggleStatus = (job) => {
+  // Waits for the save, so the toast only claims a change the server accepted
+  // (editJob toasts its own failure). One toggle per row at a time.
+  const handleToggleStatus = async (job) => {
+    if (togglingId) return;
     const nextStatus = job.status === 'Active' ? 'Closed' : job.status === 'Closed' ? 'Draft' : 'Active';
-    editJob({ ...job, status: nextStatus });
-    addToast('info', 'Status Shifted', `"${job.title}" state toggled to ${nextStatus}.`);
+    setTogglingId(job.id);
+    const saved = await editJob({ ...job, status: nextStatus });
+    setTogglingId(null);
+    if (saved) addToast('info', 'Status Shifted', `"${saved.title}" state toggled to ${saved.status}.`);
   };
 
-  const handleConfirmDelete = () => {
-    if (confirmDeleteId) {
-      removeJob(confirmDeleteId);
-      setConfirmDeleteId(null);
+  // The dialog stays open until the server answers; a refusal keeps it open
+  // with the reason.
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteId || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError('');
+    const result = await removeJob(confirmDeleteId);
+    setIsDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.message);
+      return;
     }
+    setConfirmDeleteId(null);
   };
+
+  const openDeleteConfirm = (jobId) => {
+    setDeleteError('');
+    setConfirmDeleteId(jobId);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (isDeleting) return;
+    setDeleteError('');
+    setConfirmDeleteId(null);
+  };
+
+  const jobToDelete = confirmDeleteId ? jobs.find((j) => j.id === confirmDeleteId) : null;
+  const deleteAppCount = confirmDeleteId ? statsByJob[confirmDeleteId]?.total || 0 : 0;
 
   return (
     <div className="aj-wrapper" id="admin-jobs-wrapper">
@@ -99,16 +129,21 @@ export function AdminJobs() {
                   </td>
                   <td className="aj-td aj-td-right">
                     <div className="aj-actions">
-                      <button onClick={() => handleToggleStatus(j)} className="aj-toggle-btn" title="Toggle Status">
+                      <button
+                        onClick={() => handleToggleStatus(j)}
+                        className="aj-toggle-btn"
+                        title="Toggle Status"
+                        disabled={togglingId !== null}
+                      >
                         {j.status === 'Active'
                           ? <ToggleRight className="aj-toggle-icon aj-toggle-on" />
                           : <ToggleLeft className="aj-toggle-icon" />}
-                        <span>Toggle Status</span>
+                        <span>{togglingId === j.id ? 'Saving…' : 'Toggle Status'}</span>
                       </button>
                       <button onClick={() => handleOpenEdit(j)} className="aj-icon-btn" title="Edit Vacancy">
                         <Edit2 className="aj-icon" />
                       </button>
-                      <button onClick={() => setConfirmDeleteId(j.id)} className="aj-icon-btn aj-icon-btn-del" title="Delete Vacancy">
+                      <button onClick={() => openDeleteConfirm(j.id)} className="aj-icon-btn aj-icon-btn-del" title="Delete Vacancy">
                         <Trash2 className="aj-icon" />
                       </button>
                     </div>
@@ -144,16 +179,26 @@ export function AdminJobs() {
               <div>
                 <h3 className="aj-delete-title">Confirm Destructive Deletion</h3>
                 <p className="aj-delete-desc">
-                  This operation is permanent. It clears the open vacancy from all local registries. Applicants files remain unaffected but disconnected.
+                  This will permanently remove{jobToDelete ? <> <strong>"{jobToDelete.title}"</strong></> : ' this vacancy'}. A vacancy can only be deleted if no one has applied to it — if it has any applications, the server refuses and nothing is removed. This action cannot be undone.
                 </p>
+                {/* Only a positive count is claimed: the counts load once and
+                    read as 0 if they failed to load, so 0 may mean unknown. */}
+                {deleteAppCount > 0 && (
+                  <p className="aj-delete-warning">
+                    This vacancy has <strong>{deleteAppCount} application{deleteAppCount === 1 ? '' : 's'}</strong>, so the server will refuse to delete it.
+                  </p>
+                )}
+                {deleteError && (
+                  <p className="aj-delete-error" role="alert">{deleteError}</p>
+                )}
               </div>
             </div>
             <div className="aj-delete-footer">
-              <button onClick={() => setConfirmDeleteId(null)} className="aj-cancel-btn">
+              <button onClick={closeDeleteConfirm} className="aj-cancel-btn" disabled={isDeleting}>
                 Retain Job
               </button>
-              <button onClick={handleConfirmDelete} className="aj-delete-confirm-btn">
-                Delete Job Vacancy
+              <button onClick={handleConfirmDelete} className="aj-delete-confirm-btn" disabled={isDeleting}>
+                {isDeleting ? 'Deleting…' : 'Delete Job Vacancy'}
               </button>
             </div>
           </div>

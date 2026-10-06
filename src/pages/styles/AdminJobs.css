@@ -243,6 +243,36 @@
   margin-top: 0.25rem;
 }
 
+.aj-delete-warning,
+.aj-delete-error {
+  font-size: 0.65rem;
+  line-height: 1.6;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  margin: 0.625rem 0 0;
+}
+
+.aj-delete-warning {
+  color: #a16207;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.aj-delete-error {
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.aj-cancel-btn:disabled,
+.aj-delete-confirm-btn:disabled,
+.aj-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .aj-delete-footer {
   display: flex;
   justify-content: flex-end;
