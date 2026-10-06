@@ -73,7 +73,7 @@ export function SuperadminAuditTrail() {
           <span className="sat-compliance-label">REGULATORY COMPLIANCE</span>
           <h1 className="sat-title">Immutable Operations Audit Ledger</h1>
           <p className="sat-subtitle">
-            Unified regulatory checklist logging all administrative status handshakes, passcode updates, and EGI syncs.
+            Logs every application status change, record and note edit, document change and deletion, plus EGI decisions and EGI delivery retries.
           </p>
         </div>
         <div className="sat-header-actions">
@@ -167,10 +167,19 @@ export function SuperadminAuditTrail() {
 
                   {/* Applicant */}
                   <td className="sat-td">
-                    <div className="sat-applicant">
-                      <span className="sat-applicant-name">{log.applicantName}</span>
-                      <span className="sat-applicant-job">{log.jobTitle}</span>
-                    </div>
+                    {log.applicationId ? (
+                      <div className="sat-applicant">
+                        <span className="sat-applicant-name">{log.applicantName}</span>
+                        <span className="sat-applicant-job">{log.jobTitle}</span>
+                      </div>
+                    ) : (
+                      // Entries not about an application (e.g. account changes)
+                      // carry no applicant, job or application id.
+                      <div className="sat-applicant">
+                        <span className="sat-applicant-name">—</span>
+                        <span className="sat-applicant-job">Not linked to an application</span>
+                      </div>
+                    )}
                   </td>
 
                   {/* Officer */}
@@ -181,10 +190,14 @@ export function SuperadminAuditTrail() {
                   {/* Status shift */}
                   <td className="sat-td sat-td-center">
                     <div className="sat-status-shift">
-                      <span className={`sat-status-badge ${getBadgeClass(log.prevStatus)}`}>
-                        {log.prevStatus}
-                      </span>
-                      <span className="sat-arrow">➔</span>
+                      {log.prevStatus && (
+                        <>
+                          <span className={`sat-status-badge ${getBadgeClass(log.prevStatus)}`}>
+                            {log.prevStatus}
+                          </span>
+                          <span className="sat-arrow">➔</span>
+                        </>
+                      )}
                       <span className={`sat-status-badge ${getBadgeClass(log.newStatus)}`}>
                         {log.newStatus}
                       </span>

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import { NotificationBell } from './NotificationBell';
+import { PageErrorBoundary } from './PageErrorBoundary';
 import './styles/AdminLayout.css';
 
 const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -204,7 +205,13 @@ export function AdminLayout({ children, role }) {
 
         {/* Main Content */}
         <main className="admin-main">
-          {children}
+          <PageErrorBoundary
+            key={location.pathname}
+            currentPath={location.pathname}
+            dashboardPath={`/${role}/dashboard`}
+          >
+            {children}
+          </PageErrorBoundary>
         </main>
       </div>
 

@@ -345,7 +345,7 @@ export function SuperadminAllVacancies() {
                 <div>
                   <strong className="sav-warning-title">Warning: Superadmin Override Mode Active</strong>
                   <div className="sav-warning-text">
-                    Vacancy status changes and force-deletions executed here bypass standard admin workflows and are logged immediately to the compliance audit register.
+                    Vacancy status changes and force-deletions executed here bypass standard admin workflows. They are not yet recorded in the compliance audit register.
                   </div>
                 </div>
               </div>
