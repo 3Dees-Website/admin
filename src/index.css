@@ -8,6 +8,15 @@
   --color-brand-text: #666666;
   --color-brand-dark: #0A0A0A;
   --shadow-subtle: 0 2px 16px rgba(0, 0, 0, 0.07);
+
+  /* Stacking scale — page-level layers only. Toasts sit above everything. */
+  --z-sticky: 1;
+  --z-tabbar: 30;
+  --z-navbar: 40;
+  --z-overlay: 50;        /* drawers, modals, dropdown panels */
+  --z-overlay-nested: 60; /* confirm dialogs opened over an overlay */
+  --z-overlay-top: 70;    /* EGI note modal */
+  --z-toast: 100;
 }
 
 /* Custom styles for animations, step indications, and map placeholders */

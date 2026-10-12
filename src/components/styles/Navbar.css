@@ -3,7 +3,7 @@
   color: #0A0A0A;
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: var(--z-navbar);
   height: 68px;
   display: flex;
   align-items: center;
@@ -187,7 +187,7 @@
   padding: 1.5rem 1.75rem;
   gap: 0;
   overflow: hidden;
-  z-index: 39;
+  z-index: calc(var(--z-navbar) - 1);
 }
 
 @media (min-width: 768px) {

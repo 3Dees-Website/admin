@@ -49,7 +49,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  z-index: 50;
+  z-index: var(--z-overlay);
   overflow: hidden;
   animation: nbZoomIn 0.15s ease;
 }

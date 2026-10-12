@@ -468,7 +468,7 @@
   inset: 0;
   background-color: rgba(10, 10, 10, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 50;
+  z-index: var(--z-overlay);
   display: flex;
   justify-content: flex-end;
   animation: savFadeIn 0.15s ease;
@@ -830,7 +830,7 @@
   inset: 0;
   background-color: rgba(10, 10, 10, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 60;
+  z-index: var(--z-overlay-nested);
   display: flex;
   align-items: center;
   justify-content: center;

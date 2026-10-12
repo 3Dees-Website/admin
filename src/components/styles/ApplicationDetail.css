@@ -584,7 +584,7 @@
 .ad-delete-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-overlay-nested);
   display: flex;
   align-items: center;
   justify-content: center;
