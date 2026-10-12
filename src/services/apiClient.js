@@ -236,7 +236,7 @@ function revokeRefreshTokenBestEffort(refreshToken) {
 }
 
 async function request(method, path, options = {}, depth = 0) {
-  const { body, isFormData = false, isBlob = false, timeoutMs = REQUEST_TIMEOUT_MS } = options;
+  const { body, isFormData = false, isBlob = false, timeoutMs = REQUEST_TIMEOUT_MS, cache } = options;
 
   const accessToken = localStorage.getItem(TOKEN_STORAGE_KEYS.access);
   const headers = {};
@@ -260,6 +260,9 @@ async function request(method, path, options = {}, depth = 0) {
       headers,
       body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller?.signal,
+      // Only set when a caller asks (e.g. 'no-cache'); otherwise the
+      // browser's default HTTP caching applies, exactly as before.
+      ...(cache ? { cache } : {}),
     });
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -361,8 +364,8 @@ function buildQueryString(params) {
 }
 
 export const apiClient = {
-  get: (path, params, { timeoutMs } = {}) => {
-    return request('GET', `${path}${buildQueryString(params)}`, { timeoutMs });
+  get: (path, params, { timeoutMs, cache } = {}) => {
+    return request('GET', `${path}${buildQueryString(params)}`, { timeoutMs, cache });
   },
   // A connection that drops or never opens surfaces as a native TypeError
   // whose text varies by browser ("Failed to fetch", "Load failed", ...).

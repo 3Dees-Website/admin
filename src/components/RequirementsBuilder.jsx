@@ -11,7 +11,10 @@ const STATES = ['off', 'optional', 'required'];
  * Mandatory core keys (mandatoryKeys from the catalog) always render locked
  * to "Required" and are force-merged into every onChange emission, so an
  * invalid config (per the backend's InvalidRequirements check) is
- * structurally unreachable from this UI.
+ * structurally unreachable from this UI. Non-mandatory declaration-type
+ * fields (catalog type "declaration") can only be Off or Required — the
+ * backend rejects "optional" for them — so they get a two-state toggle,
+ * bulk "All optional" skips them, and any stored "optional" is upgraded.
  */
 export function RequirementsBuilder({ value, onChange }) {
   const { catalog, isLoading } = useFieldCatalog();
@@ -32,19 +35,37 @@ export function RequirementsBuilder({ value, onChange }) {
     [catalog]
   );
 
+  // Declaration-type fields that aren't mandatory: Off or Required only.
+  const declarationKeys = useMemo(
+    () => new Set(
+      (catalog?.fields || [])
+        .filter((f) => f.type === 'declaration' && !mandatorySet.has(f.key))
+        .map((f) => f.key)
+    ),
+    [catalog, mandatorySet]
+  );
+
+  const normalize = (key, state) =>
+    declarationKeys.has(key) && state === 'optional' ? 'required' : state;
+
   const withMandatory = (obj) => {
     const next = { ...obj };
     mandatorySet.forEach((key) => { next[key] = 'required'; });
     return next;
   };
 
-  // Self-heal on catalog load: a cold `{}` (new job) or a config saved
-  // before a mandatory key existed must still end up satisfying the
-  // backend's InvalidRequirements check without requiring user interaction.
+  // Self-heal on catalog load: a cold `{}` (new job), a config saved
+  // before a mandatory key existed, or a declaration saved as "optional"
+  // must still end up satisfying the backend's InvalidRequirements check
+  // without requiring user interaction.
   useEffect(() => {
     if (!catalog) return;
-    const missing = catalog.mandatoryKeys.some((key) => value[key] !== 'required');
-    if (missing) onChange(withMandatory(value));
+    const next = withMandatory(value);
+    declarationKeys.forEach((key) => {
+      if (key in next && next[key] !== 'required') next[key] = 'required';
+    });
+    const changed = Object.keys(next).some((key) => next[key] !== value[key]);
+    if (changed) onChange(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog]);
 
@@ -57,7 +78,7 @@ export function RequirementsBuilder({ value, onChange }) {
     if (state === 'off') {
       delete next[key];
     } else {
-      next[key] = state;
+      next[key] = normalize(key, state);
     }
     onChange(withMandatory(next));
   };
@@ -66,6 +87,7 @@ export function RequirementsBuilder({ value, onChange }) {
     const next = withMandatory(value);
     fields.forEach((f) => {
       if (mandatorySet.has(f.key)) return;
+      if (state === 'optional' && declarationKeys.has(f.key)) return;
       if (state === 'off') delete next[f.key];
       else next[f.key] = state;
     });
@@ -119,6 +141,8 @@ export function RequirementsBuilder({ value, onChange }) {
                     const isMandatory = mandatorySet.has(field.key);
                     const currentState = isMandatory ? 'required' : (value[field.key] || 'off');
                     const hasSubfields = experienceParents.has(field.key);
+                    const isDeclaration = declarationKeys.has(field.key);
+                    const states = isDeclaration ? ['off', 'required'] : STATES;
 
                     return (
                       <div key={field.key} className="rqb-row">
@@ -132,6 +156,11 @@ export function RequirementsBuilder({ value, onChange }) {
                           {isMandatory && (
                             <span className="rqb-row-hint">Always required on every job</span>
                           )}
+                          {isDeclaration && (
+                            <span className="rqb-row-hint">
+                              Declaration: applicants must confirm it, so it can only be Off or Required
+                            </span>
+                          )}
                         </div>
 
                         {isMandatory ? (
@@ -141,7 +170,7 @@ export function RequirementsBuilder({ value, onChange }) {
                           </span>
                         ) : (
                           <div className="rqb-tristate" role="radiogroup" aria-label={field.label}>
-                            {STATES.map((state) => (
+                            {states.map((state) => (
                               <button
                                 key={state}
                                 type="button"
