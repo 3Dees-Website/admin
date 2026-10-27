@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
   History, LogOut, Menu, X, ShieldAlert,
-  Inbox, RefreshCw, UserCircle, UserCheck, UserCog
+  Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import { NotificationBell } from './NotificationBell';
@@ -55,6 +55,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
     { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
+    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} /> },
     { name: 'Profile',        path: '/admin/profile',       icon: <UserCircle size={16} /> },
   ];
 
@@ -62,6 +63,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
     { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
     { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
+    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} /> },
     { name: 'Approved Candidates', path: '/superadmin/approved',    icon: <UserCheck size={16} /> },
     { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
@@ -166,6 +168,8 @@ export function AdminLayout({ children, role }) {
                 ? 'Pending Applications Queue'
                 : location.pathname.includes('egi-sync')
                 ? 'EGI Sync Queue'
+                : location.pathname.includes('scoring')
+                ? 'Candidate Scoring'
                 : 'Operations Ledger'}
             </h2>
           </div>

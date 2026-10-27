@@ -27,6 +27,15 @@ const ALLOWED = [/^\/api\/admin\/notifications\//];
 // is reloaded.
 const fakeNotes = new Map();
 
+// Scores "saved" through the faked PUT /scores, per application, and screening
+// configurations "saved" through the faked job PUT, per job. The reads below
+// overlay them, so the scoring grid and job form see what was faked.
+const fakeScores = new Map(); // applicationId -> { jobId, scores, status, total, max, percentage }
+const fakeJobConfigs = new Map(); // jobId -> screeningConfig
+
+const round2 = (n) => Math.round(n * 100) / 100;
+const jobIsLocked = (jobId) => [...fakeScores.values()].some((s) => s.jobId === jobId && Object.keys(s.scores).length > 0);
+
 const ok = (data, what) => ({ success: true, data, message: `[dev fake] ${what} — nothing was sent to the server.` });
 const now = () => new Date().toISOString();
 
@@ -49,9 +58,59 @@ const addFakeNote = (applicationId, stage, text) => {
   return note;
 };
 
+const overlayApplication = (app) => {
+  const fake = fakeScores.get(app.id);
+  if (!fake) return app;
+  // The real API sends these totals as numeric strings on list/detail rows.
+  const asString = (n) => (n === null ? null : n.toFixed(2));
+  return {
+    ...app,
+    status: fake.status,
+    screening_scores: fake.scores,
+    screening_total: asString(fake.total),
+    screening_max: asString(fake.max),
+    screening_percentage: asString(fake.percentage),
+  };
+};
+
+const overlayJob = (job) => ({
+  ...job,
+  ...(fakeJobConfigs.has(job.id) ? { screening_config: fakeJobConfigs.get(job.id) } : {}),
+  screeningLocked: job.screeningLocked === true || jobIsLocked(job.id),
+});
+
 // Reads that must also show what the faked writes did. Everything else that is
 // a GET goes straight through.
 const READ_OVERLAYS = [
+  {
+    path: /^\/api\/admin\/applications$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return { ...real, data: { ...real.data, items: (real.data?.items || []).map(overlayApplication) } };
+    },
+  },
+  {
+    // Not the fixed sub-routes (stats, export, …): export is a file download.
+    path: /^\/api\/admin\/applications\/(?!stats$|export$|screened$|scores$)([^/]+)$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return { ...real, data: overlayApplication(real.data) };
+    },
+  },
+  {
+    path: /^\/api\/admin\/jobs$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return { ...real, data: (real.data || []).map(overlayJob) };
+    },
+  },
+  {
+    path: /^\/api\/admin\/jobs\/([^/]+)$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return { ...real, data: overlayJob(real.data) };
+    },
+  },
   {
     path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
     run: async ({ match, read }) => {
@@ -61,7 +120,90 @@ const READ_OVERLAYS = [
   },
 ];
 
+// One candidate of a faked PUT /scores, judged by the same rules the server
+// states (field exists, 0..max, clearing only before screening, finalize needs
+// every field). It does not check who is asking.
+async function fakeScoreOne({ entry, config, finalize, jobId, read }) {
+  const id = entry.applicationId;
+  const app = overlayApplication(await readApp(read, id));
+  const prior = fakeScores.get(id);
+  const scores = { ...(prior?.scores || app.screening_scores || {}) };
+  const status = prior?.status || app.status;
+  const correction = status === 'Screened' || status === 'Archived';
+  const changed = [];
+
+  for (const [key, raw] of Object.entries(entry.scores || {})) {
+    const field = config.fields.find((f) => f.key === key);
+    if (!field) return { failed: { id, reason: `"${key}" is not a screening field of this job.` } };
+    if (raw === null) {
+      if (correction) return { failed: { id, reason: `The score for "${field.label}" cannot be cleared once the candidate is screened.` } };
+      if (scores[key] !== undefined) changed.push(key);
+      delete scores[key];
+    } else {
+      if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0 || raw > field.max) {
+        return { failed: { id, reason: `The score for "${field.label}" must be a number from 0 to ${field.max}.` } };
+      }
+      if (scores[key] !== round2(raw)) changed.push(key);
+      scores[key] = round2(raw);
+    }
+  }
+
+  const complete = config.fields.every((f) => typeof scores[f.key] === 'number');
+  const max = round2(config.fields.reduce((sum, f) => sum + f.max, 0));
+  const total = complete ? round2(config.fields.reduce((sum, f) => sum + scores[f.key], 0)) : null;
+  const percentage = complete && max > 0 ? round2((total / max) * 100) : null;
+  const finalizing = finalize === true && !correction;
+  if (finalizing && !complete) {
+    return { failed: { id, reason: 'Every screening field needs a score before the candidate can be moved to Screened.' } };
+  }
+
+  const nextStatus = finalizing ? 'Screened' : status;
+  fakeScores.set(id, { jobId, scores, status: nextStatus, total, max, percentage });
+  return changed.length === 0 && !finalizing
+    ? { ok: { id, status, unchanged: true, complete } }
+    : { ok: { id, status: nextStatus, complete, screening_total: total, screening_max: max, screening_percentage: percentage, changed } };
+}
+
 const HANDLERS = [
+  {
+    method: 'PUT',
+    path: /^\/api\/admin\/applications\/scores$/,
+    run: async ({ body, read }) => {
+      const config = (await read(`/api/admin/jobs/${body.jobId}`)).data.screening_config
+        || fakeJobConfigs.get(body.jobId);
+      if (!config) {
+        throw { error: 'ScreeningNotConfigured', message: 'This job has no screening fields yet. A superadmin must set them up before candidates can be screened.' };
+      }
+      const result = { success: [], failed: [], items: [] };
+      for (const entry of body.entries || []) {
+        const one = await fakeScoreOne({ entry, config, finalize: body.finalize, jobId: body.jobId, read });
+        if (one.failed) result.failed.push(one.failed);
+        else { result.success.push(one.ok.id); result.items.push(one.ok); }
+      }
+      return ok(result, `Score save${body.finalize ? ' with finalize' : ''}`);
+    },
+  },
+  {
+    // The only part of a job save that is faked is its screening configuration:
+    // the rest of a job edit is acknowledged but not applied.
+    method: 'PUT',
+    path: /^\/api\/admin\/jobs\/([^/]+)$/,
+    run: async ({ body, match, read }) => {
+      const id = match[1];
+      const real = overlayJob((await read(`/api/admin/jobs/${id}`)).data);
+      if (body.screeningConfig) {
+        const same = JSON.stringify(body.screeningConfig) === JSON.stringify(real.screening_config);
+        if (!same && real.screeningLocked) {
+          throw { error: 'ScreeningLocked', message: 'This job already has scored candidates, so its screening fields, maximum scores and skip-screening setting can no longer be changed.' };
+        }
+        fakeJobConfigs.set(id, body.screeningConfig);
+        real.screening_config = body.screeningConfig;
+      }
+      // Like the real PUT response, this carries no screeningLocked.
+      delete real.screeningLocked;
+      return ok(real, 'Job update (only its screening configuration is kept)');
+    },
+  },
   {
     method: 'POST',
     path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
@@ -147,7 +289,7 @@ export async function guardDevMutation({ method, path, body, read }) {
 
   if (method === 'GET') {
     const overlay = READ_OVERLAYS.find((o) => o.path.test(cleanPath));
-    return overlay ? overlay.run({ match: cleanPath.match(overlay.path), read }) : undefined;
+    return overlay ? overlay.run({ match: cleanPath.match(overlay.path), path, read }) : undefined;
   }
   if (!GUARDED.test(cleanPath) || ALLOWED.some((re) => re.test(cleanPath))) return undefined;
 

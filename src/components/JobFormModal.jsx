@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useJobs } from '../hooks/useJobs';
 import { useToast } from '../hooks/useToast';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
 import { RequirementsBuilder } from './RequirementsBuilder';
+import { ScreeningConfigEditor } from './ScreeningConfigEditor';
+import { jobService } from '../services/jobService';
+import { draftFromConfig, validateDraft, payloadFromDraft } from '../utils/screeningConfig';
 import { X, Check, Plus, Trash2 } from 'lucide-react';
 import './styles/JobFormModal.css';
 
@@ -57,6 +60,36 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
     editingJob ? { ...(editingJob.applicationRequirements || {}) } : {}
   );
 
+  // Screening setup is the superadmin's alone: a plain admin never sees it, and
+  // jobService.updateJob keeps the stored configuration out of their saves.
+  const isSuperadmin = currentUser?.role === 'superadmin';
+  const [screeningDraft, setScreeningDraft] = useState(() => draftFromConfig(editingJob?.screeningConfig));
+  const screeningTouchedRef = useRef(false);
+  // Whether candidates already have scores comes from the server's read of the
+  // job (the save responses don't carry it), so it is fetched when the form
+  // opens rather than trusted from a list that may be old.
+  const [lockRead, setLockRead] = useState({ id: null, locked: undefined, failed: false });
+
+  useEffect(() => {
+    if (!isSuperadmin || !editingJob) return undefined;
+    let cancelled = false;
+    jobService.getAdminJob(editingJob.id).then(
+      (job) => {
+        if (cancelled) return;
+        setLockRead({ id: editingJob.id, locked: job.screeningLocked === true, failed: false });
+        // Take the server's configuration unless the user has already started editing.
+        if (!screeningTouchedRef.current) setScreeningDraft(draftFromConfig(job.screeningConfig));
+      },
+      () => { if (!cancelled) setLockRead({ id: editingJob.id, locked: undefined, failed: true }); },
+    );
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperadmin, editingJob?.id]);
+
+  const lockKnown = !editingJob || lockRead.id === editingJob.id;
+  const screeningLocked = Boolean(editingJob) && lockKnown && lockRead.locked === true;
+  const checkingLock = isSuperadmin && Boolean(editingJob) && !lockKnown;
+
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryError, setCategoryError] = useState('');
@@ -97,9 +130,25 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
       return;
     }
 
+    // Sent only by a superadmin, only when set up, and never for a locked job
+    // (the server would refuse any change to it).
+    let screeningConfig;
+    if (isSuperadmin && screeningDraft && !screeningLocked) {
+      const problem = validateDraft(screeningDraft);
+      if (problem) {
+        addToast('error', 'Screening Setup Incomplete', problem);
+        return;
+      }
+      screeningConfig = payloadFromDraft(screeningDraft);
+    }
+
     const saved = editingJob
-      ? await editJob({ ...editingJob, ...formFields, applicationRequirements: requirementsBuilder })
-      : await postJob({ ...formFields, applicationRequirements: requirementsBuilder });
+      ? await editJob({ ...editingJob, ...formFields, applicationRequirements: requirementsBuilder }, { screeningConfig })
+      : await postJob({
+          ...formFields,
+          applicationRequirements: requirementsBuilder,
+          ...(screeningConfig ? { screeningConfig } : {}),
+        });
 
     if (saved) {
       onSaved?.(saved);
@@ -297,6 +346,24 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
             </p>
             <RequirementsBuilder value={requirementsBuilder} onChange={setRequirementsBuilder} />
           </div>
+
+          {/* Screening setup — superadmin only */}
+          {isSuperadmin && (
+            <div className="jfm-req-builder">
+              <h3 className="jfm-req-builder-title">Candidate Screening Setup</h3>
+              <p className="jfm-req-builder-desc">
+                How shortlisted candidates are scored. Until this is set up, candidates on this vacancy can&apos;t be
+                scored or moved to Screened. It can&apos;t be changed once any candidate has a score.
+              </p>
+              <ScreeningConfigEditor
+                value={screeningDraft}
+                onChange={(next) => { screeningTouchedRef.current = true; setScreeningDraft(next); }}
+                locked={screeningLocked}
+                checking={checkingLock}
+                lockCheckFailed={Boolean(editingJob) && lockRead.id === editingJob.id && lockRead.failed}
+              />
+            </div>
+          )}
 
           {/* Footer: Status + Buttons */}
           <div className="jfm-form-footer">

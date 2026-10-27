@@ -10,6 +10,11 @@ import { apiClient } from './apiClient';
 // their approvals are probably going through. This must stay under 100s.
 const BULK_STATUS_TIMEOUT_MS = 90000;
 
+// PUT /scores takes at most this many entries per request (the backend's bulk
+// cap); a bigger cohort is sent in several requests.
+const SCORES_CHUNK_SIZE = 100;
+const SCORING_PAGE_SIZE = 100;
+
 // GET /applications and GET /applications/:id send the screening totals as
 // numeric strings ("75.50"); GET /screened and PUT /scores send real numbers.
 // Either way the app works with numbers, or null before the first score.
@@ -86,6 +91,22 @@ function normalizeNote(note) {
     kind: note.kind,
     sentToEgi: note.sent_to_egi === true,
     createdAt: note.created_at,
+  };
+}
+
+// One item of PUT /scores's result. The totals are real numbers here (unlike
+// list/detail rows, where they are strings); `changed` lists the field keys
+// that were written, and an unchanged candidate comes back with unchanged:true.
+function normalizeScoreItem(item) {
+  return {
+    id: item.id,
+    status: item.status,
+    complete: item.complete === true,
+    unchanged: item.unchanged === true,
+    screeningTotal: toNumberOrNull(item.screening_total),
+    screeningMax: toNumberOrNull(item.screening_max),
+    screeningPercentage: toNumberOrNull(item.screening_percentage),
+    changed: Array.isArray(item.changed) ? item.changed : [],
   };
 }
 
@@ -186,6 +207,65 @@ export const applicationService = {
   async addNote(id, body) {
     const res = await apiClient.post(`/api/admin/applications/${id}/notes`, { body });
     return normalizeNote(res.data);
+  },
+
+  /**
+   * Every candidate on a job in the given statuses, for the scoring grid.
+   * The list endpoint takes one status at a time and 100 rows a page, so this
+   * reads each status in turn. Beyond `softCap` rows in total it returns
+   * { tooMany: true, total } without fetching the rest.
+   */
+  async getScoringCandidates({ jobId, statuses, softCap }) {
+    const firstPages = await Promise.all(
+      statuses.map((status) => applicationService.getApplicationsPage({ jobId, status, page: 1, pageSize: SCORING_PAGE_SIZE })),
+    );
+    const total = firstPages.reduce((sum, p) => sum + p.total, 0);
+    if (total > softCap) return { tooMany: true, total, items: [] };
+
+    const items = firstPages.flatMap((p) => p.items);
+    for (const [i, first] of firstPages.entries()) {
+      for (let page = 2; (page - 1) * SCORING_PAGE_SIZE < first.total; page += 1) {
+        const next = await applicationService.getApplicationsPage({
+          jobId, status: statuses[i], page, pageSize: SCORING_PAGE_SIZE,
+        });
+        items.push(...next.items);
+      }
+    }
+    return { tooMany: false, total, items };
+  },
+
+  /**
+   * PUT /scores. entries: [{ applicationId, scores: { [fieldKey]: number|null } }].
+   * `finalize` moves every entry's candidate to Screened if all fields are
+   * scored (entries must then carry at least one score). The request always
+   * answers 200 with per-candidate results, so success/failed are what count.
+   *
+   * Sent in chunks of SCORES_CHUNK_SIZE. A chunk that gets no usable answer is
+   * reported as failed for each of its candidates rather than thrown, so the
+   * other chunks still go through. Scores are set to a value, not added, so
+   * sending the same entry again is safe.
+   */
+  async saveScores({ jobId, entries, finalize = false }) {
+    const result = { success: [], failed: [], items: [] };
+    for (let i = 0; i < entries.length; i += SCORES_CHUNK_SIZE) {
+      const chunk = entries.slice(i, i + SCORES_CHUNK_SIZE);
+      try {
+        const res = await apiClient.put(
+          '/api/admin/applications/scores',
+          { jobId, entries: chunk, ...(finalize ? { finalize: true } : {}) },
+          { timeoutMs: BULK_STATUS_TIMEOUT_MS },
+        );
+        result.success.push(...(res.data.success || []));
+        result.failed.push(...(res.data.failed || []));
+        result.items.push(...(res.data.items || []).map(normalizeScoreItem));
+      } catch (err) {
+        const reason = err?.error
+          ? (err.message || 'The server refused the request.')
+          : 'No answer from the server, so these scores may or may not have been saved. Reload to check.';
+        chunk.forEach((entry) => result.failed.push({ id: entry.applicationId, reason }));
+      }
+    }
+    return result;
   },
 
   // "Update & resend invite": only while Shortlisted. The response carries no

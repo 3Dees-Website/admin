@@ -480,7 +480,10 @@ export function PortalProvider({ children }) {
         ...jobData,
         postedBy: state.currentUser?.name || 'System Admin',
       };
-      const newJob = await jobService.createJob(payload);
+      const created = await jobService.createJob(payload);
+      // The create response has no screeningLocked; a job nobody has applied to
+      // can't have scored candidates, so it is known to be unlocked.
+      const newJob = { ...created, screeningLocked: false };
       dispatch({ type: 'ADD_JOB', payload: newJob });
       addToast('success', 'Job Posted', `"${newJob.title}" has been successfully published.`);
       return newJob;
@@ -490,10 +493,23 @@ export function PortalProvider({ children }) {
     }
   };
 
-  const editJob = async (updatedJobData) => {
+  // `options.screeningConfig` is sent only by the superadmin's screening editor
+  // (see jobService.updateJob); an ordinary save leaves the configuration alone.
+  const editJob = async (updatedJobData, options) => {
     try {
-      const updated = await jobService.updateJob(updatedJobData.id, updatedJobData);
-      dispatch({ type: 'UPDATE_JOB', payload: updated });
+      const saved = await jobService.updateJob(updatedJobData.id, updatedJobData, {
+        screeningConfig: options?.screeningConfig,
+      });
+      dispatch({ type: 'UPDATE_JOB', payload: saved });
+      // The save response doesn't say whether the job is screening-locked, so
+      // read it back. If that read fails the saved job (lock unknown) stands.
+      let updated = saved;
+      try {
+        updated = await jobService.getAdminJob(saved.id);
+        dispatch({ type: 'UPDATE_JOB', payload: updated });
+      } catch {
+        // keep `saved`
+      }
       addToast('success', 'Job Updated', `Changes to "${updated.title}" saved.`);
       return updated;
     } catch (err) {
