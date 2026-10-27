@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
   History, LogOut, Menu, X, ShieldAlert,
-  Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck
+  Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck, ListChecks
 } from 'lucide-react';
 import { LogoSVG } from './Navbar';
 import { NotificationBell } from './NotificationBell';
 import { PageErrorBoundary } from './PageErrorBoundary';
+import { UnsavedChangesDialog } from './UnsavedChangesDialog';
+import { getNavigationGuard } from '../hooks/useNavigationGuard';
 import './styles/AdminLayout.css';
 
 const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -19,7 +21,32 @@ const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll'];
 export function AdminLayout({ children, role }) {
   const { currentUser, logout, logoutIdle } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // A page with unsaved work registers a guard (useNavigationGuard); leaving it
+  // through any link or End Session here then asks first.
+  const [pendingLeave, setPendingLeave] = useState(null); // { message, run }
+
+  const guarded = (run, to) => (e) => {
+    const guard = getNavigationGuard();
+    if (!guard || (to && to === location.pathname)) return;
+    // Let "open in a new tab" style clicks through; they don't leave this page.
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) return;
+    e?.preventDefault();
+    setPendingLeave({ message: guard.message, run });
+  };
+  const guardedLink = (to) => guarded(() => navigate(to), to);
+  // For a button (End Session): do the action straight away unless a guard asks.
+  const guardedAction = (run) => (e) => {
+    const guard = getNavigationGuard();
+    if (!guard) {
+      run();
+      return;
+    }
+    e?.preventDefault();
+    setPendingLeave({ message: guard.message, run });
+  };
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const lastActivityRef = useRef(Date.now());
   const logoutIdleRef = useRef(logoutIdle);
@@ -55,7 +82,8 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
     { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} /> },
+    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} />, pipeline: true },
+    { name: 'Screened',       path: '/admin/screened',      icon: <ListChecks size={16} />, pipeline: true },
     { name: 'Profile',        path: '/admin/profile',       icon: <UserCircle size={16} /> },
   ];
 
@@ -63,7 +91,8 @@ export function AdminLayout({ children, role }) {
     { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
     { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
     { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} /> },
+    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} />, pipeline: true },
+    { name: 'Screened',           path: '/superadmin/screened',      icon: <ListChecks size={16} />, pipeline: true },
     { name: 'Approved Candidates', path: '/superadmin/approved',    icon: <UserCheck size={16} /> },
     { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
@@ -73,7 +102,9 @@ export function AdminLayout({ children, role }) {
     { name: 'Profile',          path: '/superadmin/profile',       icon: <UserCircle size={16} /> },
   ];
 
-  const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
+  // Pages that only work once the backend's applicant pipeline is on stay out
+  // of the menus until it is.
+  const menu = (role === 'superadmin' ? superAdminMenu : adminMenu).filter((item) => !item.pipeline || pipelineV2);
 
   return (
     <div className="admin-layout" id="admin-workspace-layout">
@@ -92,6 +123,7 @@ export function AdminLayout({ children, role }) {
                   ? '/superadmin/dashboard' 
                   : '/admin/dashboard'
               }
+              onClick={guardedLink(role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard')}
             >
               <LogoSVG light={true} />
             </Link>
@@ -114,6 +146,7 @@ export function AdminLayout({ children, role }) {
           <Link
             to={role === 'superadmin' ? '/superadmin/profile' : '/admin/profile'}
             className="sidebar-user-card"
+            onClick={guardedLink(role === 'superadmin' ? '/superadmin/profile' : '/admin/profile')}
           >
             <span className="sidebar-user-session">Authorized Session</span>
             <span className="sidebar-user-name">{currentUser?.name}</span>
@@ -134,6 +167,7 @@ export function AdminLayout({ children, role }) {
                 to={item.path}
                 className={`sidebar-nav-link${isActive ? ' sidebar-nav-link--active' : ''}${sidebarCollapsed ? ' sidebar-nav-link--icon-only' : ''}`}
                 id={`sidebar-link-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={guardedLink(item.path)}
               >
                 {item.icon}
                 {!sidebarCollapsed && <span>{item.name}</span>}
@@ -145,7 +179,7 @@ export function AdminLayout({ children, role }) {
         {/* Sidebar Footer */}
         <div className="sidebar-footer">
           <button
-            onClick={logout}
+            onClick={guardedAction(logout)}
             className={`sidebar-signoff${sidebarCollapsed ? ' sidebar-signoff--icon-only' : ''}`}
             id="sidebar-sign-off"
           >
@@ -170,6 +204,8 @@ export function AdminLayout({ children, role }) {
                 ? 'EGI Sync Queue'
                 : location.pathname.includes('scoring')
                 ? 'Candidate Scoring'
+                : location.pathname.includes('screened')
+                ? 'Screened Candidates'
                 : 'Operations Ledger'}
             </h2>
           </div>
@@ -192,6 +228,7 @@ export function AdminLayout({ children, role }) {
             <Link
               to={role === 'superadmin' ? '/superadmin/profile' : '/admin/profile'}
               className="admin-header-user"
+              onClick={guardedLink(role === 'superadmin' ? '/superadmin/profile' : '/admin/profile')}
             >
               <span className="admin-header-username">{currentUser?.name}</span>
               <span className="admin-header-role">{currentUser?.role} clearance</span>
@@ -220,6 +257,18 @@ export function AdminLayout({ children, role }) {
         </main>
       </div>
 
+      {pendingLeave && (
+        <UnsavedChangesDialog
+          message={pendingLeave.message}
+          onStay={() => setPendingLeave(null)}
+          onLeave={() => {
+            const { run } = pendingLeave;
+            setPendingLeave(null);
+            run();
+          }}
+        />
+      )}
+
       {/* ── MOBILE BOTTOM TAB BAR ── */}
       <nav className="mobile-tab-bar" id="mobile-bottom-tabs">
         {menu.map((item) => {
@@ -229,6 +278,7 @@ export function AdminLayout({ children, role }) {
               key={item.name}
               to={item.path}
               className={`mobile-tab-link${isActive ? ' mobile-tab-link--active' : ''}`}
+              onClick={guardedLink(item.path)}
             >
               {React.cloneElement(item.icon, { size: 18 })}
               <span className="mobile-tab-label">{item.name.split(' ').pop()}</span>

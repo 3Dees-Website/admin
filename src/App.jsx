@@ -18,6 +18,7 @@ import { AdminJobs } from './pages/AdminJobs';
 import { AdminApplications } from './pages/AdminApplications';
 import { AdminPendingApplications } from './pages/AdminPendingApplications';
 import { AdminScoring } from './pages/AdminScoring';
+import { AdminScreened } from './pages/AdminScreened';
 import { Profile } from './pages/Profile';
 
 // Superadmin panel pages
@@ -30,6 +31,7 @@ import { SuperadminPendingApplications } from './pages/SuperadminPendingApplicat
 import { SuperadminAuditTrail } from './pages/SuperadminAuditTrail';
 import { SuperadminEgiSync } from './pages/SuperadminEgiSync';
 import { SuperadminScoring } from './pages/SuperadminScoring';
+import { SuperadminScreened } from './pages/SuperadminScreened';
 import { SuperadminAccountActivity } from './pages/SuperadminAccountActivity';
 
 function PanelLoaderPlaceholder() {
@@ -76,6 +78,7 @@ export default function App() {
             <Route path="pending"      element={<AdminPendingApplications />} />
             <Route path="applications" element={<AdminApplications />} />
             <Route path="scoring"      element={<AdminScoring />} />
+            <Route path="screened"     element={<AdminScreened />} />
             <Route path="profile"      element={<Profile />} />
           </Route>
 
@@ -98,6 +101,7 @@ export default function App() {
             <Route path="applications" element={<SuperadminViewAllApplications />} />
             <Route path="approved"     element={<SuperadminApprovedCandidates />} />
             <Route path="scoring"      element={<SuperadminScoring />} />
+            <Route path="screened"     element={<SuperadminScreened />} />
             <Route path="jobs"         element={<SuperadminAllVacancies />} />
             <Route path="admins"       element={<SuperadminManageAdmins />} />
             <Route path="audit"        element={<SuperadminAuditTrail />} />

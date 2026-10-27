@@ -23,6 +23,9 @@ const WAITING_TITLE = 'This needs a form that is not in this release yet.';
  * (`buttonClass`) and their own wording (`labels`); tones a page has no class
  * for (Save, Mark as Screened, Reverse rejection) use the .sta- styles.
  *
+ * `only` (optional) lists the target statuses to offer; `emptyText` is what
+ * shows when there are none (null shows nothing).
+ *
  * `onTransition(status, input)` does the request and resolves truthy on
  * success; `beforeAction()` (optional) resolves false to stop, e.g. when
  * unsaved notes could not be saved.
@@ -34,13 +37,18 @@ export function StatusActions({
   approveIcon = false,
   buttonClass = {},
   labels = {},
+  only,
+  emptyText = 'No actions available right now',
   beforeAction,
   onTransition,
 }) {
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const actions = getStatusActions(app, { pipelineV2, showLegacyApprove });
+  // `only` limits the buttons to some target statuses (a compact row that
+  // offers just Save and Approve); the server's list still decides if they show.
+  const actions = getStatusActions(app, { pipelineV2, showLegacyApprove })
+    .filter((action) => !only || only.includes(action.target));
 
   const run = async (action, input) => {
     if (busy) return false;
@@ -69,7 +77,7 @@ export function StatusActions({
   };
 
   if (actions.length === 0) {
-    return pipelineV2 ? <span className="sta-none">No actions available right now</span> : null;
+    return pipelineV2 && emptyText ? <span className="sta-none">{emptyText}</span> : null;
   }
 
   const ExtraModal = pending ? INPUT_MODALS[pending.input] : null;

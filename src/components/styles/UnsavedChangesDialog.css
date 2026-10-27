@@ -1,0 +1,39 @@
+/* ============================================================
+   UnsavedChangesDialog.css  —  prefix: ucd-
+   ============================================================ */
+
+.ucd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay-nested);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ucd-backdrop { position: absolute; inset: 0; background-color: rgba(10, 10, 10, 0.55); backdrop-filter: blur(4px); }
+
+.ucd-modal {
+  position: relative;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 24rem;
+  text-align: center;
+}
+
+.ucd-icon { width: 2rem; height: 2rem; color: #d97706; margin: 0 auto 0.5rem; display: block; }
+.ucd-title { font-size: 0.95rem; font-weight: 800; color: var(--color-brand-dark); margin: 0 0 0.5rem; }
+.ucd-desc { font-size: 0.75rem; line-height: 1.5; color: #6b7280; margin: 0 0 1.25rem; }
+.ucd-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.625rem; }
+
+.ucd-btn {
+  font-size: 0.7rem; font-weight: 700; padding: 0.6rem 0.9rem; border-radius: 0.375rem; cursor: pointer;
+  background: #fff; color: var(--color-brand-dark); border: 1px solid #e5e7eb;
+}
+.ucd-btn:hover { border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
+.ucd-btn--danger { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.ucd-btn--danger:hover { background: #991b1b; border-color: #991b1b; color: #fff; }

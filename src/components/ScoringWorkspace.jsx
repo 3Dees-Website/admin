@@ -3,10 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Lock, RefreshCw, Save, CheckCheck } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { useToast } from '../hooks/useToast';
 import { applicationService } from '../services/applicationService';
 import { describeLoadError } from '../utils/describeLoadError';
 import { StatusBadge } from './StatusBadge';
+import { EgiDecisionBadge } from './EgiBadges';
 import { TableLoadingRows } from './TableLoadingRows';
 import './styles/ScoringWorkspace.css';
 
@@ -18,18 +20,23 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const scoreText = (row, key) => (row.screeningScores[key] === undefined ? '' : String(row.screeningScores[key]));
 
 const CORRECTION_NEEDS_PERMISSION = 'Correcting a score after screening takes approval permission.';
+const DECLINED_NEEDS_SUPERADMIN = 'Only a superadmin can correct the scores of an application EGI declined.';
+const lockReason = (row) => (row.status === 'Approved' ? DECLINED_NEEDS_SUPERADMIN : CORRECTION_NEEDS_PERMISSION);
 
 /**
  * How a row's scores may be edited, from its status and who is asking.
  *   first   - Shortlisted (or Pending on a skip-screening job): scores can be
  *             entered, changed and cleared, and the candidate can be moved on.
  *   correct - Screened or Saved: a correction. Needs approval permission, and
- *             must stay complete (a score can't be cleared).
+ *             must stay complete (a score can't be cleared). An Approved
+ *             application EGI declined is also a correction, but only a
+ *             superadmin may make it.
  *   locked  - a correction without that permission.
  */
-function rowMode(row, canCorrect) {
+function rowMode(row, canCorrect, isSuperadmin) {
   if (row.status === 'Shortlisted' || row.status === 'Pending') return 'first';
   if (row.status === 'Screened' || row.status === 'Archived') return canCorrect ? 'correct' : 'locked';
+  if (row.status === 'Approved') return isSuperadmin ? 'correct' : 'locked';
   return 'locked';
 }
 
@@ -81,7 +88,7 @@ function groupReasons(failed) {
  * Used by both the admin and superadmin routes. The list is not polled: a
  * refresh would fight with what is being typed.
  */
-export function ScoringWorkspace() {
+function ScoringGrid() {
   const { jobs, jobsStatus, jobsError, reloadJobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -105,13 +112,20 @@ export function ScoringWorkspace() {
   useEffect(() => {
     if (!loadKey) return undefined;
     let cancelled = false;
-    const statuses = ['Shortlisted', ...(skip ? ['Pending'] : []), 'Screened', 'Archived'];
-    applicationService.getScoringCandidates({ jobId, statuses, softCap: SOFT_CAP }).then(
+    const queries = [
+      { status: 'Shortlisted' },
+      ...(skip ? [{ status: 'Pending' }] : []),
+      { status: 'Screened' },
+      { status: 'Archived' },
+      // EGI-declined approvals can be corrected, by a superadmin only.
+      ...(isSuperadmin ? [{ status: 'Approved', egiDecision: 'Declined' }] : []),
+    ];
+    applicationService.getScoringCandidates({ jobId, queries, softCap: SOFT_CAP }).then(
       (res) => { if (!cancelled) setLoaded({ key: loadKey, rows: res.items, total: res.total, tooMany: res.tooMany, error: null }); },
       (error) => { if (!cancelled) setLoaded({ key: loadKey, rows: [], total: 0, tooMany: false, error }); },
     );
     return () => { cancelled = true; };
-  }, [loadKey, jobId, skip]);
+  }, [loadKey, jobId, skip, isSuperadmin]);
 
   const isLoading = Boolean(loadKey) && loaded.key !== loadKey;
   const loadError = !isLoading && loaded.error ? describeLoadError(loaded.error, 'the candidates') : null;
@@ -129,15 +143,16 @@ export function ScoringWorkspace() {
   const views = useMemo(() => {
     const map = {};
     viewRows.forEach((row) => {
-      const mode = rowMode(row, canCorrect);
+      const mode = rowMode(row, canCorrect, isSuperadmin);
       map[row.id] = { mode, ...viewRow(row, fields, edits[row.id], mode) };
     });
     return map;
-  }, [viewRows, fields, edits, canCorrect]);
+  }, [viewRows, fields, edits, canCorrect, isSuperadmin]);
 
   const dirtyRows = viewRows.filter((r) => views[r.id].mode !== 'locked' && views[r.id].dirty);
   const readyRows = viewRows.filter((r) => views[r.id].mode === 'first' && views[r.id].complete);
   const hasUnsaved = dirtyRows.length > 0;
+  useNavigationGuard(hasUnsaved, 'You have scores that haven’t been saved. If you leave this page they will be lost.');
 
   useEffect(() => {
     if (!hasUnsaved) return undefined;
@@ -382,7 +397,10 @@ export function ScoringWorkspace() {
                       <span className="scw-meta">{row.referenceId} · <Link className="scw-link" to={`${base}/applications?openApp=${row.id}`}>Open file</Link></span>
                       {rowErrors[row.id] && <span className="scw-row-error" role="alert">{rowErrors[row.id]}</span>}
                     </td>
-                    <td className="scw-td"><StatusBadge status={row.status} className="scw-stage" /></td>
+                    <td className="scw-td">
+                      <StatusBadge status={row.status} className="scw-stage" />
+                      {row.status === 'Approved' && <EgiDecisionBadge decision={row.egiDecision} />}
+                    </td>
                     {fields.map((field, colIndex) => {
                       const cell = view.cells[field.key];
                       return (
@@ -399,7 +417,7 @@ export function ScoringWorkspace() {
                             onKeyDown={(e) => handleKeyDown(e, rowIndex, colIndex)}
                             data-cell={`${rowIndex}:${colIndex}`}
                             disabled={locked || busy !== null}
-                            title={locked ? CORRECTION_NEEDS_PERMISSION : cell.error || undefined}
+                            title={locked ? lockReason(row) : cell.error || undefined}
                             aria-label={`${field.label} score for ${row.applicantName}`}
                             aria-invalid={Boolean(cell.error)}
                           />
@@ -413,7 +431,7 @@ export function ScoringWorkspace() {
                       )}
                     </td>
                     <td className="scw-td scw-td-action">
-                      {locked && <span className="scw-lock" title={CORRECTION_NEEDS_PERMISSION}><Lock size={13} /></span>}
+                      {locked && <span className="scw-lock" title={lockReason(row)}><Lock size={13} /></span>}
                       {view.mode === 'first' && (
                         <button
                           type="button"
@@ -436,7 +454,7 @@ export function ScoringWorkspace() {
         <p className="scw-footnote">
           Scores are saved with <strong>Save changes</strong>; nothing is sent as you type. A candidate only moves to
           Screened when you choose <strong>Move to Screened</strong>. Once screened, a score can be corrected (not
-          cleared) by someone with approval permission.
+          cleared) by someone with approval permission; a superadmin can also correct one that EGI declined.
           {!skip && ' Candidates who haven’t been shortlisted with an invitation can’t be scored.'}
         </p>
       </>
@@ -456,4 +474,17 @@ export function ScoringWorkspace() {
       {body}
     </div>
   );
+}
+
+/** The scoring screen. Its endpoints only exist once the applicant pipeline is on. */
+export function ScoringWorkspace() {
+  const { currentUser } = useAuth();
+  if (currentUser?.pipelineV2 !== true) {
+    return (
+      <div className="scw-wrapper">
+        <p className="scw-message">Candidate scoring isn&apos;t available yet: the applicant pipeline hasn&apos;t been switched on.</p>
+      </div>
+    );
+  }
+  return <ScoringGrid />;
 }

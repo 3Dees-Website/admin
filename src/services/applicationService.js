@@ -110,6 +110,36 @@ function normalizeScoreItem(item) {
   };
 }
 
+// One row of GET /screened: explicit columns only (no documents or form
+// answers), with real numbers for the totals. It carries no allowedTransitions
+// today (null here), so the screen reads each row's own from the detail
+// endpoint until the list sends it.
+function normalizeScreenedItem(item) {
+  return {
+    id: item.id,
+    referenceId: item.reference_id,
+    applicantName: item.applicant_name || '',
+    applicantEmail: item.applicant_email || '',
+    status: item.status,
+    jobId: item.job_id,
+    jobTitle: item.job_title,
+    stateOfOrigin: item.state_of_origin || null,
+    screeningScores: item.screening_scores || {},
+    screeningTotal: toNumberOrNull(item.screening_total),
+    screeningMax: toNumberOrNull(item.screening_max),
+    screeningPercentage: toNumberOrNull(item.screening_percentage),
+    screenedAt: item.screened_at ?? null,
+    submittedAt: item.submitted_at,
+    egiDecision: item.egi_decision,
+    // Informational only: nothing is gated on the pass mark.
+    passMark: item.pass_mark ?? null,
+    passed: item.passed ?? null,
+    allowedTransitions: Array.isArray(item.allowedTransitions)
+      ? item.allowedTransitions
+      : Array.isArray(item.allowed_transitions) ? item.allowed_transitions : null,
+  };
+}
+
 function normalizeJobStat(stat) {
   return {
     jobId: stat.jobId,
@@ -137,6 +167,21 @@ export const applicationService = {
     const res = await apiClient.get('/api/admin/applications', { ...filters, page, pageSize });
     return {
       items: res.data.items.map(normalizeApplication),
+      total: res.data.total,
+      page: res.data.page,
+      pageSize: res.data.pageSize,
+    };
+  },
+
+  /**
+   * The Screened (and Saved) list. view: 'Screened' | 'Archived' | 'both'
+   * (case-sensitive; anything else is a 400). sort: score | name | state | job |
+   * submitted, order: asc | desc. Only exists once the pipeline is on.
+   */
+  async getScreenedPage({ page, pageSize, ...filters } = {}) {
+    const res = await apiClient.get('/api/admin/applications/screened', { ...filters, page, pageSize });
+    return {
+      items: res.data.items.map(normalizeScreenedItem),
       total: res.data.total,
       page: res.data.page,
       pageSize: res.data.pageSize,
@@ -210,14 +255,15 @@ export const applicationService = {
   },
 
   /**
-   * Every candidate on a job in the given statuses, for the scoring grid.
-   * The list endpoint takes one status at a time and 100 rows a page, so this
-   * reads each status in turn. Beyond `softCap` rows in total it returns
+   * Every candidate on a job matching any of `queries` (each a set of list
+   * filters, e.g. { status: 'Screened' }), for the scoring grid. The list
+   * endpoint takes one value per filter and 100 rows a page, so this reads each
+   * query in turn. Beyond `softCap` rows in total it returns
    * { tooMany: true, total } without fetching the rest.
    */
-  async getScoringCandidates({ jobId, statuses, softCap }) {
+  async getScoringCandidates({ jobId, queries, softCap }) {
     const firstPages = await Promise.all(
-      statuses.map((status) => applicationService.getApplicationsPage({ jobId, status, page: 1, pageSize: SCORING_PAGE_SIZE })),
+      queries.map((query) => applicationService.getApplicationsPage({ jobId, ...query, page: 1, pageSize: SCORING_PAGE_SIZE })),
     );
     const total = firstPages.reduce((sum, p) => sum + p.total, 0);
     if (total > softCap) return { tooMany: true, total, items: [] };
@@ -226,7 +272,7 @@ export const applicationService = {
     for (const [i, first] of firstPages.entries()) {
       for (let page = 2; (page - 1) * SCORING_PAGE_SIZE < first.total; page += 1) {
         const next = await applicationService.getApplicationsPage({
-          jobId, status: statuses[i], page, pageSize: SCORING_PAGE_SIZE,
+          jobId, ...queries[i], page, pageSize: SCORING_PAGE_SIZE,
         });
         items.push(...next.items);
       }
