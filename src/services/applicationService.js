@@ -72,6 +72,23 @@ function normalizeApplication(app) {
   };
 }
 
+// One entry of the notes timeline. `stage` is the application's status right
+// after the action that wrote the note; kind 'egi' is the approval note that
+// also went to EGI (sentToEgi).
+function normalizeNote(note) {
+  return {
+    id: note.id,
+    applicationId: note.application_id,
+    authorId: note.author_id ?? null,
+    authorName: note.author_name || 'Unknown admin',
+    stage: note.stage,
+    body: note.body,
+    kind: note.kind,
+    sentToEgi: note.sent_to_egi === true,
+    createdAt: note.created_at,
+  };
+}
+
 function normalizeJobStat(stat) {
   return {
     jobId: stat.jobId,
@@ -149,6 +166,18 @@ export const applicationService = {
   async saveNotes(id, { notes, previousNotes }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/notes`, { notes, previousNotes });
     return normalizeApplication(res.data);
+  },
+
+  // The notes timeline (pipeline): oldest first, append-only. Nothing edits or
+  // removes a note, so there is no conflict to handle.
+  async getNotes(id) {
+    const res = await apiClient.get(`/api/admin/applications/${id}/notes`);
+    return res.data.map(normalizeNote);
+  },
+
+  async addNote(id, body) {
+    const res = await apiClient.post(`/api/admin/applications/${id}/notes`, { body });
+    return normalizeNote(res.data);
   },
 
   async updateApplication(id, { formData, documents }) {

@@ -5,7 +5,7 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
-import { AdminNotesPanel } from './AdminNotesPanel';
+import { NotesPanel } from './NotesPanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
@@ -429,7 +429,7 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
         />
       </section>
 
-      <AdminNotesPanel notesDraft={notesDraft} />
+      <NotesPanel app={app} pipelineV2={currentUser?.pipelineV2 === true} notesDraft={notesDraft} />
 
       <section className="ad-section">
         <h3 className="ad-section-title">Evaluation Audit Trace</h3>

@@ -236,14 +236,16 @@ function revokeRefreshTokenBestEffort(refreshToken) {
 }
 
 async function request(method, path, options = {}, depth = 0) {
-  const { body, isFormData = false, isBlob = false, timeoutMs = REQUEST_TIMEOUT_MS, cache } = options;
+  const { body, isFormData = false, isBlob = false, timeoutMs = REQUEST_TIMEOUT_MS, cache, skipDevGuard = false } = options;
 
   // Dev builds only (stripped from production): writes are faked or refused
   // rather than sent, because local dev shares the production database. See
   // src/dev/devMutationGuard.js.
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && !skipDevGuard) {
     const { guardDevMutation } = await import('../dev/devMutationGuard');
-    const guarded = await guardDevMutation({ method, path, body, read: (p) => request('GET', p) });
+    const guarded = await guardDevMutation({
+      method, path, body, read: (p) => request('GET', p, { skipDevGuard: true }),
+    });
     if (guarded) return guarded;
   }
 
