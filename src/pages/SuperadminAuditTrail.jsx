@@ -6,10 +6,13 @@
 import { useState, useMemo } from 'react';
 import { usePaginatedAuditLogs } from '../hooks/usePaginatedAuditLogs';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 import { Search, Download } from 'lucide-react';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
+import { StatusBadge } from '../components/StatusBadge';
+import { STATUS_META, statusFilterOptions } from '../utils/applicationStatus';
 import { describeLoadError } from '../utils/describeLoadError';
 import { auditService } from '../services/auditService';
 import { downloadBlob } from '../utils/downloadBlob';
@@ -48,6 +51,7 @@ function describeJobEdit(details) {
 
 export function SuperadminAuditTrail() {
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActor, setSelectedActor] = useState('All');
@@ -90,16 +94,15 @@ export function SuperadminAuditTrail() {
     }
   };
 
-  const stateClasses = {
-    Pending:    'sat-badge-pending',
-    Shortlisted:'sat-badge-shortlisted',
-    Approved:   'sat-badge-approved',
-    Rejected:   'sat-badge-rejected',
-    New:        'sat-badge-new',
-  };
-
-  const getBadgeClass = (status) =>
-    stateClasses[status] || 'sat-badge-new';
+  // An audit entry's status is not always an applicant status (it also carries
+  // "New" and the outcome of non-application events), so only real applicant
+  // statuses get the shared badge; anything else is shown as-is, neutral.
+  const renderStatus = (status) => (
+    Object.hasOwn(STATUS_META, status ?? '')
+      ? <StatusBadge status={status} className="sat-status-badge" />
+      : <span className="sat-status-badge sat-badge-neutral">{status}</span>
+  );
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   return (
     <div className="sat-wrapper" id="superadmin-audit-ledger">
@@ -165,10 +168,9 @@ export function SuperadminAuditTrail() {
             className="sat-select"
           >
             <option value="All">All Vetted Outcomes</option>
-            <option value="Pending">Pending Audit</option>
-            <option value="Shortlisted">Shortlisted</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
+            {statusFilterOptions({ pipelineV2 }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -247,15 +249,11 @@ export function SuperadminAuditTrail() {
                     <div className="sat-status-shift">
                       {log.prevStatus && (
                         <>
-                          <span className={`sat-status-badge ${getBadgeClass(log.prevStatus)}`}>
-                            {log.prevStatus}
-                          </span>
+                          {renderStatus(log.prevStatus)}
                           <span className="sat-arrow">➔</span>
                         </>
                       )}
-                      <span className={`sat-status-badge ${getBadgeClass(log.newStatus)}`}>
-                        {log.newStatus}
-                      </span>
+                      {renderStatus(log.newStatus)}
                     </div>
                   </td>
 

@@ -7,6 +7,8 @@ function normalizeUser(user) {
     email: user.email,
     role: user.role,
     status: user.status,
+    // Separate from role. Superadmins can always approve whatever this says.
+    canApprove: user.can_approve === true,
     createdAt: user.created_at,
     lastLogin: user.last_login,
   };

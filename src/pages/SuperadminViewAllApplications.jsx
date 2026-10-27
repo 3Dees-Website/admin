@@ -12,9 +12,13 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
-import { EgiNoteModal } from '../components/EgiNoteModal';
+import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { StatusBadge } from '../components/StatusBadge';
+import {
+  statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions, getStatusLabel,
+} from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -39,8 +43,6 @@ export function SuperadminViewAllApplications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
   const notesDraft = useNotesDraft(activeApp);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -125,12 +127,7 @@ export function SuperadminViewAllApplications() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const statusClasses = {
-    Pending: 'status-pending',
-    Shortlisted: 'status-shortlisted',
-    Approved: 'status-approved',
-    Rejected: 'status-rejected',
-  };
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const getJobTitle = (jobId) => {
     const found = jobs.find((j) => j.id === jobId);
@@ -143,19 +140,14 @@ export function SuperadminViewAllApplications() {
 
   const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
 
-  const handleUpdateApplicantStatus = async (status, egiNote) => {
+  // `input` is whatever the move needed ({ egiNote } today). The server's reply
+  // carries a fresh allowedTransitions, so the drawer's buttons stay right.
+  const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
-    const updated = await reviewApplication(activeApp.id, status, { egiNote });
+    const updated = await reviewApplication(activeApp.id, status, input);
     if (updated) setActiveApp(updated);
     refetch();
     return updated;
-  };
-
-  const handleApproveConfirm = async (egiNote) => {
-    setApproving(true);
-    const updated = await handleUpdateApplicantStatus('Approved', egiNote);
-    setApproving(false);
-    if (updated) setShowApproveModal(false);
   };
 
   const handleExportCSV = async () => {
@@ -237,10 +229,9 @@ export function SuperadminViewAllApplications() {
             className="sva-select"
           >
             <option value="All">All Vetting Outcomes</option>
-            <option value="Pending">Pending Audit</option>
-            <option value="Shortlisted">Officer Shortlisted</option>
-            <option value="Approved">Executive Approved (Synced)</option>
-            <option value="Rejected">Compliance Rejected</option>
+            {statusFilterOptions({ pipelineV2 }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
 
@@ -252,9 +243,9 @@ export function SuperadminViewAllApplications() {
             className="sva-select"
           >
             <option value="All">All EGI Decisions</option>
-            <option value="Pending">Awaiting EGI</option>
-            <option value="Accepted">Accepted by EGI</option>
-            <option value="Declined">Declined by EGI</option>
+            {egiDecisionFilterOptions({ pipelineV2 }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
 
@@ -266,10 +257,9 @@ export function SuperadminViewAllApplications() {
             className="sva-select"
           >
             <option value="All">All Sync States</option>
-            <option value="Pending">Not sent</option>
-            <option value="Queued">Sending…</option>
-            <option value="Synced">Sent</option>
-            <option value="Failed">Delivery failed</option>
+            {egiSyncFilterOptions().map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -308,9 +298,7 @@ export function SuperadminViewAllApplications() {
                   </td>
                   <td className="sva-td sva-job-title">{getJobTitle(a.jobId)}</td>
                   <td className="sva-td">
-                    <span className={`sva-status-badge ${statusClasses[a.status]}`}>
-                      {a.status}
-                    </span>
+                    <StatusBadge status={a.status} className="sva-status-badge" />
                   </td>
                   <td className="sva-td sva-td-center sva-ref-id">{a.referenceId}</td>
                   <td className="sva-td sva-td-center">
@@ -384,7 +372,7 @@ export function SuperadminViewAllApplications() {
               {/* Details Grid */}
               <div className="sva-details-grid">
                 <div><strong>Evaluation Stamp:</strong> <span className="sva-ref-mono">{activeApp.referenceId}</span></div>
-                <div><strong>Current evaluation state:</strong> <span className="sva-current-status">{activeApp.status}</span></div>
+                <div><strong>Current evaluation state:</strong> <span className="sva-current-status">{getStatusLabel(activeApp.status)}</span></div>
                 <div><strong>Target Position:</strong> <span className="sva-detail-muted">{getJobTitle(activeApp.jobId)}</span></div>
                 <div><strong>Client Sponsoring:</strong> <span className="sva-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
@@ -408,29 +396,18 @@ export function SuperadminViewAllApplications() {
                 <RefreshCw className="sva-spin-icon" /> Multi-Ref Handshakes active
               </span>
               <div className="sva-action-btns">
-                <button onClick={() => handleUpdateApplicantStatus('Rejected')} className="sva-btn-reject">
-                  Reject & Block
-                </button>
-                <button onClick={() => handleUpdateApplicantStatus('Shortlisted')} className="sva-btn-shortlist">
-                  Force Shortlist
-                </button>
-                <button onClick={() => setShowApproveModal(true)} className="sva-btn-approve">
-                  Approve & Portal Sync
-                </button>
+                <StatusActions
+                  app={activeApp}
+                  pipelineV2={currentUser?.pipelineV2 === true}
+                  buttonClass={{ reject: 'sva-btn-reject', shortlist: 'sva-btn-shortlist', approve: 'sva-btn-approve' }}
+                  labels={{ reject: 'Reject & Block', shortlist: 'Force Shortlist', approve: 'Approve & Portal Sync' }}
+                  onTransition={handleUpdateApplicantStatus}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <EgiNoteModal
-        open={showApproveModal}
-        busy={approving}
-        description={activeApp ? `Approving ${activeApp.applicantName} sends this note to EGI along with the candidate record.` : ''}
-        verificationDocuments={activeApp?.verificationDocuments}
-        onCancel={() => setShowApproveModal(false)}
-        onConfirm={handleApproveConfirm}
-      />
     </div>
   );
 }

@@ -2,6 +2,19 @@ import { apiClient } from './apiClient';
 
 // The API returns snake_case keys at the top level. Normalise to camelCase
 // so the rest of the app stays unchanged.
+// Response key is screening_config; the request key is screeningConfig.
+// { skipScreening, fields: [{ key, label, max }], passMark? } or null.
+function normalizeScreeningConfig(config) {
+  if (!config || typeof config !== 'object') return null;
+  return {
+    skipScreening: config.skipScreening === true,
+    fields: Array.isArray(config.fields)
+      ? config.fields.map((f) => ({ key: f.key, label: f.label, max: Number(f.max) }))
+      : [],
+    passMark: config.passMark === undefined || config.passMark === null ? null : Number(config.passMark),
+  };
+}
+
 function normalizeJob(job) {
   return {
     id: job.id,
@@ -21,6 +34,11 @@ function normalizeJob(job) {
     applicationRequirements: job.application_requirements,
     createdAt: job.created_at,
     isExpired: job.is_expired,
+    // View-only for any admin; editing is superadmin-only (server-enforced).
+    screeningConfig: normalizeScreeningConfig(job.screening_config),
+    // Only GET /admin/jobs and /:id carry this. POST/PUT responses don't, so it
+    // stays undefined ("not loaded") after a save until the jobs are refetched.
+    screeningLocked: typeof job.screeningLocked === 'boolean' ? job.screeningLocked : undefined,
   };
 }
 
@@ -38,12 +56,22 @@ export const jobService = {
   },
 
   async createJob(jobData) {
-    const res = await apiClient.post('/api/admin/jobs', jobData);
+    // eslint-disable-next-line no-unused-vars
+    const { screeningLocked: _locked, ...rest } = jobData;
+    const res = await apiClient.post('/api/admin/jobs', rest);
     return normalizeJob(res.data);
   },
 
-  async updateJob(id, jobData) {
-    const res = await apiClient.put(`/api/admin/jobs/${id}`, jobData);
+  // Callers pass back whole normalized jobs (e.g. the Active/Closed toggle), so
+  // screeningConfig / screeningLocked are stripped here: the server refuses a
+  // config change from a plain admin, and a round-tripped config that isn't
+  // byte-identical would look like one. The screening editor sends it
+  // deliberately through the third argument.
+  async updateJob(id, jobData, { screeningConfig } = {}) {
+    // eslint-disable-next-line no-unused-vars
+    const { screeningConfig: _config, screeningLocked: _locked, ...rest } = jobData;
+    const body = screeningConfig !== undefined ? { ...rest, screeningConfig } : rest;
+    const res = await apiClient.put(`/api/admin/jobs/${id}`, body);
     return normalizeJob(res.data);
   },
 

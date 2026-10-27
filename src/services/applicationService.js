@@ -10,6 +10,15 @@ import { apiClient } from './apiClient';
 // their approvals are probably going through. This must stay under 100s.
 const BULK_STATUS_TIMEOUT_MS = 90000;
 
+// GET /applications and GET /applications/:id send the screening totals as
+// numeric strings ("75.50"); GET /screened and PUT /scores send real numbers.
+// Either way the app works with numbers, or null before the first score.
+function toNumberOrNull(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeApplication(app) {
   return {
     id: app.id,
@@ -34,6 +43,23 @@ function normalizeApplication(app) {
     egiDelivery: app.egi_delivery,
     egiCanResend: app.egi_can_resend,
     egiResendKind: app.egi_resend_kind,
+    // The server's own list of statuses this user may move this application to
+    // now. null = the server didn't send one (no pipeline), which is not the
+    // same as [] ("nothing allowed"). Sent camelCase; snake accepted too.
+    allowedTransitions: Array.isArray(app.allowedTransitions)
+      ? app.allowedTransitions
+      : Array.isArray(app.allowed_transitions) ? app.allowed_transitions : null,
+    // null until invited, then { mode:'text', body } or
+    // { mode:'structured', venue, dateTime, phone, instructions? }
+    inviteDetails: app.invite_details ?? null,
+    // Only set while status is Rejected: the status it was rejected from.
+    rejectedFrom: app.rejected_from ?? null,
+    // { [fieldKey]: number }, {} before the first score
+    screeningScores: app.screening_scores || {},
+    screeningTotal: toNumberOrNull(app.screening_total),
+    screeningMax: toNumberOrNull(app.screening_max),
+    screeningPercentage: toNumberOrNull(app.screening_percentage),
+    screenedAt: app.screened_at ?? null,
     applicantName: app.applicant_name || '',
     applicantEmail: app.applicant_email || '',
     stateOfOrigin: app.form_data?.stateOfOrigin || null,
@@ -52,8 +78,10 @@ function normalizeJobStat(stat) {
     total: stat.total,
     pending: stat.pending,
     shortlisted: stat.shortlisted,
+    screened: stat.screened,
     approved: stat.approved,
     rejected: stat.rejected,
+    archived: stat.archived,
   };
 }
 

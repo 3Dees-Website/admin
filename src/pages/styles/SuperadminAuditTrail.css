@@ -307,11 +307,7 @@
   font-weight: 800;
 }
 
-.sat-badge-pending     { background: rgba(255,102,0,0.1);  color: var(--color-brand-primary); border: 1px solid rgba(255,102,0,0.2); }
-.sat-badge-shortlisted { background: #eef2ff; color: #4338ca; border: 1px solid rgba(99,102,241,0.2); }
-.sat-badge-approved    { background: #f0fdf4; color: #15803d; border: 1px solid rgba(34,197,94,0.2);  }
-.sat-badge-rejected    { background: #fef2f2; color: #b91c1c; border: 1px solid rgba(239,68,68,0.2);  }
-.sat-badge-new         { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+.sat-badge-neutral         { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 
 /* Empty row */
 .sat-empty-row {

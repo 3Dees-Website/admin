@@ -1,12 +1,14 @@
-import { createContext, useReducer, useEffect, useCallback } from 'react';
+import { createContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { authService } from '../services/authService';
 import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
 import { categoryService } from '../services/categoryService';
 import { notificationService } from '../services/notificationService';
+import { profileService } from '../services/profileService';
 import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 import { mapLockError } from '../utils/applicationLock';
+import { getStatusLabel } from '../utils/applicationStatus';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
 const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
@@ -14,6 +16,8 @@ const HEARTBEAT_INTERVAL_MS = 5000;
 // ~70s: safely above Chrome/Firefox's background-tab timer throttling floor
 // (~60s), so a backgrounded-but-still-open tab isn't mistaken for a closed browser.
 const HEARTBEAT_STALE_THRESHOLD_MS = 70000;
+// How often a tab regaining focus re-reads the user's flags (canApprove, pipelineV2).
+const SESSION_FLAGS_MIN_INTERVAL_MS = 60000;
 
 const SESSION_END_COPY = {
   manual: { type: 'info', title: 'Logged Out', message: 'You have been securely logged out.' },
@@ -150,7 +154,7 @@ export function PortalProvider({ children }) {
     const plural = (n) => `applicant${n !== 1 ? 's' : ''}`;
 
     if (failCount === 0) {
-      addToast('success', 'Bulk Update Complete', `All ${total} ${plural(total)} set to ${status}.`);
+      addToast('success', 'Bulk Update Complete', `All ${total} ${plural(total)} set to ${getStatusLabel(status)}.`);
       return;
     }
 
@@ -166,12 +170,12 @@ export function PortalProvider({ children }) {
       + (extra > 0 ? `; +${extra} other reason${extra !== 1 ? 's' : ''}` : '');
 
     if (successCount === 0) {
-      addToast('error', 'Bulk Update Failed', `None of the ${total} ${plural(total)} could be set to ${status} — ${reasons}.`);
+      addToast('error', 'Bulk Update Failed', `None of the ${total} ${plural(total)} could be set to ${getStatusLabel(status)} — ${reasons}.`);
     } else {
       addToast(
         'warning',
         'Partial Bulk Update',
-        `${successCount} of ${total} applicants set to ${status}. ${failCount} failed and remain selected — ${reasons}.`
+        `${successCount} of ${total} applicants set to ${getStatusLabel(status)}. ${failCount} failed and remain selected — ${reasons}.`
       );
     }
   }, [addToast]);
@@ -260,6 +264,31 @@ export function PortalProvider({ children }) {
     }
   }, []);
 
+  // ── Session flags ─────────────────────────────────────────────────────────
+  //
+  // canApprove and pipelineV2 can change while a session is open, and the
+  // stored user would otherwise keep the values from sign-in. The server is
+  // always right (it re-reads the user on every request); this only keeps what
+  // the UI shows in step. Silent on failure: the flags just stay as they were.
+  const flagsCheckedAtRef = useRef(0);
+
+  const refreshSessionFlags = useCallback(async ({ force = false } = {}) => {
+    const now = Date.now();
+    if (!force && now - flagsCheckedAtRef.current < SESSION_FLAGS_MIN_INTERVAL_MS) return;
+    flagsCheckedAtRef.current = now;
+    try {
+      const flags = await profileService.getSessionFlags();
+      // Read after the await: a sign-out meanwhile must not be undone.
+      const stored = readStoredUser();
+      if (!stored) return;
+      if (stored.canApprove === flags.canApprove && stored.pipelineV2 === flags.pipelineV2) return;
+      localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify({ ...stored, ...flags }));
+      dispatch({ type: 'UPDATE_CURRENT_USER', payload: flags });
+    } catch {
+      // keep the current flags
+    }
+  }, []);
+
   // ── Session teardown (shared by manual logout, idle timeout, and the ─────
   // ── browser-reopen check below) ───────────────────────────────────────────
 
@@ -301,6 +330,7 @@ export function PortalProvider({ children }) {
         if (user) {
           dispatch({ type: 'SET_AUTH', payload: { user, token: accessToken } });
           loadInitialData(user);
+          refreshSessionFlags({ force: true });
         }
       } else {
         // No marker for this tab AND no other tab has been alive recently →
@@ -319,6 +349,16 @@ export function PortalProvider({ children }) {
     return () => clearInterval(heartbeatId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const signedIn = Boolean(state.currentUser);
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshSessionFlags();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [signedIn, refreshSessionFlags]);
 
   // ── Authentication ────────────────────────────────────────────────────────
 
@@ -540,12 +580,14 @@ export function PortalProvider({ children }) {
       } else if (status === 'Rejected') {
         addToast('success', 'Applicant Rejected', `${name} moved to Rejected.`);
       } else {
-        addToast('success', 'Status Updated', `${name} moved to ${status}.`);
+        addToast('success', 'Status Updated', `${name} moved to ${getStatusLabel(status)}.`);
       }
 
       return updated;
     } catch (err) {
       addToast('error', 'Status Update Failed', err?.message || 'Could not update application status.');
+      // A refusal may mean the user's permission changed; re-read it.
+      refreshSessionFlags();
       return null;
     }
   };
@@ -653,7 +695,7 @@ export function PortalProvider({ children }) {
             ? "The server hasn't answered within 90 seconds, but your approvals are most likely still going through. "
               + "Don't approve again — wait a minute, refresh, and check Approved Candidates. "
               + 'Only applicants still listed under Pending need another try.'
-            : `The server hasn't answered within 90 seconds, but your changes to ${status} are most likely still going through. `
+            : `The server hasn't answered within 90 seconds, but your changes to ${getStatusLabel(status)} are most likely still going through. `
               + "Don't try again yet — wait a minute, then refresh before retrying any that didn't change."
         );
         return { success: [], failed: [], timedOut: true };

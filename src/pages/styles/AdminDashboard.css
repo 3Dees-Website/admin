@@ -286,27 +286,3 @@
   padding: 0.25rem 0.625rem;
   border-radius: 0.25rem;
 }
-
-.badge-pending {
-  background-color: color-mix(in srgb, var(--color-brand-primary) 10%, transparent);
-  color: var(--color-brand-primary);
-  border: 1px solid color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
-}
-
-.badge-shortlisted {
-  background-color: #eef2ff;
-  color: #4338ca;
-  border: 1px solid rgba(199, 210, 254, 0.5);
-}
-
-.badge-approved {
-  background-color: #f0fdf4;
-  color: #15803d;
-  border: 1px solid rgba(187, 247, 208, 0.5);
-}
-
-.badge-rejected {
-  background-color: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid rgba(254, 202, 202, 0.5);
-}

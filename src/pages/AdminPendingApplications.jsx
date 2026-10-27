@@ -21,6 +21,9 @@ export function AdminPendingApplications() {
   const { reviewApplication, reviewApplicationsIndividually } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
+  // With the pipeline on, shortlisting needs an invitation and rejecting needs
+  // a message, so the one-click and bulk versions wait for those forms.
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
@@ -92,9 +95,9 @@ export function AdminPendingApplications() {
   };
 
   /* Single status change from drawer */
-  const handleStatusChange = async (status, egiNote) => {
+  const handleStatusChange = async (status, input) => {
     if (!editingApp) return false;
-    const updated = await reviewApplication(editingApp.id, status, { egiNote });
+    const updated = await reviewApplication(editingApp.id, status, input);
     refetch();
     refetchStats();
     if (!updated) return false;
@@ -209,10 +212,10 @@ export function AdminPendingApplications() {
         {selectedIds.size > 0 && (
           <div className="apa-bulk-bar">
             <span className="apa-bulk-count">{selectedIds.size} selected</span>
-            <button onClick={handleBulkShortlist} className="apa-bulk-shortlist">
+            <button onClick={handleBulkShortlist} className="apa-bulk-shortlist" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
               <UserCheck className="apa-bulk-icon" /> Shortlist All
             </button>
-            <button onClick={handleBulkReject} className="apa-bulk-reject">
+            <button onClick={handleBulkReject} className="apa-bulk-reject" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
               <UserX className="apa-bulk-icon" /> Reject All
             </button>
           </div>
@@ -302,13 +305,15 @@ export function AdminPendingApplications() {
 
                   <td className="apa-td apa-td-right">
                     <div className="apa-row-actions">
-                      <button
-                        onClick={() => handleQuickShortlist(app)}
-                        className="apa-quick-shortlist"
-                        title="Quick shortlist"
-                      >
-                        ✓ Shortlist
-                      </button>
+                      {!pipelineV2 && (
+                        <button
+                          onClick={() => handleQuickShortlist(app)}
+                          className="apa-quick-shortlist"
+                          title="Quick shortlist"
+                        >
+                          ✓ Shortlist
+                        </button>
+                      )}
                       <button
                         onClick={() => handleOpenEdit(app)}
                         className="apa-open-btn"

@@ -25,6 +25,10 @@ export function SuperadminPendingApplications() {
   const { reviewApplication, bulkReviewApplications, reviewApplicationsIndividually } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
+  // With the pipeline on there is no Pending -> Approved, and shortlisting
+  // needs an invitation / rejecting a message, so the one-click and bulk
+  // versions are removed or wait for those forms.
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
@@ -104,9 +108,9 @@ export function SuperadminPendingApplications() {
 
   /* Single status change from drawer. Resolves true on success so the
      drawer's approve modal knows whether to close. */
-  const handleStatusChange = async (status, egiNote) => {
+  const handleStatusChange = async (status, input) => {
     if (!editingApp) return false;
-    const updated = await reviewApplication(editingApp.id, status, { egiNote });
+    const updated = await reviewApplication(editingApp.id, status, input);
     refetch();
     refetchStats();
     if (!updated) return false;
@@ -256,13 +260,15 @@ export function SuperadminPendingApplications() {
             <span className="spa-bulk-count">
               <Zap className="spa-bulk-zap" /> {selectedIds.size} selected
             </span>
-            <button onClick={() => bulkAction('Shortlisted')} className="spa-bulk-shortlist">
+            <button onClick={() => bulkAction('Shortlisted')} className="spa-bulk-shortlist" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
               <UserCheck className="spa-bulk-icon" /> Bulk Shortlist
             </button>
-            <button onClick={() => setBulkApproveOpen(true)} className="spa-bulk-approve">
-              <UserCheck className="spa-bulk-icon" /> Bulk Approve & Sync
-            </button>
-            <button onClick={() => bulkAction('Rejected')} className="spa-bulk-reject">
+            {!pipelineV2 && (
+              <button onClick={() => setBulkApproveOpen(true)} className="spa-bulk-approve">
+                <UserCheck className="spa-bulk-icon" /> Bulk Approve & Sync
+              </button>
+            )}
+            <button onClick={() => bulkAction('Rejected')} className="spa-bulk-reject" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
               <UserX className="spa-bulk-icon" /> Bulk Reject
             </button>
           </div>
@@ -352,18 +358,22 @@ export function SuperadminPendingApplications() {
 
                     <td className="spa-td spa-td-right">
                       <div className="spa-row-actions">
-                        <button
-                          onClick={() => handleQuickShortlist(app)}
-                          className="spa-quick-shortlist"
-                        >
-                          Shortlist
-                        </button>
-                        <button
-                          onClick={() => setApproveTarget(app)}
-                          className="spa-quick-approve"
-                        >
-                          Approve
-                        </button>
+                        {!pipelineV2 && (
+                          <>
+                            <button
+                              onClick={() => handleQuickShortlist(app)}
+                              className="spa-quick-shortlist"
+                            >
+                              Shortlist
+                            </button>
+                            <button
+                              onClick={() => setApproveTarget(app)}
+                              className="spa-quick-approve"
+                            >
+                              Approve
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => handleOpenEdit(app)}
                           className="spa-open-btn"

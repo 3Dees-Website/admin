@@ -7,6 +7,7 @@ import { applicationService } from '../services/applicationService';
 import { formatCount } from '../utils/formatCount';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
+import { StatusBadge } from '../components/StatusBadge';
 import { Briefcase, FileText, CheckCircle, Clock, Ban, PlusCircle, ArrowUpRight } from 'lucide-react';
 import './styles/AdminDashboard.css';
 
@@ -54,13 +55,6 @@ export function AdminDashboard() {
     shortlisted: globalStats ? (globalStats.byStatus?.Shortlisted ?? 0) : null,
     approved: globalStats ? (globalStats.byStatus?.Approved ?? 0) : null,
     rejected: globalStats ? (globalStats.byStatus?.Rejected ?? 0) : null,
-  };
-
-  const statusBadgeClass = {
-    Pending: 'badge badge-pending',
-    Shortlisted: 'badge badge-shortlisted',
-    Approved: 'badge badge-approved',
-    Rejected: 'badge badge-rejected',
   };
 
   const getJobTitle = (jobId) => {
@@ -197,9 +191,7 @@ export function AdminDashboard() {
                   </td>
                   <td className="ref-cell text-center">{app.referenceId}</td>
                   <td className="text-right">
-                    <span className={statusBadgeClass[app.status]}>
-                      {app.status}
-                    </span>
+                    <StatusBadge status={app.status} className="badge" />
                   </td>
                 </tr>
               ))}

@@ -1,27 +1,15 @@
 import { AlertTriangle } from 'lucide-react';
 import { DELIVERY_STATE_MAP } from '../utils/egiDeliveryState';
+import { getEgiDecisionMeta, getEgiSyncMeta, unknownMeta } from '../utils/applicationStatus';
 import './styles/EgiBadges.css';
 
-const SYNC_MAP = {
-  Pending: { tone: 'gray',  label: 'Not sent' },
-  Queued:  { tone: 'blue',  label: 'Sending…' },
-  Synced:  { tone: 'green', label: 'Sent' },
-  Failed:  { tone: 'red',   label: 'Delivery failed' },
-};
-
-const DECISION_MAP = {
-  Pending:  { tone: 'gray',  label: 'Awaiting EGI' },
-  Accepted: { tone: 'green', label: 'Accepted by EGI' },
-  Declined: { tone: 'red',   label: 'Declined by EGI' },
-};
-
 export function EgiSyncBadge({ status }) {
-  const entry = SYNC_MAP[status] || SYNC_MAP.Pending;
+  const entry = getEgiSyncMeta(status);
   return <span className={`egi-badge egi-badge--${entry.tone}`}>{entry.label}</span>;
 }
 
 export function EgiDeliveryBadge({ state }) {
-  const entry = DELIVERY_STATE_MAP[state] || DELIVERY_STATE_MAP.pending;
+  const entry = DELIVERY_STATE_MAP[state] || unknownMeta('EGI delivery state', state);
   return (
     <span className={`egi-badge egi-badge--${entry.tone}`}>
       {entry.icon && <AlertTriangle className="egi-badge-icon" aria-hidden="true" />}
@@ -31,7 +19,7 @@ export function EgiDeliveryBadge({ state }) {
 }
 
 export function EgiDecisionBadge({ decision }) {
-  const entry = DECISION_MAP[decision] || DECISION_MAP.Pending;
+  const entry = getEgiDecisionMeta(decision);
   return <span className={`egi-badge egi-badge--${entry.tone}`}>{entry.label}</span>;
 }
 

@@ -29,7 +29,17 @@ export const authService = {
    */
   async verifyOtp(pendingToken, otpCode) {
     const { data } = await post('/api/auth/verify-otp', { pendingToken, otpCode });
-    return data; // { accessToken, refreshToken, user }
+    // pipelineV2 says whether the backend's applicant pipeline is on. It is kept
+    // on the stored user so it survives a reload; a user that isn't an object
+    // is left for commitSession to refuse.
+    const user = data?.user && typeof data.user === 'object'
+      ? {
+        ...data.user,
+        canApprove: data.user.can_approve === true,
+        pipelineV2: (data.pipelineV2 ?? data.user.pipelineV2) === true,
+      }
+      : data?.user;
+    return { ...data, user }; // { accessToken, refreshToken, user }
   },
 
   /**

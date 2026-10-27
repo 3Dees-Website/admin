@@ -13,9 +13,10 @@ import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useToast } from '../hooks/useToast';
 import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
-import { EgiNoteModal } from '../components/EgiNoteModal';
+import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { egiDecisionFilterOptions, getStatusLabel } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -40,8 +41,6 @@ export function SuperadminApprovedCandidates() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
   const notesDraft = useNotesDraft(activeApp);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -139,19 +138,14 @@ export function SuperadminApprovedCandidates() {
 
   const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
 
-  const handleUpdateApplicantStatus = async (status, egiNote) => {
+  // `input` is whatever the move needed ({ egiNote } today). The server's reply
+  // carries a fresh allowedTransitions, so the drawer's buttons stay right.
+  const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
-    const updated = await reviewApplication(activeApp.id, status, { egiNote });
+    const updated = await reviewApplication(activeApp.id, status, input);
     if (updated) setActiveApp(updated);
     refetch();
     return updated;
-  };
-
-  const handleApproveConfirm = async (egiNote) => {
-    setApproving(true);
-    const updated = await handleUpdateApplicantStatus('Approved', egiNote);
-    setApproving(false);
-    if (updated) setShowApproveModal(false);
   };
 
   const handleExportCSV = async () => {
@@ -217,9 +211,9 @@ export function SuperadminApprovedCandidates() {
             className="sac-select"
           >
             <option value="All">All EGI Decisions</option>
-            <option value="Pending">Awaiting EGI</option>
-            <option value="Accepted">Accepted by EGI</option>
-            <option value="Declined">Declined by EGI</option>
+            {egiDecisionFilterOptions({ pipelineV2: currentUser?.pipelineV2 === true }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
 
@@ -358,7 +352,7 @@ export function SuperadminApprovedCandidates() {
               {/* Details Grid */}
               <div className="sac-details-grid">
                 <div><strong>Evaluation Stamp:</strong> <span className="sac-ref-mono">{activeApp.referenceId}</span></div>
-                <div><strong>Current evaluation state:</strong> <span className="sac-current-status">{activeApp.status}</span></div>
+                <div><strong>Current evaluation state:</strong> <span className="sac-current-status">{getStatusLabel(activeApp.status)}</span></div>
                 <div><strong>Target Position:</strong> <span className="sac-detail-muted">{getJobTitle(activeApp.jobId)}</span></div>
                 <div><strong>Client Sponsoring:</strong> <span className="sac-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
@@ -382,29 +376,18 @@ export function SuperadminApprovedCandidates() {
                 <RefreshCw className="sac-spin-icon" /> Multi-Ref Handshakes active
               </span>
               <div className="sac-action-btns">
-                <button onClick={() => handleUpdateApplicantStatus('Rejected')} className="sac-btn-reject">
-                  Reject & Block
-                </button>
-                <button onClick={() => handleUpdateApplicantStatus('Shortlisted')} className="sac-btn-shortlist">
-                  Force Shortlist
-                </button>
-                <button onClick={() => setShowApproveModal(true)} className="sac-btn-approve">
-                  Approve & Portal Sync
-                </button>
+                <StatusActions
+                  app={activeApp}
+                  pipelineV2={currentUser?.pipelineV2 === true}
+                  buttonClass={{ reject: 'sac-btn-reject', shortlist: 'sac-btn-shortlist', approve: 'sac-btn-approve' }}
+                  labels={{ reject: 'Reject & Block', shortlist: 'Force Shortlist', approve: 'Approve & Portal Sync' }}
+                  onTransition={handleUpdateApplicantStatus}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <EgiNoteModal
-        open={showApproveModal}
-        busy={approving}
-        description={activeApp ? `Approving ${activeApp.applicantName} sends this note to EGI along with the candidate record.` : ''}
-        verificationDocuments={activeApp?.verificationDocuments}
-        onCancel={() => setShowApproveModal(false)}
-        onConfirm={handleApproveConfirm}
-      />
     </div>
   );
 }

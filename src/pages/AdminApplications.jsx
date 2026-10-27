@@ -6,10 +6,12 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useNotesDraft } from '../hooks/useNotesDraft';
-import { Search, Download, Eye, Check, X, RefreshCw } from 'lucide-react';
-import { EgiNoteModal } from '../components/EgiNoteModal';
+import { Search, Download, Eye, X, RefreshCw } from 'lucide-react';
+import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { StatusBadge } from '../components/StatusBadge';
+import { statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -35,8 +37,6 @@ export function AdminApplications() {
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [activeApp, setActiveApp] = useState(null);
   const notesDraft = useNotesDraft(activeApp);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -121,12 +121,7 @@ export function AdminApplications() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const statusBadgeClass = {
-    Pending: 'badge badge-pending',
-    Shortlisted: 'badge badge-shortlisted',
-    Approved: 'badge badge-approved',
-    Rejected: 'badge badge-rejected',
-  };
+  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const getJobTitle = (jobId) => {
     const found = jobs.find((j) => j.id === jobId);
@@ -166,19 +161,14 @@ export function AdminApplications() {
 
   const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
 
-  const handleUpdateApplicantStatus = async (status, egiNote) => {
+  // `input` is whatever the move needed ({ egiNote } today). The server's reply
+  // carries a fresh allowedTransitions, so the drawer's buttons stay right.
+  const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
-    const updated = await reviewApplication(activeApp.id, status, { egiNote });
+    const updated = await reviewApplication(activeApp.id, status, input);
     if (updated) setActiveApp(updated);
     refetch();
     return updated;
-  };
-
-  const handleApproveConfirm = async (egiNote) => {
-    setApproving(true);
-    const updated = await handleUpdateApplicantStatus('Approved', egiNote);
-    setApproving(false);
-    if (updated) setShowApproveModal(false);
   };
 
   const handleExportCSV = async () => {
@@ -265,10 +255,9 @@ export function AdminApplications() {
             className="filter-select"
           >
             <option value="All">All Vetting States</option>
-            <option value="Pending">Pending Audit</option>
-            <option value="Shortlisted">Officer Shortlisted</option>
-            <option value="Approved">Executive Approved (Synced)</option>
-            <option value="Rejected">Compliance Rejected</option>
+            {statusFilterOptions({ pipelineV2 }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
         <div className="filter-group">
@@ -279,9 +268,9 @@ export function AdminApplications() {
             className="filter-select"
           >
             <option value="All">All EGI Decisions</option>
-            <option value="Pending">Awaiting EGI</option>
-            <option value="Accepted">Accepted by EGI</option>
-            <option value="Declined">Declined by EGI</option>
+            {egiDecisionFilterOptions({ pipelineV2 }).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
         <div className="filter-group">
@@ -292,10 +281,9 @@ export function AdminApplications() {
             className="filter-select"
           >
             <option value="All">All Sync States</option>
-            <option value="Pending">Not sent</option>
-            <option value="Queued">Sending…</option>
-            <option value="Synced">Sent</option>
-            <option value="Failed">Delivery failed</option>
+            {egiSyncFilterOptions().map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -372,7 +360,7 @@ export function AdminApplications() {
                     </td>
                     <td className="role-cell">{getJobTitle(a.jobId)}</td>
                     <td>
-                      <span className={statusBadgeClass[a.status]}>{a.status}</span>
+                      <StatusBadge status={a.status} className="badge" />
                     </td>
                     <td className="ref-cell text-center">{a.referenceId}</td>
                     <td className="text-center">
@@ -442,7 +430,7 @@ export function AdminApplications() {
                 </div>
                 <div className="widget-right">
                   <span className="widget-label">Vetting Evaluation State</span>
-                  <span className={statusBadgeClass[activeApp.status]}>{activeApp.status}</span>
+                  <StatusBadge status={activeApp.status} className="badge" />
                 </div>
               </div>
 
@@ -465,42 +453,19 @@ export function AdminApplications() {
                 <RefreshCw size={14} className="spin-icon" /> EGI database sync live
               </span>
               <div className="drawer-footer-actions">
-                <button
-                  type="button"
-                  onClick={() => handleUpdateApplicantStatus('Rejected')}
-                  className="btn btn-reject"
-                >
-                  Reject Dossier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateApplicantStatus('Shortlisted')}
-                  className="btn btn-shortlist"
-                >
-                  Shortlist
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowApproveModal(true)}
-                  className="btn btn-approve"
-                >
-                  <Check size={16} />
-                  <span>Approve &amp; Sync</span>
-                </button>
+                <StatusActions
+                  app={activeApp}
+                  pipelineV2={pipelineV2}
+                  approveIcon
+                  buttonClass={{ reject: 'btn btn-reject', shortlist: 'btn btn-shortlist', approve: 'btn btn-approve' }}
+                  labels={{ reject: 'Reject Dossier' }}
+                  onTransition={handleUpdateApplicantStatus}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <EgiNoteModal
-        open={showApproveModal}
-        busy={approving}
-        description={activeApp ? `Approving ${activeApp.applicantName} sends this note to EGI along with the candidate record.` : ''}
-        verificationDocuments={activeApp?.verificationDocuments}
-        onCancel={() => setShowApproveModal(false)}
-        onConfirm={handleApproveConfirm}
-      />
     </div>
   );
 }

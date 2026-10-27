@@ -1,0 +1,33 @@
+/* ============================================================
+   StatusActions.css  —  prefix: sta-
+   Only for buttons a page has no class of its own for.
+   ============================================================ */
+
+.sta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.375rem;
+  background: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sta-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.sta-btn--reject    { color: #b91c1c; border: 1px solid #fca5a5; }
+.sta-btn--reject:hover:not(:disabled)    { background-color: #fef2f2; }
+.sta-btn--shortlist { color: #4338ca; border: 1px solid #a5b4fc; }
+.sta-btn--shortlist:hover:not(:disabled) { background-color: #eef2ff; }
+.sta-btn--screen    { color: #0e7490; border: 1px solid #67e8f9; }
+.sta-btn--screen:hover:not(:disabled)    { background-color: #ecfeff; }
+.sta-btn--save      { color: #475569; border: 1px solid #cbd5e1; }
+.sta-btn--save:hover:not(:disabled)      { background-color: #f1f5f9; }
+.sta-btn--approve   { background-color: var(--color-brand-primary); color: #fff; border: none; }
+.sta-btn--approve:hover:not(:disabled)   { background-color: var(--color-brand-secondary); }
+
+.sta-none { font-size: 0.65rem; font-weight: 600; color: #9ca3af; }

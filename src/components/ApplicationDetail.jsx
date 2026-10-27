@@ -12,6 +12,12 @@ import { getLockInfo } from '../utils/applicationLock';
 import { VERIFICATION_DOC_TYPES } from '../utils/verificationDocTypes';
 import './styles/ApplicationDetail.css';
 
+// allowedTransitions arrives in no fixed order, so compare as sets.
+const sameTransitions = (a, b) =>
+  (a === null || a === undefined || b === null || b === undefined)
+    ? (a ?? null) === (b ?? null)
+    : a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
+
 const formatWhen = (value) => (value ? new Date(value).toLocaleString() : null);
 
 /**
@@ -90,6 +96,13 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
         // previousNotes (while the draft is untouched) so a stale row
         // can't cause a false conflict.
         notesDraft?.adoptServerNotes(fresh.id, fresh.notes);
+        // The drawer may have been open a while, or a content edit may have
+        // returned an object without allowedTransitions. Take the fresh row
+        // whenever the status or the allowed moves differ, so the status
+        // buttons never rest on an old list.
+        if (fresh.status !== app.status || !sameTransitions(fresh.allowedTransitions, app.allowedTransitions)) {
+          onAppUpdated?.(fresh);
+        }
         setEgiInfo({
           key: egiInfoKey,
           failed: false,
@@ -161,13 +174,25 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     setIsEditing(false);
   };
 
+  // Edit, upload and resend responses don't carry allowedTransitions. Keep the
+  // current list for an instant paint and refetch the row (bumping the tick
+  // reruns the fetch effect above) so the server's fresh list replaces it.
+  const publishUpdate = (updated) => {
+    if (updated.allowedTransitions === null) {
+      onAppUpdated?.({ ...updated, allowedTransitions: app.allowedTransitions });
+      setEgiInfoTick((t) => t + 1);
+    } else {
+      onAppUpdated?.(updated);
+    }
+  };
+
   const handleSaveEdits = async () => {
     setSaving(true);
     const updated = await updateApplication(app.id, { formData: editedFormData });
     setSaving(false);
     if (updated) {
       setIsEditing(false);
-      onAppUpdated?.(updated);
+      publishUpdate(updated);
     }
   };
 
@@ -177,13 +202,13 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     formData.append('docType', docType);
     if (label) formData.append('label', label);
     const updated = await uploadVerificationDocument(app.id, formData);
-    if (updated) onAppUpdated?.(updated);
+    if (updated) publishUpdate(updated);
     return Boolean(updated);
   };
 
   const handleDeleteVerificationDoc = async (docId) => {
     const updated = await deleteVerificationDocument(app.id, docId);
-    if (updated) onAppUpdated?.(updated);
+    if (updated) publishUpdate(updated);
     return Boolean(updated);
   };
 
@@ -193,7 +218,7 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     if (updated) {
       setResendBusy(false);
       setResendModalOpen(false);
-      onAppUpdated?.(updated);
+      publishUpdate(updated);
       setEgiInfoTick((t) => t + 1);
       return;
     }
