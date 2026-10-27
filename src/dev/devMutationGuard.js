@@ -32,6 +32,23 @@ const now = () => new Date().toISOString();
 
 const readApp = async (read, id) => (await read(`/api/admin/applications/${id}`)).data;
 
+// The timeline note a status change's `notes` field writes, at the new stage.
+const addFakeNote = (applicationId, stage, text) => {
+  const note = {
+    id: `dev-fake-${applicationId}-${Date.now()}`,
+    application_id: applicationId,
+    author_id: null,
+    author_name: '(dev fake)',
+    stage,
+    body: String(text).trim(),
+    kind: 'note',
+    sent_to_egi: false,
+    created_at: now(),
+  };
+  fakeNotes.set(applicationId, [...(fakeNotes.get(applicationId) || []), note]);
+  return note;
+};
+
 // Reads that must also show what the faked writes did. Everything else that is
 // a GET goes straight through.
 const READ_OVERLAYS = [
@@ -51,40 +68,47 @@ const HANDLERS = [
     run: async ({ body, match, read }) => {
       const id = match[1];
       const app = await readApp(read, id);
-      const note = {
-        id: `dev-fake-${Date.now()}`,
-        application_id: id,
-        author_id: null,
-        author_name: '(dev fake)',
-        stage: app.status,
-        body: String(body.body || '').trim(),
-        kind: 'note',
-        sent_to_egi: false,
-        created_at: now(),
-      };
-      fakeNotes.set(id, [...(fakeNotes.get(id) || []), note]);
-      return ok(note, 'Note add');
+      return ok(addFakeNote(id, app.status, body.body || ''), 'Note add');
     },
   },
   {
     method: 'PATCH',
     path: /^\/api\/admin\/applications\/bulk-status$/,
-    run: async ({ body }) => ok({ success: body.ids || [], failed: [] }, 'Bulk status change'),
+    run: async ({ body }) => {
+      // A shared invite or note is only acknowledged: nothing is emailed. The
+      // shared note appears on each application's faked timeline.
+      if (body.notes) (body.ids || []).forEach((id) => addFakeNote(id, body.status, body.notes));
+      return ok({ success: body.ids || [], failed: [] }, `Bulk change to ${body.status}${body.invite ? ' with a shared invitation (no email sent)' : ''}${body.rejection ? ' with a shared rejection message (no email sent)' : ''}`);
+    },
   },
   {
     method: 'PATCH',
     path: /^\/api\/admin\/applications\/([^/]+)\/status$/,
     run: async ({ body, match, read }) => {
       const app = await readApp(read, match[1]);
+      if (body.notes) addFakeNote(match[1], body.status, body.notes);
       return ok({
         ...app,
         status: body.status,
+        // allowedTransitions is left as read: the real list depends on the
+        // server's workflow, which a fake can't compute.
+        ...(body.invite ? { invite_details: body.invite } : {}),
+        // As the real server does: a rejection records where it began, and
+        // reversing it clears that.
+        ...(body.status === 'Rejected' ? { rejected_from: app.status } : {}),
+        ...(app.status === 'Rejected' && body.status === 'Shortlisted' ? { rejected_from: null } : {}),
         status_history: [
           ...(app.status_history || []),
           { status: body.status, changedBy: body.changedBy, timestamp: now() },
         ],
       }, `Status change to ${body.status}`);
     },
+  },
+  {
+    method: 'PATCH',
+    path: /^\/api\/admin\/applications\/([^/]+)\/invite$/,
+    run: async ({ body, match, read }) =>
+      ok({ ...(await readApp(read, match[1])), invite_details: body.invite }, 'Invitation update (no email sent)'),
   },
   {
     method: 'PATCH',

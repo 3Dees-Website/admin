@@ -556,11 +556,13 @@ export function PortalProvider({ children }) {
    * Callers are responsible for refetching their current page/stats
    * afterward.
    *
-   * Never sends the internal notepad (that is saved on its own via
+   * Never sends the single-field notepad (that is saved on its own via
    * PATCH /:id/notes). The options object is deliberate: with a positional
    * (appId, status, notes, egiNote) signature, a caller still passing notes
    * would send a private vetting remark to EGI as the egiNote. Here any
-   * stray third positional argument is simply ignored.
+   * stray third positional argument is simply ignored. Under the pipeline an
+   * explicit options.notes is an internal timeline note and options.invite
+   * the shortlist invitation; both are only sent when a caller sets them.
    */
   const reviewApplication = async (appId, status, options) => {
     const adminUser = state.currentUser?.name || 'Admin';
@@ -569,6 +571,9 @@ export function PortalProvider({ children }) {
       const updated = await applicationService.updateStatus(appId, {
         status,
         egiNote,
+        invite: options?.invite,
+        rejection: options?.rejection,
+        notes: options?.notes,
         changedBy: adminUser,
       });
 
@@ -576,9 +581,17 @@ export function PortalProvider({ children }) {
       if (status === 'Approved') {
         addToast('success', 'Approved & Sent to EGI', `${name} approved. Your note is queued for delivery to the EGI portal.`);
       } else if (status === 'Shortlisted') {
-        addToast('success', 'Applicant Shortlisted', `${name} moved to Shortlisted.`);
+        addToast(
+          'success',
+          'Applicant Shortlisted',
+          options?.invite ? `${name} shortlisted. The invitation is queued to send.` : `${name} moved to Shortlisted.`
+        );
       } else if (status === 'Rejected') {
-        addToast('success', 'Applicant Rejected', `${name} moved to Rejected.`);
+        addToast(
+          'success',
+          'Applicant Rejected',
+          options?.rejection ? `${name} rejected. Their message is queued to send.` : `${name} moved to Rejected.`
+        );
       } else {
         addToast('success', 'Status Updated', `${name} moved to ${getStatusLabel(status)}.`);
       }
@@ -598,6 +611,18 @@ export function PortalProvider({ children }) {
       return updated;
     } catch (err) {
       addToast('error', 'Update Failed', mapLockError(err));
+      return null;
+    }
+  };
+
+  // Resolves to the changed application, or null (the failure is toasted).
+  const updateInvite = async (appId, invite) => {
+    try {
+      const updated = await applicationService.updateInvite(appId, invite);
+      addToast('success', 'Invitation Updated', `${updated?.applicantName || 'The applicant'} will be emailed the updated invitation.`);
+      return updated;
+    } catch (err) {
+      addToast('error', 'Invite Update Failed', err?.message || 'Could not update the invitation.');
       return null;
     }
   };
@@ -664,13 +689,19 @@ export function PortalProvider({ children }) {
    * Returns the backend's { success, failed } result (or null on failure) so
    * the calling page can decide how to refetch its current page/stats.
    */
-  const bulkReviewApplications = async (appIds, status, egiNote) => {
+  //
+  // `options` carries the one shared payload of the batch: { egiNote } for
+  // Approved, { invite, notes } for Shortlisted, { rejection, notes } for Rejected.
+  const bulkReviewApplications = async (appIds, status, options) => {
     const adminUser = state.currentUser?.name || 'Admin';
     try {
       const result = await applicationService.bulkUpdateStatus({
         ids: appIds,
         status,
-        egiNote,
+        egiNote: options?.egiNote,
+        invite: options?.invite,
+        rejection: options?.rejection,
+        notes: options?.notes,
         changedBy: adminUser,
       });
 
@@ -695,7 +726,15 @@ export function PortalProvider({ children }) {
             ? "The server hasn't answered within 90 seconds, but your approvals are most likely still going through. "
               + "Don't approve again — wait a minute, refresh, and check Approved Candidates. "
               + 'Only applicants still listed under Pending need another try.'
-            : `The server hasn't answered within 90 seconds, but your changes to ${getStatusLabel(status)} are most likely still going through. `
+            : status === 'Shortlisted'
+              ? "The server hasn't answered within 90 seconds, but the shortlisting is most likely still going through, "
+                + 'and invitations may already be on their way to applicants. '
+                + "Don't send again — wait a minute, then refresh and re-send only to any who are still Pending. "
+              : status === 'Rejected' && options?.rejection
+                ? "The server hasn't answered within 90 seconds, but the rejections are most likely still going through, "
+                  + 'and rejection emails may already be on their way to applicants. '
+                  + "Don't send again — wait a minute, then refresh and re-send only to any who haven't changed. "
+                : `The server hasn't answered within 90 seconds, but your changes to ${getStatusLabel(status)} are most likely still going through. `
               + "Don't try again yet — wait a minute, then refresh before retrying any that didn't change."
         );
         return { success: [], failed: [], timedOut: true };
@@ -874,6 +913,7 @@ export function PortalProvider({ children }) {
         deleteVerificationDocument,
         resendToEgi,
         deleteApplication,
+        updateInvite,
         getDocumentUrl,
         bulkReviewApplications,
         reviewApplicationsIndividually,

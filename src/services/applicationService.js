@@ -149,11 +149,19 @@ export const applicationService = {
   // taken when the drawer opened could overwrite a newer note. Notes are
   // saved on their own through saveNotes; `notes` here is only sent if a
   // caller explicitly passes it.
-  async updateStatus(id, { status, notes, egiNote, changedBy }) {
+  //
+  // `rejection` is { template:'standard' } or { message } (exactly one);
+  // `invite` is the shortlist invitation ({ mode:'text', body } or
+  // { mode:'structured', venue, dateTime, phone, instructions? }); `notes` is,
+  // under the pipeline, an internal note written to the timeline at the new
+  // stage.
+  async updateStatus(id, { status, notes, egiNote, invite, rejection, changedBy }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/status`, {
       status,
       ...(notes !== undefined ? { notes } : {}),
       ...(egiNote !== undefined ? { egiNote } : {}),
+      ...(invite !== undefined ? { invite } : {}),
+      ...(rejection !== undefined ? { rejection } : {}),
       changedBy,
     });
     return normalizeApplication(res.data);
@@ -180,6 +188,13 @@ export const applicationService = {
     return normalizeNote(res.data);
   },
 
+  // "Update & resend invite": only while Shortlisted. The response carries no
+  // allowedTransitions, so callers refetch the row.
+  async updateInvite(id, invite) {
+    const res = await apiClient.patch(`/api/admin/applications/${id}/invite`, { invite });
+    return normalizeApplication(res.data);
+  },
+
   async updateApplication(id, { formData, documents }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}`, {
       formData,
@@ -188,11 +203,15 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  async bulkUpdateStatus({ ids, status, egiNote, changedBy }) {
+  // One shared egiNote / invite / rejection / notes for the whole batch.
+  async bulkUpdateStatus({ ids, status, egiNote, invite, rejection, notes, changedBy }) {
     const res = await apiClient.patch('/api/admin/applications/bulk-status', {
       ids,
       status,
       ...(egiNote !== undefined ? { egiNote } : {}),
+      ...(invite !== undefined ? { invite } : {}),
+      ...(rejection !== undefined ? { rejection } : {}),
+      ...(notes !== undefined ? { notes } : {}),
       changedBy,
     }, { timeoutMs: BULK_STATUS_TIMEOUT_MS });
     return res.data; // { success: [...ids], failed: [{ id, reason }] }

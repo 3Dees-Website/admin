@@ -8,6 +8,8 @@ import { useToast } from '../hooks/useToast';
 import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, Download, Eye, X, RefreshCw } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
+import { InviteModal } from '../components/InviteModal';
+import { RejectModal } from '../components/RejectModal';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
 import { StatusBadge } from '../components/StatusBadge';
@@ -39,6 +41,10 @@ export function AdminApplications() {
   const notesDraft = useNotesDraft(activeApp);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+  const [bulkInviteBusy, setBulkInviteBusy] = useState(false);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectBusy, setBulkRejectBusy] = useState(false);
 
   const filters = {
     jobId: selectedJobId !== 'All' ? selectedJobId : undefined,
@@ -152,6 +158,31 @@ export function AdminApplications() {
     const result = await bulkReviewApplications(selectedAppIds, status);
     // null = whole request rejected: keep the selection. Otherwise keep only failures.
     if (result) setSelectedAppIds(result.failed.map((f) => f.id));
+    refetch();
+  };
+
+  // With the pipeline on, bulk Shortlist sends one shared invitation (and
+  // optional note) to everyone selected. A null result means the whole request
+  // was refused (e.g. a malformed invitation): the modal stays open with what
+  // was typed.
+  const handleBulkShortlistConfirm = async (input) => {
+    setBulkInviteBusy(true);
+    const result = await bulkReviewApplications(selectedAppIds, 'Shortlisted', input);
+    setBulkInviteBusy(false);
+    if (!result) return;
+    setBulkInviteOpen(false);
+    setSelectedAppIds(result.failed.map((f) => f.id));
+    refetch();
+  };
+
+  // Same for bulk Reject: one shared message (and optional note) for everyone.
+  const handleBulkRejectConfirm = async (input) => {
+    setBulkRejectBusy(true);
+    const result = await bulkReviewApplications(selectedAppIds, 'Rejected', input);
+    setBulkRejectBusy(false);
+    if (!result) return;
+    setBulkRejectOpen(false);
+    setSelectedAppIds(result.failed.map((f) => f.id));
     refetch();
   };
 
@@ -295,10 +326,16 @@ export function AdminApplications() {
             Selected <strong className="bulk-hud-count">{selectedAppIds.length}</strong> matching candidates for bulk operations:
           </span>
           <div className="bulk-hud-actions">
-            <button onClick={() => handleBulkAction('Shortlisted')} className="btn btn-primary btn-sm">
+            <button
+              onClick={() => (pipelineV2 ? setBulkInviteOpen(true) : handleBulkAction('Shortlisted'))}
+              className="btn btn-primary btn-sm"
+            >
               Bulk Shortlist Selection
             </button>
-            <button onClick={() => handleBulkAction('Rejected')} className="btn btn-danger btn-sm">
+            <button
+              onClick={() => (pipelineV2 ? setBulkRejectOpen(true) : handleBulkAction('Rejected'))}
+              className="btn btn-danger btn-sm"
+            >
               Bulk Reject Selection
             </button>
             <button onClick={() => setSelectedAppIds([])} className="btn btn-ghost btn-sm">
@@ -466,6 +503,28 @@ export function AdminApplications() {
           </div>
         </div>
       )}
+
+      <InviteModal
+        open={bulkInviteOpen}
+        busy={bulkInviteBusy}
+        title="Shortlist & Send Invitations"
+        confirmLabel="Shortlist & Send Invites"
+        recipientCount={selectedAppIds.length}
+        description={`${selectedAppIds.length} applicant${selectedAppIds.length !== 1 ? 's' : ''} will each be emailed this invitation as soon as you send.`}
+        onCancel={() => setBulkInviteOpen(false)}
+        onConfirm={handleBulkShortlistConfirm}
+      />
+
+      <RejectModal
+        open={bulkRejectOpen}
+        busy={bulkRejectBusy}
+        title="Reject & Notify Applicants"
+        confirmLabel="Reject & Send Messages"
+        recipientCount={selectedAppIds.length}
+        description={`${selectedAppIds.length} applicant${selectedAppIds.length !== 1 ? 's' : ''} will each be emailed this message as soon as you send.`}
+        onCancel={() => setBulkRejectOpen(false)}
+        onConfirm={handleBulkRejectConfirm}
+      />
     </div>
   );
 }

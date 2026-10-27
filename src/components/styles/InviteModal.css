@@ -1,0 +1,106 @@
+/* ============================================================
+   InviteModal.css  —  prefix: ivm-
+   Same shell as EgiNoteModal (--z-overlay-top), wider for the form.
+   ============================================================ */
+
+.ivm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay-top);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.ivm-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.ivm-modal {
+  position: relative;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 34rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  color: var(--color-brand-dark);
+}
+
+.ivm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ivm-title { font-size: 0.85rem; font-weight: 700; color: var(--color-brand-dark); }
+.ivm-subtitle { font-size: 0.7rem; color: #9ca3af; font-weight: 500; margin-top: 0.25rem; line-height: 1.4; }
+
+.ivm-close-btn { background: none; border: none; cursor: pointer; color: #9ca3af; padding: 0.25rem; transition: color 0.2s; }
+.ivm-close-btn:hover { color: var(--color-brand-primary); }
+.ivm-close-icon { width: 1.125rem; height: 1.125rem; }
+
+.ivm-body { display: flex; flex-direction: column; gap: 0.875rem; }
+
+.ivm-modes { display: inline-flex; align-self: flex-start; border: 1px solid #e5e7eb; border-radius: 0.375rem; overflow: hidden; }
+.ivm-mode-btn {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: #fff; color: #6b7280; border: none; padding: 0.5rem 0.875rem; cursor: pointer;
+}
+.ivm-mode-btn + .ivm-mode-btn { border-left: 1px solid #e5e7eb; }
+.ivm-mode-btn--active { background: var(--color-brand-dark); color: #fff; }
+
+.ivm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+@media (max-width: 30rem) { .ivm-row { grid-template-columns: 1fr; } }
+
+.ivm-field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.ivm-label { font-size: 0.65rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.ivm-required { color: var(--color-brand-primary); }
+.ivm-optional { font-weight: 500; color: #9ca3af; text-transform: none; }
+
+.ivm-input {
+  font-size: 0.8rem; font-family: inherit; padding: 0.625rem 0.75rem; border-radius: 0.375rem;
+  border: 1px solid #e5e7eb; background-color: var(--color-brand-light); outline: none;
+  color: var(--color-brand-dark); width: 100%; box-sizing: border-box;
+}
+.ivm-textarea { resize: vertical; }
+.ivm-input:focus { border-color: var(--color-brand-primary); }
+.ivm-input--error { border-color: #dc2626; }
+
+.ivm-meta-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.ivm-error-text { font-size: 0.7rem; color: #dc2626; font-weight: 600; }
+.ivm-hint { font-size: 0.65rem; color: #9ca3af; line-height: 1.4; margin: 0; }
+.ivm-counter { margin-left: auto; flex-shrink: 0; font-size: 0.65rem; color: #9ca3af; font-variant-numeric: tabular-nums; }
+.ivm-counter--over { color: #dc2626; font-weight: 600; }
+
+.ivm-review-count { font-size: 0.85rem; font-weight: 700; margin: 0; }
+.ivm-review-card { border: 1px solid #e5e7eb; background: var(--color-brand-light); border-radius: 0.375rem; padding: 0.75rem; max-height: 14rem; overflow-y: auto; }
+.ivm-review-text { margin: 0; font-size: 0.75rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ivm-review-list { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.75rem; font-size: 0.75rem; }
+.ivm-review-list dt { font-weight: 700; color: #6b7280; }
+.ivm-review-list dd { margin: 0; overflow-wrap: anywhere; }
+
+.ivm-footer { display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid #f3f4f6; padding-top: 1rem; margin-top: 1.25rem; }
+.ivm-cancel-btn {
+  font-size: 0.75rem; font-weight: 600; color: var(--color-brand-dark); background: none;
+  border: 1px solid #e5e7eb; padding: 0.625rem 0.875rem; border-radius: 0.375rem; cursor: pointer;
+}
+.ivm-cancel-btn:hover { color: var(--color-brand-primary); }
+.ivm-cancel-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ivm-confirm-btn {
+  display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; font-weight: 600;
+  background-color: var(--color-brand-primary); color: #fff; border: none; padding: 0.625rem 1rem;
+  border-radius: 0.375rem; cursor: pointer;
+}
+.ivm-confirm-btn:hover { opacity: 0.9; }
+.ivm-confirm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ivm-btn-icon { width: 0.9rem; height: 0.9rem; }

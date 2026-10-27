@@ -10,6 +10,8 @@ import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
+import { InviteModal } from '../components/InviteModal';
+import { RejectModal } from '../components/RejectModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -18,17 +20,22 @@ import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
-  const { reviewApplication, reviewApplicationsIndividually } = useApplications();
+  const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   // With the pipeline on, shortlisting needs an invitation and rejecting needs
-  // a message, so the one-click and bulk versions wait for those forms.
+  // a message (the one-click shortlist is gone; bulk collects one shared
+  // invitation or message first).
   const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
   const [editingApp,     setEditingApp]     = useState(null);
   const [selectedIds,    setSelectedIds]    = useState(new Set());
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+  const [bulkInviteBusy, setBulkInviteBusy] = useState(false);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectBusy, setBulkRejectBusy] = useState(false);
 
   const {
     items: loadedItems, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, error, refetch,
@@ -116,21 +123,40 @@ export function AdminPendingApplications() {
     refetchStats();
   };
 
-  /* Bulk shortlist/reject — applies only to rows selected on the current
-     page, one request per row; only failures stay selected */
-  const bulkAction = async (status) => {
-    if (selectedIds.size === 0) return;
+  /* Bulk shortlist/reject — one bulk request for the rows selected on the
+     current page; only failures stay selected. `input` is the batch's one
+     shared payload. null = the whole request was refused: selection is kept. */
+  const runBulk = async (status, input) => {
+    if (selectedIds.size === 0) return null;
     const ids = pendingApps
       .filter((a) => selectedIds.has(a.id))
       .map((a) => a.id);
-    const result = await reviewApplicationsIndividually(ids, status);
-    setSelectedIds(new Set(result.failed.map((f) => f.id)));
+    const result = await bulkReviewApplications(ids, status, input);
+    if (result) setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
+    return result;
   };
 
-  const handleBulkShortlist = () => bulkAction('Shortlisted');
-  const handleBulkReject = () => bulkAction('Rejected');
+  // With the pipeline on, shortlisting collects one shared invitation first;
+  // the modal stays open if the request is refused.
+  const handleBulkShortlistConfirm = async (input) => {
+    setBulkInviteBusy(true);
+    const result = await runBulk('Shortlisted', input);
+    setBulkInviteBusy(false);
+    if (result) setBulkInviteOpen(false);
+  };
+
+  // Same for bulk Reject: one shared message (and optional note).
+  const handleBulkRejectConfirm = async (input) => {
+    setBulkRejectBusy(true);
+    const result = await runBulk('Rejected', input);
+    setBulkRejectBusy(false);
+    if (result) setBulkRejectOpen(false);
+  };
+
+  const handleBulkShortlist = () => (pipelineV2 ? setBulkInviteOpen(true) : runBulk('Shortlisted'));
+  const handleBulkReject = () => (pipelineV2 ? setBulkRejectOpen(true) : runBulk('Rejected'));
 
   /* Days waiting helper */
   const daysWaiting = (dateStr) => {
@@ -212,10 +238,10 @@ export function AdminPendingApplications() {
         {selectedIds.size > 0 && (
           <div className="apa-bulk-bar">
             <span className="apa-bulk-count">{selectedIds.size} selected</span>
-            <button onClick={handleBulkShortlist} className="apa-bulk-shortlist" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
+            <button onClick={handleBulkShortlist} className="apa-bulk-shortlist">
               <UserCheck className="apa-bulk-icon" /> Shortlist All
             </button>
-            <button onClick={handleBulkReject} className="apa-bulk-reject" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
+            <button onClick={handleBulkReject} className="apa-bulk-reject">
               <UserX className="apa-bulk-icon" /> Reject All
             </button>
           </div>
@@ -345,6 +371,28 @@ export function AdminPendingApplications() {
           onPageSizeChange={setPageSize}
         />
       </div>
+
+      <InviteModal
+        open={bulkInviteOpen}
+        busy={bulkInviteBusy}
+        title="Shortlist & Send Invitations"
+        confirmLabel="Shortlist & Send Invites"
+        recipientCount={selectedIds.size}
+        description={`${selectedIds.size} applicant${selectedIds.size !== 1 ? 's' : ''} will each be emailed this invitation as soon as you send.`}
+        onCancel={() => setBulkInviteOpen(false)}
+        onConfirm={handleBulkShortlistConfirm}
+      />
+
+      <RejectModal
+        open={bulkRejectOpen}
+        busy={bulkRejectBusy}
+        title="Reject & Notify Applicants"
+        confirmLabel="Reject & Send Messages"
+        recipientCount={selectedIds.size}
+        description={`${selectedIds.size} applicant${selectedIds.size !== 1 ? 's' : ''} will each be emailed this message as soon as you send.`}
+        onCancel={() => setBulkRejectOpen(false)}
+        onConfirm={handleBulkRejectConfirm}
+      />
 
       {/* Candidate Edit Drawer */}
       {editingApp && (

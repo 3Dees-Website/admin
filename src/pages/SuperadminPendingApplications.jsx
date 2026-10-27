@@ -10,6 +10,8 @@ import { useApplicationStats } from '../hooks/useApplicationStats';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
+import { InviteModal } from '../components/InviteModal';
+import { RejectModal } from '../components/RejectModal';
 import { EgiNoteModal } from '../components/EgiNoteModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -22,12 +24,12 @@ import {
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
-  const { reviewApplication, bulkReviewApplications, reviewApplicationsIndividually } = useApplications();
+  const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  // With the pipeline on there is no Pending -> Approved, and shortlisting
-  // needs an invitation / rejecting a message, so the one-click and bulk
-  // versions are removed or wait for those forms.
+  // With the pipeline on there is no Pending -> Approved, shortlisting needs an
+  // invitation and rejecting needs a message (the one-click shortlist is gone;
+  // bulk collects one shared invitation or message first).
   const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const [searchTerm,    setSearchTerm]    = useState('');
@@ -37,6 +39,10 @@ export function SuperadminPendingApplications() {
   const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+  const [bulkInviteBusy, setBulkInviteBusy] = useState(false);
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectBusy, setBulkRejectBusy] = useState(false);
 
   const {
     items: loadedItems, total: totalItems, page, pageSize, setPage, setPageSize, isLoading, error, refetch,
@@ -128,16 +134,36 @@ export function SuperadminPendingApplications() {
     refetchStats();
   };
 
-  /* Bulk shortlist/reject — one request per row; only failures stay selected */
-  const bulkAction = async (status) => {
-    if (selectedIds.size === 0) return;
+  /* Bulk shortlist/reject — one bulk request for the rows selected on the
+     current page; only failures stay selected. `input` is the batch's one
+     shared payload. null = the whole request was refused: selection is kept. */
+  const runBulk = async (status, input) => {
+    if (selectedIds.size === 0) return null;
     const ids = pendingApps
       .filter((a) => selectedIds.has(a.id))
       .map((a) => a.id);
-    const result = await reviewApplicationsIndividually(ids, status);
-    setSelectedIds(new Set(result.failed.map((f) => f.id)));
+    const result = await bulkReviewApplications(ids, status, input);
+    if (result) setSelectedIds(new Set(result.failed.map((f) => f.id)));
     refetch();
     refetchStats();
+    return result;
+  };
+
+  // With the pipeline on, shortlisting collects one shared invitation first;
+  // the modal stays open if the request is refused.
+  const handleBulkShortlistConfirm = async (input) => {
+    setBulkInviteBusy(true);
+    const result = await runBulk('Shortlisted', input);
+    setBulkInviteBusy(false);
+    if (result) setBulkInviteOpen(false);
+  };
+
+  // Same for bulk Reject: one shared message (and optional note).
+  const handleBulkRejectConfirm = async (input) => {
+    setBulkRejectBusy(true);
+    const result = await runBulk('Rejected', input);
+    setBulkRejectBusy(false);
+    if (result) setBulkRejectOpen(false);
   };
 
   const handleQuickApproveConfirm = async (egiNote) => {
@@ -153,7 +179,7 @@ export function SuperadminPendingApplications() {
   const handleBulkApproveConfirm = async (egiNote) => {
     if (selectedIds.size === 0) return;
     setApproveBusy(true);
-    const result = await bulkReviewApplications(Array.from(selectedIds), 'Approved', egiNote);
+    const result = await bulkReviewApplications(Array.from(selectedIds), 'Approved', { egiNote });
     setApproveBusy(false);
     refetch();
     refetchStats();
@@ -260,7 +286,10 @@ export function SuperadminPendingApplications() {
             <span className="spa-bulk-count">
               <Zap className="spa-bulk-zap" /> {selectedIds.size} selected
             </span>
-            <button onClick={() => bulkAction('Shortlisted')} className="spa-bulk-shortlist" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
+            <button
+              onClick={() => (pipelineV2 ? setBulkInviteOpen(true) : runBulk('Shortlisted'))}
+              className="spa-bulk-shortlist"
+            >
               <UserCheck className="spa-bulk-icon" /> Bulk Shortlist
             </button>
             {!pipelineV2 && (
@@ -268,7 +297,10 @@ export function SuperadminPendingApplications() {
                 <UserCheck className="spa-bulk-icon" /> Bulk Approve & Sync
               </button>
             )}
-            <button onClick={() => bulkAction('Rejected')} className="spa-bulk-reject" disabled={pipelineV2} title={pipelineV2 ? "Shortlisting needs an invitation and rejecting needs a message; those forms are not in this release yet." : undefined}>
+            <button
+              onClick={() => (pipelineV2 ? setBulkRejectOpen(true) : runBulk('Rejected'))}
+              className="spa-bulk-reject"
+            >
               <UserX className="spa-bulk-icon" /> Bulk Reject
             </button>
           </div>
@@ -405,6 +437,28 @@ export function SuperadminPendingApplications() {
           onPageSizeChange={setPageSize}
         />
       </div>
+
+      <InviteModal
+        open={bulkInviteOpen}
+        busy={bulkInviteBusy}
+        title="Shortlist & Send Invitations"
+        confirmLabel="Shortlist & Send Invites"
+        recipientCount={selectedIds.size}
+        description={`${selectedIds.size} applicant${selectedIds.size !== 1 ? 's' : ''} will each be emailed this invitation as soon as you send.`}
+        onCancel={() => setBulkInviteOpen(false)}
+        onConfirm={handleBulkShortlistConfirm}
+      />
+
+      <RejectModal
+        open={bulkRejectOpen}
+        busy={bulkRejectBusy}
+        title="Reject & Notify Applicants"
+        confirmLabel="Reject & Send Messages"
+        recipientCount={selectedIds.size}
+        description={`${selectedIds.size} applicant${selectedIds.size !== 1 ? 's' : ''} will each be emailed this message as soon as you send.`}
+        onCancel={() => setBulkRejectOpen(false)}
+        onConfirm={handleBulkRejectConfirm}
+      />
 
       {/* Candidate Edit Drawer — superadmin mode */}
       {editingApp && (

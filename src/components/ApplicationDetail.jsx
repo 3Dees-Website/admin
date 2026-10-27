@@ -6,6 +6,7 @@ import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
 import { NotesPanel } from './NotesPanel';
+import { InvitePanel } from './InvitePanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
@@ -98,9 +99,13 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
         notesDraft?.adoptServerNotes(fresh.id, fresh.notes);
         // The drawer may have been open a while, or a content edit may have
         // returned an object without allowedTransitions. Take the fresh row
-        // whenever the status or the allowed moves differ, so the status
-        // buttons never rest on an old list.
-        if (fresh.status !== app.status || !sameTransitions(fresh.allowedTransitions, app.allowedTransitions)) {
+        // whenever the status, the allowed moves or the invitation differ, so
+        // the buttons and the Invitation section never rest on an old row.
+        if (
+          fresh.status !== app.status
+          || !sameTransitions(fresh.allowedTransitions, app.allowedTransitions)
+          || JSON.stringify(fresh.inviteDetails) !== JSON.stringify(app.inviteDetails)
+        ) {
           onAppUpdated?.(fresh);
         }
         setEgiInfo({
@@ -428,6 +433,8 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
           onDelete={handleDeleteVerificationDoc}
         />
       </section>
+
+      {currentUser?.pipelineV2 === true && <InvitePanel app={app} onUpdated={publishUpdate} />}
 
       <NotesPanel app={app} pipelineV2={currentUser?.pipelineV2 === true} notesDraft={notesDraft} />
 

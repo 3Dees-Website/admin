@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { EgiNoteModal } from './EgiNoteModal';
+import { ShortlistInviteModal } from './InviteModal';
+import { RejectApplicationModal } from './RejectModal';
 import { getStatusActions } from '../utils/applicationStatus';
 import './styles/StatusActions.css';
 
 // Modals for the moves that need input before they can be sent. 'egiNote'
-// (Approve) is handled below. Invite and rejection-message modals are added
-// here as they are built; until then those buttons are shown disabled.
-const INPUT_MODALS = {};
+// (Approve) is handled below. Each other modal receives
+// { app, busy, onCancel, onConfirm(input) }. An input with no modal here
+// (none today) leaves its button disabled.
+const INPUT_MODALS = { invite: ShortlistInviteModal, rejection: RejectApplicationModal };
 
-const WAITING_TITLE = 'This needs an invitation or message form that is not in this release yet.';
+const WAITING_TITLE = 'This needs a form that is not in this release yet.';
 
 /**
  * The status buttons of an application drawer, and the modal that goes with

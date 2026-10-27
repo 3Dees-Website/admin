@@ -1,0 +1,17 @@
+/* ============================================================
+   RejectModal.css  —  prefix: rjm-
+   The shell, fields and buttons come from InviteModal.css (ivm-).
+   ============================================================ */
+
+.rjm-template-text {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #374151;
+  background: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.rjm-confirm-btn { background-color: #b91c1c; }

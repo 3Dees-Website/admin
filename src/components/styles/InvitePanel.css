@@ -1,0 +1,17 @@
+/* ============================================================
+   InvitePanel.css  —  prefix: ivp-
+   ============================================================ */
+
+.ivp-text { margin: 0; font-size: 0.75rem; line-height: 1.5; color: #374151; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.ivp-list { margin: 0 0 0.75rem; display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.75rem; font-size: 0.75rem; }
+.ivp-list dt { font-weight: 700; color: #6b7280; }
+.ivp-list dd { margin: 0; color: #374151; overflow-wrap: anywhere; }
+
+.ivp-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem;
+  font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+  border-radius: 0.375rem; padding: 0.45rem 0.75rem; cursor: pointer;
+  background: #fff; color: #4338ca; border: 1px solid #a5b4fc;
+}
+.ivp-btn:hover { background: #eef2ff; }
