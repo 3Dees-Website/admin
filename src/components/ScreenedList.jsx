@@ -9,6 +9,7 @@ import { usePaginatedScreened } from '../hooks/usePaginatedScreened';
 import { useScreenedRowDetails, detailKey } from '../hooks/useScreenedRowDetails';
 import { StatusBadge } from './StatusBadge';
 import { StatusActions } from './StatusActions';
+import { EgiDecisionBadge } from './EgiBadges';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
@@ -224,6 +225,8 @@ function ScreenedTable() {
                   </td>
                   <td className="scr-td scr-td-center">
                     <StatusBadge status={item.status} className="scr-stage" />
+                    {/* Only once EGI has decided: a Screened row's default Pending is not news. */}
+                    {item.egiDecision && item.egiDecision !== 'Pending' && <EgiDecisionBadge decision={item.egiDecision} />}
                     <span className="scr-meta">Screened {formatDate(item.screenedAt)}</span>
                   </td>
                   <td className="scr-td scr-td-center">{formatDate(item.submittedAt)}</td>
