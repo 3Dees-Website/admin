@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Eye, Trash2, Edit2, Save, X as XIcon, Send, ShieldAlert } from 'lucide-react';
+import { Eye, Trash2, Edit2, Save, X as XIcon, Send } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
+import { DeleteApplicationDialog } from './DeleteApplicationDialog';
 import { NotesPanel } from './NotesPanel';
 import { InvitePanel } from './InvitePanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
@@ -74,6 +75,11 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
   const [resendBusy, setResendBusy] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // The server's last refusal to delete this application, if any. It is
+  // forgotten when the application (or its status) changes.
+  const [lastRefusal, setDeleteRefusal] = useState(null);
+  const refusalKey = [app.id, app.status, app.egiDecision, app.egiSyncStatus].join('|');
+  const deleteRefusal = lastRefusal?.key === refusalKey ? lastRefusal : null;
 
   // Delivery truth (egi_delivery / egi_can_resend / egi_resend_kind) only comes
   // from GET /applications/:id, and most callers open this drawer with a list
@@ -148,11 +154,16 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [egiFallback, app.id]);
 
+  // With the pipeline, a superadmin is offered Delete at any stage and the
+  // server refuses what cannot go (live at EGI, delivery in flight, inside the
+  // wait after an EGI decline). Before the pipeline the old rule still holds.
   const canDelete =
     currentUser?.role === 'superadmin' &&
-    app.status === 'Rejected' &&
-    app.egiSyncStatus === 'Pending' &&
-    app.egiDecision === 'Pending';
+    (currentUser?.pipelineV2 === true ||
+      (app.status === 'Rejected' && app.egiSyncStatus === 'Pending' && app.egiDecision === 'Pending'));
+  // Not-deletable and delivery-in-flight keep the button shown but disabled,
+  // with the reason. NotDeletableYet is handled by the dialog's countdown.
+  const deleteBlocked = deleteRefusal && ['NotDeletable', 'DeliveryInFlight'].includes(deleteRefusal.error);
 
   const sectionGroups = useMemo(
     () => (catalog ? groupFieldsBySection(catalog.sections, catalog.fields) : []),
@@ -245,16 +256,20 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
   };
 
   const handleDeleteConfirm = async () => {
+    if (deleting) return;
     setDeleting(true);
-    const success = await deleteApplication(app.id);
+    const result = await deleteApplication(app.id);
     setDeleting(false);
-    setDeleteConfirmOpen(false);
 
-    if (success) {
+    if (result.ok) {
+      setDeleteConfirmOpen(false);
       onDeleted?.();
       return;
     }
 
+    // Stay open and show why. A fresh read below picks up any change that
+    // explains the refusal.
+    setDeleteRefusal({ ...result, key: refusalKey });
     onDeleteFailed?.();
     try {
       const fresh = await applicationService.getApplication(app.id);
@@ -461,9 +476,23 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
       {canDelete && (
         <section className="ad-section ad-danger-zone">
           <h3 className="ad-section-title">Danger Zone</h3>
-          <button type="button" className="ad-delete-btn" onClick={() => setDeleteConfirmOpen(true)}>
+          <button
+            type="button"
+            className="ad-delete-btn"
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={deleteBlocked}
+            title={deleteBlocked ? deleteRefusal.message : undefined}
+          >
             <Trash2 size={14} /> Delete Application
           </button>
+          {deleteBlocked && (
+            <p className="ad-delete-blocked">
+              {deleteRefusal.message}
+              <button type="button" className="ad-delete-recheck" onClick={() => setDeleteRefusal(null)}>
+                Check again
+              </button>
+            </p>
+          )}
         </section>
       )}
 
@@ -493,35 +522,13 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
       )}
 
       {deleteConfirmOpen && (
-        <div className="ad-delete-overlay">
-          <div className="ad-delete-backdrop" onClick={deleting ? undefined : () => setDeleteConfirmOpen(false)} />
-          <div className="ad-delete-modal">
-            <ShieldAlert className="ad-delete-icon" />
-            <h3 className="ad-delete-title">Delete Application</h3>
-            <p className="ad-delete-desc">
-              This permanently deletes <strong>{app.applicantName}</strong>&apos;s application, all uploaded
-              documents, and verification records. This cannot be undone.
-            </p>
-            <div className="ad-delete-actions">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="ad-delete-cancel-btn"
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="ad-delete-confirm-btn"
-                disabled={deleting}
-              >
-                {deleting ? 'Deleting…' : 'Delete Permanently'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteApplicationDialog
+          app={app}
+          busy={deleting}
+          refusal={deleteRefusal}
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={handleDeleteConfirm}
+        />
       )}
     </div>
   );

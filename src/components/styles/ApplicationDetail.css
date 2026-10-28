@@ -665,3 +665,40 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.ad-delete-error {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #b91c1c;
+  margin: 0;
+}
+
+.ad-delete-countdown {
+  font-size: 0.75rem;
+  color: #374151;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ad-delete-blocked {
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: #b91c1c;
+  margin: 0.5rem 0 0;
+}
+
+.ad-delete-recheck {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.35rem;
+  font-size: inherit;
+  color: #374151;
+  text-decoration: underline;
+  cursor: pointer;
+}

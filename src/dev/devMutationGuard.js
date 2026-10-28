@@ -176,7 +176,67 @@ async function fakeScoreOne({ entry, config, finalize, jobId, read }) {
     : { ok: { id, status: nextStatus, complete, screening_total: total, screening_max: max, screening_percentage: percentage, changed } };
 }
 
+// The server's refusal for deleting an application, judged on the row as read
+// (a fake cannot lock it). With the pipeline on (the row carries
+// allowedTransitions) a superadmin may delete at any stage except while it is
+// live at EGI, queued/being sent, or inside the 48-hour wait after an EGI
+// decline. The wait here starts at egi_decision_at only: the real server also
+// takes the later of 3DEES's own receipt time, which a fake cannot read.
+const DECLINE_GRACE_MS = 48 * 60 * 60 * 1000;
+const pipelineRow = (app) => Array.isArray(app.allowedTransitions) || Array.isArray(app.allowed_transitions);
+
+function fakeDeleteRefusal(app) {
+  if (!pipelineRow(app)) {
+    const neverPushed = app.egi_sync_status === 'Pending' && app.egi_decision === 'Pending';
+    return app.status === 'Rejected' && neverPushed
+      ? null
+      : { error: 'NotDeletable', message: 'Only 3DEES-rejected applications that were never sent to EGI can be deleted.' };
+  }
+  if (app.status === 'Approved' && app.egi_decision !== 'Declined') {
+    return {
+      error: 'NotDeletable',
+      message: app.egi_decision === 'Accepted'
+        ? 'EGI accepted this application, so it can no longer be deleted.'
+        : 'This application is live at EGI (approved and not declined), so it cannot be deleted. It can be deleted once EGI declines it.',
+    };
+  }
+  if (app.egi_sync_status === 'Queued') {
+    return { error: 'DeliveryInFlight', message: 'A delivery of this application to EGI is queued or being sent, so it cannot be deleted right now.' };
+  }
+  if (app.egi_decision === 'Declined') {
+    const decidedAt = app.egi_decision_at ? new Date(app.egi_decision_at) : null;
+    if (!decidedAt || Number.isNaN(decidedAt.getTime())) {
+      return { error: 'NotDeletable', message: 'EGI declined this application but the time of the decision is not on record, so the 48-hour wait before deleting it cannot be checked.' };
+    }
+    const deletableAt = new Date(decidedAt.getTime() + DECLINE_GRACE_MS);
+    if (Date.now() < deletableAt.getTime()) {
+      return {
+        error: 'NotDeletableYet',
+        message: `EGI declined this application on ${decidedAt.toLocaleString()}. To give EGI time to finish copying its documents, it can be deleted from ${deletableAt.toLocaleString()} (48 hours after the decision was recorded).`,
+        data: { deletableAt: deletableAt.toISOString() },
+      };
+    }
+  }
+  return null;
+}
+
 const HANDLERS = [
+  {
+    method: 'PATCH',
+    path: /^\/api\/admin\/users\/([^/]+)\/permissions$/,
+    run: async ({ body, match, read }) => {
+      const user = ((await read('/api/admin/users')).data || []).find((u) => u.id === match[1]);
+      if (!user) throw { error: 'NotFound', message: 'User not found.' };
+      if (user.role !== 'admin') {
+        throw { error: 'BadRequest', message: 'Superadmins can always approve; the permission only applies to admins.' };
+      }
+      if (typeof body.canApprove !== 'boolean') {
+        throw { error: 'ValidationError', message: 'canApprove must be true or false.' };
+      }
+      fakeCanApprove.set(user.id, body.canApprove);
+      return ok({ ...user, can_approve: body.canApprove }, 'Permission change');
+    },
+  },
   {
     method: 'PUT',
     path: /^\/api\/admin\/applications\/scores$/,
@@ -221,22 +281,6 @@ const HANDLERS = [
     path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
     run: async ({ body, match, read }) => {
       const id = match[1];
-  {
-    method: 'PATCH',
-    path: /^\/api\/admin\/users\/([^/]+)\/permissions$/,
-    run: async ({ body, match, read }) => {
-      const user = ((await read('/api/admin/users')).data || []).find((u) => u.id === match[1]);
-      if (!user) throw { error: 'NotFound', message: 'User not found.' };
-      if (user.role !== 'admin') {
-        throw { error: 'BadRequest', message: 'Superadmins can always approve; the permission only applies to admins.' };
-      }
-      if (typeof body.canApprove !== 'boolean') {
-        throw { error: 'ValidationError', message: 'canApprove must be true or false.' };
-      }
-      fakeCanApprove.set(user.id, body.canApprove);
-      return ok({ ...user, can_approve: body.canApprove }, 'Permission change');
-    },
-  },
       const app = await readApp(read, id);
       return ok(addFakeNote(id, app.status, body.body || ''), 'Note add');
     },
@@ -302,7 +346,11 @@ const HANDLERS = [
   {
     method: 'DELETE',
     path: /^\/api\/admin\/applications\/[^/]+$/,
-    run: async () => ok(null, 'Application delete'),
+    run: async ({ match, read }) => {
+      const refusal = fakeDeleteRefusal(overlayApplication(await readApp(read, match[0].split('/').pop())));
+      if (refusal) throw { success: false, ...refusal };
+      return ok(null, 'Application delete (the row is still there on reload)');
+    },
   },
 ];
 

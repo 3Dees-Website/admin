@@ -681,14 +681,21 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // Resolves to { ok } or { ok: false, error, message, deletableAt }. The
+  // delete dialog stays open and shows the reason, so a refusal about the
+  // application's state (not deletable, not yet, delivery in flight) gets no
+  // toast; any other failure does.
   const deleteApplication = async (appId) => {
     try {
       await applicationService.deleteApplication(appId);
       addToast('success', 'Application Deleted', 'The application and its documents were permanently removed.');
-      return true;
+      return { ok: true };
     } catch (err) {
-      addToast('error', 'Delete Failed', err?.message || 'Could not delete this application.');
-      return false;
+      const message = err?.message || 'Could not delete this application.';
+      if (!['NotDeletable', 'NotDeletableYet', 'DeliveryInFlight'].includes(err?.error)) {
+        addToast('error', 'Delete Failed', message);
+      }
+      return { ok: false, error: err?.error, message, deletableAt: err?.data?.deletableAt };
     }
   };
 
@@ -815,13 +822,6 @@ export function PortalProvider({ children }) {
     }
   };
 
-  const resetAdminPass = async (adminId, newPassword) => {
-    try {
-      await userService.resetPassword(adminId, newPassword);
-      addToast('success', 'Password Updated', 'The representative\'s credential has been reassigned.');
-      return true;
-    } catch (err) {
-      handleApiError(err, 'Password Reset Failed', 'Could not reset the password.');
   const setAdminCanApprove = async (adminId, canApprove) => {
     const target = state.admins.find((a) => a.id === adminId);
     try {
@@ -835,6 +835,13 @@ export function PortalProvider({ children }) {
     }
   };
 
+  const resetAdminPass = async (adminId, newPassword) => {
+    try {
+      await userService.resetPassword(adminId, newPassword);
+      addToast('success', 'Password Updated', 'The representative\'s credential has been reassigned.');
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Password Reset Failed', 'Could not reset the password.');
       return false;
     }
   };
@@ -948,6 +955,7 @@ export function PortalProvider({ children }) {
         reviewApplicationsIndividually,
         registerAdmin,
         toggleAdminSuspension,
+        setAdminCanApprove,
         resetAdminPass,
         removeAdmin,
         addCategory,
@@ -955,7 +963,6 @@ export function PortalProvider({ children }) {
         refetchNotifications,
         reloadJobs,
         reloadAdmins,
-        setAdminCanApprove,
         markNotificationRead,
         markAllNotificationsRead,
       }}
