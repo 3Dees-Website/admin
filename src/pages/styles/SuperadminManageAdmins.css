@@ -215,6 +215,12 @@
   height: 1rem;
 }
 
+.sma-always {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6b7280;
+}
+
 .sma-toggle-active   { color: var(--color-brand-primary); }
 .sma-toggle-inactive { color: #9ca3af; }
 

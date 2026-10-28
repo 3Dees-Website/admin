@@ -822,6 +822,19 @@ export function PortalProvider({ children }) {
       return true;
     } catch (err) {
       handleApiError(err, 'Password Reset Failed', 'Could not reset the password.');
+  const setAdminCanApprove = async (adminId, canApprove) => {
+    const target = state.admins.find((a) => a.id === adminId);
+    try {
+      const updated = await userService.setCanApprove(adminId, canApprove);
+      dispatch({ type: 'UPDATE_ADMIN', payload: { ...target, canApprove: updated.canApprove } });
+      addToast('info', 'Permission Changed', `${target?.name || 'The admin'} ${updated.canApprove ? 'can now' : 'can no longer'} approve candidates.`);
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Permission Change Failed', 'Could not update the approval permission.');
+      return false;
+    }
+  };
+
       return false;
     }
   };
@@ -942,6 +955,7 @@ export function PortalProvider({ children }) {
         refetchNotifications,
         reloadJobs,
         reloadAdmins,
+        setAdminCanApprove,
         markNotificationRead,
         markAllNotificationsRead,
       }}

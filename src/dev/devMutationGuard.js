@@ -32,6 +32,8 @@ const fakeNotes = new Map();
 // overlay them, so the scoring grid and job form see what was faked.
 const fakeScores = new Map(); // applicationId -> { jobId, scores, status, total, max, percentage }
 const fakeJobConfigs = new Map(); // jobId -> screeningConfig
+// Approval permissions "saved" through the faked PATCH /users/:id/permissions.
+const fakeCanApprove = new Map(); // userId -> boolean
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const jobIsLocked = (jobId) => [...fakeScores.values()].some((s) => s.jobId === jobId && Object.keys(s.scores).length > 0);
@@ -82,6 +84,16 @@ const overlayJob = (job) => ({
 // Reads that must also show what the faked writes did. Everything else that is
 // a GET goes straight through.
 const READ_OVERLAYS = [
+  {
+    path: /^\/api\/admin\/users$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return {
+        ...real,
+        data: (real.data || []).map((u) => (fakeCanApprove.has(u.id) ? { ...u, can_approve: fakeCanApprove.get(u.id) } : u)),
+      };
+    },
+  },
   {
     path: /^\/api\/admin\/applications$/,
     run: async ({ path, read }) => {
@@ -209,6 +221,22 @@ const HANDLERS = [
     path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
     run: async ({ body, match, read }) => {
       const id = match[1];
+  {
+    method: 'PATCH',
+    path: /^\/api\/admin\/users\/([^/]+)\/permissions$/,
+    run: async ({ body, match, read }) => {
+      const user = ((await read('/api/admin/users')).data || []).find((u) => u.id === match[1]);
+      if (!user) throw { error: 'NotFound', message: 'User not found.' };
+      if (user.role !== 'admin') {
+        throw { error: 'BadRequest', message: 'Superadmins can always approve; the permission only applies to admins.' };
+      }
+      if (typeof body.canApprove !== 'boolean') {
+        throw { error: 'ValidationError', message: 'canApprove must be true or false.' };
+      }
+      fakeCanApprove.set(user.id, body.canApprove);
+      return ok({ ...user, can_approve: body.canApprove }, 'Permission change');
+    },
+  },
       const app = await readApp(read, id);
       return ok(addFakeNote(id, app.status, body.body || ''), 'Note add');
     },

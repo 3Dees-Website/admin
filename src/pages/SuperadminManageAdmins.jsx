@@ -16,7 +16,7 @@ import './styles/SuperadminManageAdmins.css';
 export function SuperadminManageAdmins() {
   const {
     admins, adminsStatus, adminsError, reloadAdmins,
-    registerAdmin, toggleAdminSuspension, resetAdminPass, removeAdmin,
+    registerAdmin, toggleAdminSuspension, setAdminCanApprove, resetAdminPass, removeAdmin,
   } = useAuth();
   const loadError = adminsStatus === 'error' ? describeLoadError(adminsError, 'the admin accounts') : null;
   const { addToast } = useToast();
@@ -42,6 +42,10 @@ export function SuperadminManageAdmins() {
   // one render can't both pass); the state drives the disabled button.
   const togglingRef = useRef(new Set());
   const [togglingIds, setTogglingIds] = useState(() => new Set());
+  // The same guard for the approval permission, kept apart so freezing an
+  // account and changing its permission don't block each other.
+  const permissionRef = useRef(new Set());
+  const [permissionIds, setPermissionIds] = useState(() => new Set());
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -98,6 +102,21 @@ export function SuperadminManageAdmins() {
     });
   };
 
+  // The request carries the value the toggle is going TO, so a repeated
+  // request is harmless on the server; the guard keeps the audit log clean.
+  const handleToggleCanApprove = async (adm) => {
+    if (permissionRef.current.has(adm.id)) return;
+    permissionRef.current.add(adm.id);
+    setPermissionIds((prev) => new Set(prev).add(adm.id));
+    await setAdminCanApprove(adm.id, !adm.canApprove);
+    permissionRef.current.delete(adm.id);
+    setPermissionIds((prev) => {
+      const next = new Set(prev);
+      next.delete(adm.id);
+      return next;
+    });
+  };
+
   return (
     <div className="sma-wrapper" id="superadmin-admins-view">
 
@@ -128,14 +147,15 @@ export function SuperadminManageAdmins() {
                 <th className="sma-th">Created Timestamp</th>
                 <th className="sma-th">Last Activity Session</th>
                 <th className="sma-th sma-th-center">Freeze Frame Status</th>
+                <th className="sma-th sma-th-center">Can Approve</th>
                 <th className="sma-th sma-th-right">Operations Layout</th>
               </tr>
             </thead>
             <tbody className="sma-tbody">
-              {adminsStatus === 'loading' && <TableLoadingRows colSpan={6} />}
+              {adminsStatus === 'loading' && <TableLoadingRows colSpan={7} />}
               {adminsStatus === 'error' && (
                 <TableErrorRow
-                  colSpan={6}
+                  colSpan={7}
                   message={loadError.message}
                   onRetry={loadError.canRetry ? reloadAdmins : undefined}
                 />
@@ -161,6 +181,28 @@ export function SuperadminManageAdmins() {
                     <span className={`sma-status-badge ${adm.status === 'Active' ? 'sma-status-active' : 'sma-status-suspended'}`}>
                       {adm.status}
                     </span>
+                  </td>
+                  <td className="sma-td sma-td-center">
+                    {adm.role === 'superadmin' ? (
+                      <span className="sma-always">Always</span>
+                    ) : (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={adm.canApprove}
+                        aria-label={`Allow ${adm.name} to approve candidates`}
+                        onClick={() => handleToggleCanApprove(adm)}
+                        disabled={permissionIds.has(adm.id)}
+                        className="sma-toggle-btn"
+                        title={adm.canApprove ? 'Remove approval permission' : 'Allow this admin to approve candidates'}
+                      >
+                        {adm.canApprove
+                          ? <ToggleRight className="sma-toggle-icon sma-toggle-active" />
+                          : <ToggleLeft className="sma-toggle-icon sma-toggle-inactive" />
+                        }
+                        <span>{permissionIds.has(adm.id) ? 'Saving…' : adm.canApprove ? 'Yes' : 'No'}</span>
+                      </button>
+                    )}
                   </td>
                   <td className="sma-td sma-td-right">
                     <div className="sma-actions">
@@ -210,7 +252,7 @@ export function SuperadminManageAdmins() {
               ))}
               {adminsStatus === 'ready' && admins.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="sma-empty-row">
+                  <td colSpan={7} className="sma-empty-row">
                     No active recruitment administrative staff logged inside registry.
                   </td>
                 </tr>

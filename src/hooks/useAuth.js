@@ -22,6 +22,7 @@ export function useAuth() {
     reloadAdmins: context.reloadAdmins,
     registerAdmin: context.registerAdmin,
     toggleAdminSuspension: context.toggleAdminSuspension,
+    setAdminCanApprove: context.setAdminCanApprove,
     resetAdminPass: context.resetAdminPass,
     removeAdmin: context.removeAdmin,
   };
