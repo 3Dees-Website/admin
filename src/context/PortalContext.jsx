@@ -767,31 +767,6 @@ export function PortalProvider({ children }) {
     }
   };
 
-  /**
-   * Bulk change made as one PATCH /:id/status per applicant, in sequence —
-   * the same requests the pages used to loop over themselves. Raises a single
-   * summary toast (via reportBulkResult) instead of one per applicant, and
-   * returns the same { success: [ids], failed: [{ id, reason }] } shape as
-   * bulkReviewApplications so callers can keep only the failures selected.
-   * Takes ids only — the notepad is never sent with a status change.
-   */
-  const reviewApplicationsIndividually = async (ids, status) => {
-    const adminUser = state.currentUser?.name || 'Admin';
-    const result = { success: [], failed: [] };
-
-    for (const id of ids) {
-      try {
-        await applicationService.updateStatus(id, { status, changedBy: adminUser });
-        result.success.push(id);
-      } catch (err) {
-        result.failed.push({ id, reason: err?.message || 'Could not update application status.' });
-      }
-    }
-
-    reportBulkResult(result, status);
-    return result;
-  };
-
   // ── Admin user management (superadmin only) ───────────────────────────────
 
   const registerAdmin = async (name, email, password) => {
@@ -952,7 +927,6 @@ export function PortalProvider({ children }) {
         updateInvite,
         getDocumentUrl,
         bulkReviewApplications,
-        reviewApplicationsIndividually,
         registerAdmin,
         toggleAdminSuspension,
         setAdminCanApprove,

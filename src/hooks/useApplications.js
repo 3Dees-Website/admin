@@ -17,6 +17,5 @@ export function useApplications() {
     deleteApplication: context.deleteApplication,
     getDocumentUrl: context.getDocumentUrl,
     bulkReviewApplications: context.bulkReviewApplications,
-    reviewApplicationsIndividually: context.reviewApplicationsIndividually,
   };
 }

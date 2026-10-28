@@ -8,11 +8,8 @@ import './styles/StatusActions.css';
 
 // Modals for the moves that need input before they can be sent. 'egiNote'
 // (Approve) is handled below. Each other modal receives
-// { app, busy, onCancel, onConfirm(input) }. An input with no modal here
-// (none today) leaves its button disabled.
+// { app, busy, onCancel, onConfirm(input) }.
 const INPUT_MODALS = { invite: ShortlistInviteModal, rejection: RejectApplicationModal };
-
-const WAITING_TITLE = 'This needs a form that is not in this release yet.';
 
 /**
  * The status buttons of an application drawer, and the modal that goes with
@@ -63,7 +60,7 @@ export function StatusActions({
 
   const start = async (action) => {
     if (busy) return;
-    if (action.input === 'egiNote' || INPUT_MODALS[action.input]) {
+    if (action.input) {
       if (beforeAction && !(await beforeAction())) return;
       setPending(action);
       return;
@@ -84,22 +81,18 @@ export function StatusActions({
 
   return (
     <>
-      {actions.map((action) => {
-        const waiting = Boolean(action.input) && action.input !== 'egiNote' && !INPUT_MODALS[action.input];
-        return (
-          <button
-            key={action.target}
-            type="button"
-            className={buttonClass[action.tone] ?? `sta-btn sta-btn--${action.tone}`}
-            disabled={busy || waiting}
-            title={waiting ? WAITING_TITLE : undefined}
-            onClick={() => start(action)}
-          >
-            {approveIcon && action.tone === 'approve' && <Check size={14} />}
-            {labels[action.tone] ?? action.label}
-          </button>
-        );
-      })}
+      {actions.map((action) => (
+        <button
+          key={action.target}
+          type="button"
+          className={buttonClass[action.tone] ?? `sta-btn sta-btn--${action.tone}`}
+          disabled={busy}
+          onClick={() => start(action)}
+        >
+          {approveIcon && action.tone === 'approve' && <Check size={14} />}
+          {labels[action.tone] ?? action.label}
+        </button>
+      ))}
 
       <EgiNoteModal
         open={pending?.input === 'egiNote'}
