@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Eye, Trash2, Edit2, Save, X as XIcon, Send, Printer } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
@@ -50,9 +51,6 @@ function unmarkPrintLayout() {
     .forEach((el) => el.classList.remove('ad-print-path', 'ad-print-hide'));
 }
 
-const formatPrintDate = () =>
-  new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-
 /**
  * One line saying what is actually happening with the latest delivery, and
  * whether 3DEES has had a confirmation from EGI. `alert` marks the state no
@@ -102,6 +100,9 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   const [isEditing, setIsEditing] = useState(false);
   const [editedFormData, setEditedFormData] = useState(app.formData);
   const [saving, setSaving] = useState(false);
+  // Live "viewed by" stamp: never stored, reset when another application is
+  // opened and again when printing so paper shows the print time.
+  const [viewedAt, setViewedAt] = useState(() => new Date());
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -123,12 +124,16 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   useEffect(() => {
     setEditedFormData(app.formData);
     setIsEditing(false);
+    setViewedAt(new Date());
   }, [app.id]);
 
   // Covers Ctrl/Cmd+P as well as the Print button.
   const wrapperRef = useRef(null);
   useEffect(() => {
-    const before = () => { if (wrapperRef.current) markPrintLayout(wrapperRef.current); };
+    const before = () => {
+      setViewedAt(new Date());
+      if (wrapperRef.current) markPrintLayout(wrapperRef.current);
+    };
     window.addEventListener('beforeprint', before);
     window.addEventListener('afterprint', unmarkPrintLayout);
     return () => {
@@ -139,6 +144,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   }, []);
 
   const handlePrint = () => {
+    flushSync(() => setViewedAt(new Date()));
     if (wrapperRef.current) markPrintLayout(wrapperRef.current);
     window.print();
   };
@@ -329,7 +335,12 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
         <p className="ad-print-meta">
           {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`, `Status: ${app.status}`].filter(Boolean).join(' · ')}
         </p>
-        <p className="ad-print-date">Printed on {formatPrintDate()}</p>
+        <p className="ad-print-date">Printed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</p>
+      </div>
+
+      <div className="ad-view-meta">
+        <span>Date submitted: {app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '—'}</span>
+        <span className="ad-view-meta-viewed">Viewed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</span>
       </div>
 
       {lockInfo.banner && (

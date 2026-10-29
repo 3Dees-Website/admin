@@ -188,6 +188,16 @@
   display: none;
 }
 
+.ad-view-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
 .ad-edit-btn,
 .ad-save-edit-btn,
 .ad-cancel-edit-btn {
