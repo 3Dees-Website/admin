@@ -1,8 +1,16 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
+import { can } from '../utils/permissions';
+import { routeBaseFor } from '../utils/routeBase';
 
-export function ProtectedRoute({ children, allowedRole = 'any' }) {
+/**
+ * allowedRole: 'admin' | 'superadmin' | 'any' — the role-split route trees.
+ * permission: a permission key, for a page inside a tree that is open to
+ *   whoever holds it (a superadmin always does). Used inside an already
+ *   protected tree, so a user without it goes to their own dashboard.
+ */
+export function ProtectedRoute({ children, allowedRole = 'any', permission = null }) {
   const { currentUser, token } = useAuth();
   const location = useLocation();
 
@@ -26,6 +34,10 @@ export function ProtectedRoute({ children, allowedRole = 'any' }) {
     if (allowedRole === 'admin' && resolvedUser.role !== 'admin') {
       return <Navigate to="/superadmin/dashboard" replace />;
     }
+  }
+
+  if (permission && !can(resolvedUser, permission)) {
+    return <Navigate to={`${routeBaseFor(resolvedUser)}/dashboard`} replace />;
   }
 
   return <>{children}</>;

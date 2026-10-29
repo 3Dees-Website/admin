@@ -1,3 +1,5 @@
+import { can, PERM } from './permissions';
+
 /**
  * Client-side mirror of the backend's edit-locking ladder
  * (backend/src/utils/applicationLock.js). This is for UI state (banner
@@ -6,33 +8,34 @@
  */
 export function getLockInfo(app, currentUser, delivery) {
   const { status, egiDecision } = app;
-  const isSuperadmin = currentUser?.role === 'superadmin';
+  const canEditDeclined = can(currentUser, PERM.EDIT_DECLINED_APPLICATIONS);
+  const canResend = can(currentUser, PERM.RESEND_EGI);
 
   if (status === 'Pending' || status === 'Shortlisted') {
     return { locked: false };
   }
 
   if (status === 'Approved' && egiDecision === 'Pending') {
-    return { locked: true, ...pendingEgiBanner(app.egiSyncStatus, delivery, isSuperadmin) };
+    return { locked: true, ...pendingEgiBanner(app.egiSyncStatus, delivery, canResend) };
   }
 
   if (egiDecision === 'Declined') {
-    if (isSuperadmin) {
+    if (canEditDeclined) {
       return {
         locked: false,
         tone: 'warning',
-        canResend: true,
-        banner: 'Declined by EGI — superadmin can edit and resend',
+        canResend,
+        banner: canResend ? 'Declined by EGI — you can edit and resend' : 'Declined by EGI — you can edit',
       };
     }
-    return { locked: true, tone: 'warning', banner: 'Declined by EGI — only a superadmin may edit' };
+    return { locked: true, tone: 'warning', banner: 'Declined by EGI — editing needs special permission' };
   }
 
   if (status === 'Rejected') {
-    if (isSuperadmin) {
-      return { locked: false, tone: 'warning', banner: 'Rejected — superadmin override active' };
+    if (canEditDeclined) {
+      return { locked: false, tone: 'warning', banner: 'Rejected — override active' };
     }
-    return { locked: true, tone: 'warning', banner: 'Rejected — only a superadmin may edit' };
+    return { locked: true, tone: 'warning', banner: 'Rejected — editing needs special permission' };
   }
 
   if (egiDecision === 'Accepted') {
@@ -47,7 +50,7 @@ export function getLockInfo(app, currentUser, delivery) {
  * sync status (always present) says whether it has; the delivery state from
  * egi_delivery (only once loaded) tells retrying apart from given up.
  */
-function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
+function pendingEgiBanner(egiSyncStatus, delivery, canResend) {
   if (egiSyncStatus === 'Synced') {
     return { tone: 'info', banner: 'Locked — under EGI review' };
   }
@@ -58,7 +61,7 @@ function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
     if (delivery?.deliveryState === 'exhausted') {
       return {
         tone: 'danger',
-        banner: `Locked — delivery to EGI failed; 3DEES has not had a confirmation from EGI${isSuperadmin ? ' · you can redeliver it below' : ''}`,
+        banner: `Locked — delivery to EGI failed; 3DEES has not had a confirmation from EGI${canResend ? ' · you can redeliver it below' : ''}`,
       };
     }
     return { tone: 'warning', banner: 'Locked — delivery to EGI is failing and being retried; no confirmation from EGI yet' };
@@ -71,7 +74,7 @@ function pendingEgiBanner(egiSyncStatus, delivery, isSuperadmin) {
 const LOCK_ERROR_COPY = {
   LockedPendingEgi: 'This application is approved and awaiting an EGI decision — content is locked until a decision is recorded.',
   LockedAccepted: 'This application has been accepted by EGI and can no longer be edited.',
-  EditForbidden: 'Only a superadmin may edit a declined or rejected application.',
+  EditForbidden: 'Editing a declined or rejected application needs special permission.',
 };
 
 export function mapLockError(err) {

@@ -32,8 +32,16 @@ const fakeNotes = new Map();
 // overlay them, so the scoring grid and job form see what was faked.
 const fakeScores = new Map(); // applicationId -> { jobId, scores, status, total, max, percentage }
 const fakeJobConfigs = new Map(); // jobId -> screeningConfig
-// Approval permissions "saved" through the faked PATCH /users/:id/permissions.
-const fakeCanApprove = new Map(); // userId -> boolean
+// Permissions "saved" through the faked PATCH /users/:id/permissions: the whole
+// key list as it would stand after the change, laid over the real user.
+const fakePermissions = new Map(); // userId -> string[]
+
+// A user with any faked change, as the server would now return them.
+function overlayUserPermissions(u) {
+  if (!u || !fakePermissions.has(u.id)) return u;
+  const permissions = fakePermissions.get(u.id);
+  return { ...u, permissions, can_approve: permissions.includes('approve_candidates') };
+}
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const jobIsLocked = (jobId) => [...fakeScores.values()].some((s) => s.jobId === jobId && Object.keys(s.scores).length > 0);
@@ -90,8 +98,16 @@ const READ_OVERLAYS = [
       const real = await read(path);
       return {
         ...real,
-        data: (real.data || []).map((u) => (fakeCanApprove.has(u.id) ? { ...u, can_approve: fakeCanApprove.get(u.id) } : u)),
+        data: (real.data || []).map(overlayUserPermissions),
       };
+    },
+  },
+  {
+    // So a faked grant shows up in the signed-in user's own session flags.
+    path: /^\/api\/auth\/me$/,
+    run: async ({ path, read }) => {
+      const real = await read(path);
+      return { ...real, data: { ...real.data, user: overlayUserPermissions(real.data?.user) } };
     },
   },
   {
@@ -220,13 +236,26 @@ const HANDLERS = [
       const user = ((await read('/api/admin/users')).data || []).find((u) => u.id === match[1]);
       if (!user) throw { error: 'NotFound', message: 'User not found.' };
       if (user.role !== 'admin') {
-        throw { error: 'BadRequest', message: 'Superadmins can always approve; the permission only applies to admins.' };
+        throw { error: 'BadRequest', message: 'Superadmins hold every permission; permissions only apply to admins.' };
       }
-      if (typeof body.canApprove !== 'boolean') {
-        throw { error: 'ValidationError', message: 'canApprove must be true or false.' };
+      const isKeyList = (v) => Array.isArray(v) && v.every((k) => typeof k === 'string');
+      const grant = body.grant ?? [];
+      const revoke = body.revoke ?? [];
+      if (!isKeyList(grant) || !isKeyList(revoke)) {
+        throw { error: 'ValidationError', message: 'grant and revoke must be lists of permission keys.' };
       }
-      fakeCanApprove.set(user.id, body.canApprove);
-      return ok({ ...user, can_approve: body.canApprove }, 'Permission change');
+      // Unknown keys are refused when the registry can be read (it can't until
+      // the backend that serves it is deployed).
+      const registry = await read('/api/admin/users/permissions/registry').catch(() => null);
+      const known = Array.isArray(registry?.data) ? registry.data.map((p) => p.key) : null;
+      const unknown = known ? [...grant, ...revoke].filter((k) => !known.includes(k)) : [];
+      if (unknown.length) {
+        throw { error: 'ValidationError', message: `Unknown permission: ${unknown.join(', ')}.` };
+      }
+      const current = overlayUserPermissions(user).permissions ?? [];
+      const next = [...new Set([...current, ...grant])].filter((k) => !revoke.includes(k));
+      fakePermissions.set(user.id, next);
+      return ok(overlayUserPermissions(user), 'Permission change');
     },
   },
   {

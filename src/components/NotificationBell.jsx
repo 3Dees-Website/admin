@@ -4,6 +4,8 @@ import {
   Bell, FileUser, Check, RefreshCw, AlertTriangle, UserPlus, UserX,
 } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
+import { usePermission } from '../hooks/usePermission';
+import { PERM } from '../utils/permissions';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
 import './styles/NotificationBell.css';
 
@@ -24,6 +26,7 @@ export function NotificationBell({ role }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
+  const canViewApproved = usePermission(PERM.VIEW_APPROVED_CANDIDATES);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -62,10 +65,10 @@ export function NotificationBell({ role }) {
 
     if (notif.application_id) {
       navigate(`/${role}/applications?openApp=${notif.application_id}`);
-    } else if (role === 'superadmin' && notif.type === 'status_change') {
+    } else if (notif.type === 'status_change' && canViewApproved) {
       // A bulk approval covers several applications, so it carries no single
       // application id — the batch is on the Approved Candidates page.
-      navigate('/superadmin/approved');
+      navigate(`/${role}/approved`);
     } else if (role === 'superadmin') {
       navigate('/superadmin/admins');
     } else {

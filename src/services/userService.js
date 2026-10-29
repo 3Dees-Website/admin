@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { normalizePermissions } from '../utils/sessionUser';
 
 function normalizeUser(user) {
   return {
@@ -7,8 +8,7 @@ function normalizeUser(user) {
     email: user.email,
     role: user.role,
     status: user.status,
-    // Separate from role. Superadmins can always approve whatever this says.
-    canApprove: user.can_approve === true,
+    ...normalizePermissions(user),
     createdAt: user.created_at,
     lastLogin: user.last_login,
   };
@@ -32,12 +32,20 @@ export const userService = {
     return normalizeUser(res.data);
   },
 
-  // Admins only: the server refuses a superadmin, who can always approve.
-  // The "nothing changed" reply carries only part of the row (no dates), so
-  // callers take canApprove from it rather than replacing the whole user.
-  async setCanApprove(id, canApprove) {
-    const res = await apiClient.patch(`/api/admin/users/${id}/permissions`, { canApprove });
+  // Admins only: the server refuses a superadmin. Sends a diff, never the full
+  // list. The reply is the full updated user; the "nothing changed" reply
+  // carries only part of the row (no dates), so callers take `permissions`
+  // from it rather than replacing the whole user.
+  async changePermissions(id, { grant = [], revoke = [] }) {
+    const res = await apiClient.patch(`/api/admin/users/${id}/permissions`, { grant, revoke });
     return normalizeUser(res.data);
+  },
+
+  // Superadmin only. [{ key, label, description }] — the keys that can be granted.
+  async getPermissionRegistry() {
+    const res = await apiClient.get('/api/admin/users/permissions/registry');
+    const list = Array.isArray(res.data) ? res.data : (res.data?.permissions ?? []);
+    return list.map((p) => ({ key: p.key, label: p.label || p.key, description: p.description || '' }));
   },
 
   async resetPassword(id, newPassword) {

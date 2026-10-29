@@ -14,6 +14,7 @@ import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
+import { routeBaseFor } from '../utils/routeBase';
 import './styles/ScreenedList.css';
 
 // The endpoint's sort keys, and the order each starts in (its own defaults).
@@ -65,8 +66,7 @@ export function ScreenedList() {
   const [sort, setSort] = useState('score');
   const [order, setOrder] = useState(SORTS.score.defaultOrder);
 
-  const isSuperadmin = currentUser?.role === 'superadmin';
-  const base = isSuperadmin ? '/superadmin' : '/admin';
+  const base = routeBaseFor(currentUser);
   const stateOptions = catalog?.fields.find((f) => f.key === 'stateOfOrigin')?.options || [];
 
   const {

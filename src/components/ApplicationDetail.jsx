@@ -11,6 +11,7 @@ import { InvitePanel } from './InvitePanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
 import { getLockInfo } from '../utils/applicationLock';
+import { can, PERM } from '../utils/permissions';
 import { VERIFICATION_DOC_TYPES } from '../utils/verificationDocTypes';
 import './styles/ApplicationDetail.css';
 
@@ -150,10 +151,10 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [egiFallback, app.id]);
 
-  // A superadmin is offered Delete at any stage and the server refuses what
-  // cannot go (live at EGI, delivery in flight, inside the wait after an EGI
-  // decline).
-  const canDelete = currentUser?.role === 'superadmin';
+  // Whoever holds hard_delete_application is offered Delete at any stage and
+  // the server refuses what cannot go (live at EGI, delivery in flight, inside
+  // the wait after an EGI decline).
+  const canDelete = can(currentUser, PERM.HARD_DELETE_APPLICATION);
   // Not-deletable and delivery-in-flight keep the button shown but disabled,
   // with the reason. NotDeletableYet is handled by the dialog's countdown.
   const deleteBlocked = deleteRefusal && ['NotDeletable', 'DeliveryInFlight'].includes(deleteRefusal.error);

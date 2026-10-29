@@ -324,7 +324,7 @@ export function SuperadminApprovedCandidates() {
             {/* Drawer Header */}
             <div className="sac-drawer-header">
               <div>
-                <span className="sac-drawer-label">SUPERADMIN SECURE OVERRIDE</span>
+                <span className="sac-drawer-label">APPROVED CANDIDATE FILE</span>
                 <h2 className="sac-drawer-name">{activeApp.applicantName}</h2>
               </div>
               <button onClick={closeDrawer} className="sac-drawer-close">
@@ -341,7 +341,7 @@ export function SuperadminApprovedCandidates() {
                 <div>
                   <strong className="sac-warning-title">Warning: Compliance Override Mode Active</strong>
                   <div className="sac-warning-text">
-                    Status adjustments executed by Superadmins bypass the general screening buffer. All edits will log directly to the central compliance audit register.
+                    Status adjustments made here bypass the general screening buffer. All edits will log directly to the central compliance audit register.
                   </div>
                 </div>
               </div>

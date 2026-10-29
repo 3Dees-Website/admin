@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom
 import { PortalProvider } from './context/PortalContext';
 import { ToastContainer } from './components/Toast';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { PERM } from './utils/permissions';
 import { AdminLayout } from './components/AdminLayout';
 import { OTPVerification } from './pages/OTPVerification';
 import './App.css';
@@ -79,6 +80,15 @@ export default function App() {
             <Route path="applications" element={<AdminApplications />} />
             <Route path="scoring"      element={<AdminScoring />} />
             <Route path="screened"     element={<AdminScreened />} />
+            {/* Open to an admin who has been granted the permission. */}
+            <Route
+              path="approved"
+              element={<ProtectedRoute permission={PERM.VIEW_APPROVED_CANDIDATES}><SuperadminApprovedCandidates /></ProtectedRoute>}
+            />
+            <Route
+              path="egi-sync"
+              element={<ProtectedRoute permission={PERM.EGI_SYNC_ACCESS}><SuperadminEgiSync /></ProtectedRoute>}
+            />
             <Route path="profile"      element={<Profile />} />
           </Route>
 

@@ -7,6 +7,8 @@ import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { useToast } from '../hooks/useToast';
 import { applicationService } from '../services/applicationService';
 import { describeLoadError } from '../utils/describeLoadError';
+import { can, PERM } from '../utils/permissions';
+import { routeBaseFor } from '../utils/routeBase';
 import { StatusBadge } from './StatusBadge';
 import { EgiDecisionBadge } from './EgiBadges';
 import { TableLoadingRows } from './TableLoadingRows';
@@ -20,8 +22,8 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const scoreText = (row, key) => (row.screeningScores[key] === undefined ? '' : String(row.screeningScores[key]));
 
 const CORRECTION_NEEDS_PERMISSION = 'Correcting a score after screening takes approval permission.';
-const DECLINED_NEEDS_SUPERADMIN = 'Only a superadmin can correct the scores of an application EGI declined.';
-const lockReason = (row) => (row.status === 'Approved' ? DECLINED_NEEDS_SUPERADMIN : CORRECTION_NEEDS_PERMISSION);
+const DECLINED_NEEDS_PERMISSION = 'Correcting the scores of an application EGI declined takes special permission.';
+const lockReason = (row) => (row.status === 'Approved' ? DECLINED_NEEDS_PERMISSION : CORRECTION_NEEDS_PERMISSION);
 
 /**
  * How a row's scores may be edited, from its status and who is asking.
@@ -29,14 +31,14 @@ const lockReason = (row) => (row.status === 'Approved' ? DECLINED_NEEDS_SUPERADM
  *             entered, changed and cleared, and the candidate can be moved on.
  *   correct - Screened or Saved: a correction. Needs approval permission, and
  *             must stay complete (a score can't be cleared). An Approved
- *             application EGI declined is also a correction, but only a
- *             superadmin may make it.
+ *             application EGI declined is also a correction, but needs
+ *             edit_declined_applications.
  *   locked  - a correction without that permission.
  */
-function rowMode(row, canCorrect, isSuperadmin) {
+function rowMode(row, canCorrect, canCorrectDeclined) {
   if (row.status === 'Shortlisted' || row.status === 'Pending') return 'first';
   if (row.status === 'Screened' || row.status === 'Archived') return canCorrect ? 'correct' : 'locked';
-  if (row.status === 'Approved') return isSuperadmin ? 'correct' : 'locked';
+  if (row.status === 'Approved') return canCorrectDeclined ? 'correct' : 'locked';
   return 'locked';
 }
 
@@ -95,9 +97,10 @@ export function ScoringWorkspace() {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const isSuperadmin = currentUser?.role === 'superadmin';
-  const canCorrect = isSuperadmin || currentUser?.canApprove === true;
-  const base = isSuperadmin ? '/superadmin' : '/admin';
+  const canCorrect = can(currentUser, PERM.APPROVE_CANDIDATES);
+  const canCorrectDeclined = can(currentUser, PERM.EDIT_DECLINED_APPLICATIONS);
+  const canConfigureScreening = can(currentUser, PERM.MANAGE_SCREENING_CONFIG);
+  const base = routeBaseFor(currentUser);
 
   const jobId = searchParams.get('job') || '';
   const job = jobs.find((j) => j.id === jobId) || null;
@@ -118,15 +121,15 @@ export function ScoringWorkspace() {
       ...(skip ? [{ status: 'Pending' }] : []),
       { status: 'Screened' },
       { status: 'Archived' },
-      // EGI-declined approvals can be corrected, by a superadmin only.
-      ...(isSuperadmin ? [{ status: 'Approved', egiDecision: 'Declined' }] : []),
+      // EGI-declined approvals can be corrected with edit_declined_applications.
+      ...(canCorrectDeclined ? [{ status: 'Approved', egiDecision: 'Declined' }] : []),
     ];
     applicationService.getScoringCandidates({ jobId, queries, softCap: SOFT_CAP }).then(
       (res) => { if (!cancelled) setLoaded({ key: loadKey, rows: res.items, total: res.total, tooMany: res.tooMany, error: null }); },
       (error) => { if (!cancelled) setLoaded({ key: loadKey, rows: [], total: 0, tooMany: false, error }); },
     );
     return () => { cancelled = true; };
-  }, [loadKey, jobId, skip, isSuperadmin]);
+  }, [loadKey, jobId, skip, canCorrectDeclined]);
 
   const isLoading = Boolean(loadKey) && loaded.key !== loadKey;
   const loadError = !isLoading && loaded.error ? describeLoadError(loaded.error, 'the candidates') : null;
@@ -144,11 +147,11 @@ export function ScoringWorkspace() {
   const views = useMemo(() => {
     const map = {};
     viewRows.forEach((row) => {
-      const mode = rowMode(row, canCorrect, isSuperadmin);
+      const mode = rowMode(row, canCorrect, canCorrectDeclined);
       map[row.id] = { mode, ...viewRow(row, fields, edits[row.id], mode) };
     });
     return map;
-  }, [viewRows, fields, edits, canCorrect, isSuperadmin]);
+  }, [viewRows, fields, edits, canCorrect, canCorrectDeclined]);
 
   const dirtyRows = viewRows.filter((r) => views[r.id].mode !== 'locked' && views[r.id].dirty);
   const readyRows = viewRows.filter((r) => views[r.id].mode === 'first' && views[r.id].complete);
@@ -317,9 +320,9 @@ export function ScoringWorkspace() {
     body = (
       <p className="scw-message">
         Screening isn&apos;t set up for <strong>{job.title}</strong>, so its candidates can&apos;t be scored yet.{' '}
-        {isSuperadmin
-          ? <Link to="/superadmin/jobs" className="scw-link">Set it up under Manage Jobs.</Link>
-          : 'Ask a superadmin to set up its screening fields.'}
+        {canConfigureScreening
+          ? <Link to={`${base}/jobs`} className="scw-link">Set it up under Manage Jobs.</Link>
+          : 'Ask someone with screening-setup access to set up its screening fields.'}
       </p>
     );
   } else if (loaded.tooMany && !isLoading) {
@@ -455,7 +458,7 @@ export function ScoringWorkspace() {
         <p className="scw-footnote">
           Scores are saved with <strong>Save changes</strong>; nothing is sent as you type. A candidate only moves to
           Screened when you choose <strong>Move to Screened</strong>. Once screened, a score can be corrected (not
-          cleared) by someone with approval permission; a superadmin can also correct one that EGI declined.
+          cleared) by someone with approval permission; someone with edit access to declined applications can also correct one that EGI declined.
           {!skip && ' Candidates who haven’t been shortlisted with an invitation can’t be scored.'}
         </p>
       </>

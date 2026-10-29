@@ -1,6 +1,7 @@
 // Auth service calls are made with raw fetch (not apiClient) so they are
 // never accidentally caught by the token-refresh interceptor loop.
 import { BASE_URL } from './apiClient';
+import { normalizePermissions } from '../utils/sessionUser';
 
 async function post(path, body) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -35,7 +36,7 @@ export const authService = {
     const user = data?.user && typeof data.user === 'object'
       ? {
         ...data.user,
-        canApprove: data.user.can_approve === true,
+        ...normalizePermissions(data.user),
         pipelineV2: (data.pipelineV2 ?? data.user.pipelineV2) === true,
       }
       : data?.user;

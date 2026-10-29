@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { RequirementsBuilder } from './RequirementsBuilder';
 import { ScreeningConfigEditor } from './ScreeningConfigEditor';
 import { jobService } from '../services/jobService';
+import { can, PERM } from '../utils/permissions';
 import { draftFromConfig, validateDraft, payloadFromDraft } from '../utils/screeningConfig';
 import { X, Check, Plus, Trash2 } from 'lucide-react';
 import './styles/JobFormModal.css';
@@ -60,9 +61,11 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
     editingJob ? { ...(editingJob.applicationRequirements || {}) } : {}
   );
 
-  // Screening setup is the superadmin's alone: a plain admin never sees it, and
-  // jobService.updateJob keeps the stored configuration out of their saves.
-  const isSuperadmin = currentUser?.role === 'superadmin';
+  // Screening setup needs the manage_screening_config permission: without it a
+  // plain admin never sees it, and jobService.updateJob keeps the stored
+  // configuration out of their saves.
+  const canConfigureScreening = can(currentUser, PERM.MANAGE_SCREENING_CONFIG);
+  const canDeleteCategory = can(currentUser, PERM.DELETE_CATEGORY);
   const [screeningDraft, setScreeningDraft] = useState(() => draftFromConfig(editingJob?.screeningConfig));
   const screeningTouchedRef = useRef(false);
   // Whether candidates already have scores comes from the server's read of the
@@ -71,7 +74,7 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
   const [lockRead, setLockRead] = useState({ id: null, locked: undefined, failed: false });
 
   useEffect(() => {
-    if (!isSuperadmin || !editingJob) return undefined;
+    if (!canConfigureScreening || !editingJob) return undefined;
     let cancelled = false;
     jobService.getAdminJob(editingJob.id).then(
       (job) => {
@@ -84,11 +87,11 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
     );
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperadmin, editingJob?.id]);
+  }, [canConfigureScreening, editingJob?.id]);
 
   const lockKnown = !editingJob || lockRead.id === editingJob.id;
   const screeningLocked = Boolean(editingJob) && lockKnown && lockRead.locked === true;
-  const checkingLock = isSuperadmin && Boolean(editingJob) && !lockKnown;
+  const checkingLock = canConfigureScreening && Boolean(editingJob) && !lockKnown;
 
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -130,10 +133,10 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
       return;
     }
 
-    // Sent only by a superadmin, only when set up, and never for a locked job
+    // Sent only with the screening permission, only when set up, and never for a locked job
     // (the server would refuse any change to it).
     let screeningConfig;
-    if (isSuperadmin && screeningDraft && !screeningLocked) {
+    if (canConfigureScreening && screeningDraft && !screeningLocked) {
       const problem = validateDraft(screeningDraft);
       if (problem) {
         addToast('error', 'Screening Setup Incomplete', problem);
@@ -210,7 +213,7 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
                   title="Add new category">
                   <Plus className="jfm-cat-icon" />
                 </button>
-                {currentUser?.role === 'superadmin' && (
+                {canDeleteCategory && (
                   <button type="button"
                     onClick={() => { setManagingCategories((v) => !v); setConfirmDeleteCatId(null); }}
                     className="jfm-cat-icon-btn"
@@ -238,7 +241,7 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
               )}
               {categoryError && <span className="jfm-field-error">{categoryError}</span>}
 
-              {managingCategories && currentUser?.role === 'superadmin' && (
+              {managingCategories && canDeleteCategory && (
                 <div className="jfm-cat-manage-list">
                   {categories.map((c) => (
                     <div key={c.id} className="jfm-cat-manage-row">
@@ -347,8 +350,8 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
             <RequirementsBuilder value={requirementsBuilder} onChange={setRequirementsBuilder} />
           </div>
 
-          {/* Screening setup — superadmin only */}
-          {isSuperadmin && (
+          {/* Screening setup — needs manage_screening_config */}
+          {canConfigureScreening && (
             <div className="jfm-req-builder">
               <h3 className="jfm-req-builder-title">Candidate Screening Setup</h3>
               <p className="jfm-req-builder-desc">

@@ -1,11 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import {
-  LayoutDashboard, Briefcase, FileUser, Users,
-  History, LogOut, Menu, X, ShieldAlert,
-  Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck, ListChecks
-} from 'lucide-react';
+import { LogOut, Menu, X, ShieldAlert, RefreshCw } from 'lucide-react';
+import { buildMenu } from '../config/navigation';
 import { LogoSVG } from './Navbar';
 import { NotificationBell } from './NotificationBell';
 import { PageErrorBoundary } from './PageErrorBoundary';
@@ -76,32 +73,7 @@ export function AdminLayout({ children, role }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const adminMenu = [
-    { name: 'Console Home',   path: '/admin/dashboard',     icon: <LayoutDashboard size={16} /> },
-    { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
-    { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
-    { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} /> },
-    { name: 'Screened',       path: '/admin/screened',      icon: <ListChecks size={16} /> },
-    { name: 'Profile',        path: '/admin/profile',       icon: <UserCircle size={16} /> },
-  ];
-
-  const superAdminMenu = [
-    { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
-    { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
-    { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} /> },
-    { name: 'Screened',           path: '/superadmin/screened',      icon: <ListChecks size={16} /> },
-    { name: 'Approved Candidates', path: '/superadmin/approved',    icon: <UserCheck size={16} /> },
-    { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
-    { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
-    { name: 'Compliance Audits',  path: '/superadmin/audit',         icon: <History size={16} /> },
-    { name: 'Account Activity', path: '/superadmin/account-activity', icon: <UserCog size={16} /> },
-    { name: 'EGI Sync',         path: '/superadmin/egi-sync',      icon: <RefreshCw size={16} /> },
-    { name: 'Profile',          path: '/superadmin/profile',       icon: <UserCircle size={16} /> },
-  ];
-
-  const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
+  const menu = buildMenu(role, currentUser);
 
   return (
     <div className="admin-layout" id="admin-workspace-layout">
@@ -166,7 +138,7 @@ export function AdminLayout({ children, role }) {
                 id={`sidebar-link-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                 onClick={guardedLink(item.path)}
               >
-                {item.icon}
+                <item.Icon size={16} />
                 {!sidebarCollapsed && <span>{item.name}</span>}
               </Link>
             );
@@ -277,7 +249,7 @@ export function AdminLayout({ children, role }) {
               className={`mobile-tab-link${isActive ? ' mobile-tab-link--active' : ''}`}
               onClick={guardedLink(item.path)}
             >
-              {React.cloneElement(item.icon, { size: 18 })}
+              <item.Icon size={18} />
               <span className="mobile-tab-label">{item.name.split(' ').pop()}</span>
             </Link>
           );

@@ -3,20 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
-import { Plus, ToggleLeft, ToggleRight, Trash2, Key, X, Check, ShieldAlert, History } from 'lucide-react';
+import { userService } from '../services/userService';
+import { samePermissions } from '../utils/permissions';
+import { Plus, ToggleLeft, ToggleRight, Trash2, Key, X, Check, ShieldAlert, History, ShieldCheck } from 'lucide-react';
 import './styles/SuperadminManageAdmins.css';
 
 export function SuperadminManageAdmins() {
   const {
     admins, adminsStatus, adminsError, reloadAdmins,
-    registerAdmin, toggleAdminSuspension, setAdminCanApprove, resetAdminPass, removeAdmin,
+    registerAdmin, toggleAdminSuspension, setAdminPermissions, resetAdminPass, removeAdmin,
   } = useAuth();
   const loadError = adminsStatus === 'error' ? describeLoadError(adminsError, 'the admin accounts') : null;
   const { addToast } = useToast();
@@ -42,10 +44,26 @@ export function SuperadminManageAdmins() {
   // one render can't both pass); the state drives the disabled button.
   const togglingRef = useRef(new Set());
   const [togglingIds, setTogglingIds] = useState(() => new Set());
-  // The same guard for the approval permission, kept apart so freezing an
-  // account and changing its permission don't block each other.
-  const permissionRef = useRef(new Set());
-  const [permissionIds, setPermissionIds] = useState(() => new Set());
+  // The permission editor: the admin being edited and the keys ticked so far.
+  // `saving` keeps the modal open (and the typed selection) until the server answers.
+  const [permTarget, setPermTarget] = useState(null);
+  const [permDraft, setPermDraft] = useState(() => new Set());
+  const [savingPerms, setSavingPerms] = useState(false);
+
+  // The grantable keys come from the server, never a list kept here.
+  const [registry, setRegistry] = useState({ status: 'loading', items: [], error: null });
+  const loadRegistry = useCallback(() => {
+    userService.getPermissionRegistry().then(
+      (items) => setRegistry({ status: 'ready', items, error: null }),
+      (error) => setRegistry({ status: 'error', items: [], error }),
+    );
+  }, []);
+  const retryRegistry = () => {
+    setRegistry({ status: 'loading', items: [], error: null });
+    loadRegistry();
+  };
+  useEffect(() => { loadRegistry(); }, [loadRegistry]);
+  const registryError = registry.status === 'error' ? describeLoadError(registry.error, 'the permission list') : null;
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -102,19 +120,27 @@ export function SuperadminManageAdmins() {
     });
   };
 
-  // The request carries the value the toggle is going TO, so a repeated
-  // request is harmless on the server; the guard keeps the audit log clean.
-  const handleToggleCanApprove = async (adm) => {
-    if (permissionRef.current.has(adm.id)) return;
-    permissionRef.current.add(adm.id);
-    setPermissionIds((prev) => new Set(prev).add(adm.id));
-    await setAdminCanApprove(adm.id, !adm.canApprove);
-    permissionRef.current.delete(adm.id);
-    setPermissionIds((prev) => {
+  const openPermissions = (adm) => {
+    setPermTarget(adm);
+    setPermDraft(new Set(adm.permissions));
+  };
+
+  const togglePermDraft = (key) => {
+    setPermDraft((prev) => {
       const next = new Set(prev);
-      next.delete(adm.id);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+  };
+
+  // Held keys the registry doesn't list are shown but not editable, and kept
+  // in the selection, so saving never silently revokes something not on screen.
+  const handleSavePermissions = async () => {
+    if (!permTarget || savingPerms) return;
+    setSavingPerms(true);
+    const success = await setAdminPermissions(permTarget.id, [...permDraft]);
+    setSavingPerms(false);
+    if (success) setPermTarget(null);
   };
 
   return (
@@ -147,7 +173,7 @@ export function SuperadminManageAdmins() {
                 <th className="sma-th">Created Timestamp</th>
                 <th className="sma-th">Last Activity Session</th>
                 <th className="sma-th sma-th-center">Freeze Frame Status</th>
-                <th className="sma-th sma-th-center">Can Approve</th>
+                <th className="sma-th sma-th-center">Permissions</th>
                 <th className="sma-th sma-th-right">Operations Layout</th>
               </tr>
             </thead>
@@ -184,23 +210,22 @@ export function SuperadminManageAdmins() {
                   </td>
                   <td className="sma-td sma-td-center">
                     {adm.role === 'superadmin' ? (
-                      <span className="sma-always">Always</span>
+                      <span className="sma-always">All</span>
                     ) : (
                       <button
                         type="button"
-                        role="switch"
-                        aria-checked={adm.canApprove}
-                        aria-label={`Allow ${adm.name} to approve candidates`}
-                        onClick={() => handleToggleCanApprove(adm)}
-                        disabled={permissionIds.has(adm.id)}
+                        onClick={() => openPermissions(adm)}
+                        disabled={registry.status === 'loading'}
                         className="sma-toggle-btn"
-                        title={adm.canApprove ? 'Remove approval permission' : 'Allow this admin to approve candidates'}
+                        aria-label={`Edit permissions for ${adm.name}`}
+                        title="Edit permissions"
                       >
-                        {adm.canApprove
-                          ? <ToggleRight className="sma-toggle-icon sma-toggle-active" />
-                          : <ToggleLeft className="sma-toggle-icon sma-toggle-inactive" />
-                        }
-                        <span>{permissionIds.has(adm.id) ? 'Saving…' : adm.canApprove ? 'Yes' : 'No'}</span>
+                        <ShieldCheck className="sma-toggle-icon" />
+                        <span>
+                          {registry.status === 'ready'
+                            ? `${adm.permissions.length} of ${registry.items.length}`
+                            : adm.permissions.length}
+                        </span>
                       </button>
                     )}
                   </td>
@@ -323,6 +348,77 @@ export function SuperadminManageAdmins() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {permTarget && (
+        <div className="sma-overlay">
+          <div className="sma-modal">
+            <div className="sma-modal-header">
+              <div>
+                <h3 className="sma-modal-title">Permissions</h3>
+                <p className="sma-modal-subtitle">Extra capabilities for <strong className="sma-highlight">{permTarget.name}</strong>.</p>
+              </div>
+              <button onClick={() => setPermTarget(null)} className="sma-modal-close" disabled={savingPerms}>
+                <X className="sma-close-icon" />
+              </button>
+            </div>
+
+            {registry.status === 'error' ? (
+              <div className="sma-perm-error" role="alert">
+                <span>{registryError.message}</span>
+                {registryError.canRetry && (
+                  <button type="button" className="sma-perm-retry" onClick={retryRegistry}>Retry</button>
+                )}
+              </div>
+            ) : (
+              <ul className="sma-perm-list">
+                {registry.items.map((perm) => (
+                  <li key={perm.key}>
+                    <label className="sma-perm-row">
+                      <input
+                        type="checkbox"
+                        checked={permDraft.has(perm.key)}
+                        onChange={() => togglePermDraft(perm.key)}
+                        disabled={savingPerms}
+                      />
+                      <span>
+                        <span className="sma-perm-label">{perm.label}</span>
+                        {perm.description && <span className="sma-perm-desc">{perm.description}</span>}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+                {permTarget.permissions
+                  .filter((key) => !registry.items.some((p) => p.key === key))
+                  .map((key) => (
+                    <li key={key} className="sma-perm-row sma-perm-unknown">
+                      <input type="checkbox" checked disabled readOnly />
+                      <span>
+                        <span className="sma-perm-label">{key}</span>
+                        <span className="sma-perm-desc">Not in the current permission list; kept as it is.</span>
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
+
+            <div className="sma-form-footer">
+              <button type="button" onClick={() => setPermTarget(null)} className="sma-cancel-btn" disabled={savingPerms}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePermissions}
+                className="sma-submit-btn"
+                disabled={savingPerms || registry.status !== 'ready' || samePermissions(permTarget.permissions, [...permDraft])}
+              >
+                <Check className="sma-btn-icon" />
+                <span>{savingPerms ? 'Saving…' : 'Save permissions'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

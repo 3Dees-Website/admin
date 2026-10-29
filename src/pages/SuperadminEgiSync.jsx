@@ -28,7 +28,7 @@ const FILTER_OPTIONS = [
   { value: 'synced',    label: 'Delivered',       params: { state: 'synced' } },
 ];
 
-const FORBIDDEN_MESSAGE = 'You no longer have superadmin access. Sign in again to continue.';
+const FORBIDDEN_MESSAGE = 'You no longer have access to the EGI sync queue. Sign in again to continue.';
 
 const isForbidden = (err) => err?.error === 'Forbidden';
 

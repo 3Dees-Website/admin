@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { normalizePermissions } from '../utils/sessionUser';
 
 export const profileService = {
   async getMe() {
@@ -6,15 +7,15 @@ export const profileService = {
     return res.data.user;
   },
 
-  // The two things on the signed-in user that can change while a session is
-  // open: whether they may approve (a superadmin can grant or remove it) and
+  // The things on the signed-in user that can change while a session is
+  // open: their permissions (a superadmin can grant or remove them) and
   // whether the backend's applicant pipeline is on. /me carries the flag
   // beside `user`; accept it inside `user` too.
   async getSessionFlags() {
     const res = await apiClient.get('/api/auth/me');
     const user = res.data.user;
     return {
-      canApprove: user?.can_approve === true,
+      ...normalizePermissions(user),
       pipelineV2: (res.data.pipelineV2 ?? user?.pipelineV2) === true,
     };
   },

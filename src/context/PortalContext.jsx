@@ -9,6 +9,7 @@ import { profileService } from '../services/profileService';
 import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 import { mapLockError } from '../utils/applicationLock';
 import { getStatusLabel } from '../utils/applicationStatus';
+import { diffPermissions, samePermissions } from '../utils/permissions';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
 const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
@@ -16,7 +17,7 @@ const HEARTBEAT_INTERVAL_MS = 5000;
 // ~70s: safely above Chrome/Firefox's background-tab timer throttling floor
 // (~60s), so a backgrounded-but-still-open tab isn't mistaken for a closed browser.
 const HEARTBEAT_STALE_THRESHOLD_MS = 70000;
-// How often a tab regaining focus re-reads the user's flags (canApprove, pipelineV2).
+// How often a tab regaining focus re-reads the user's flags (permissions, pipelineV2).
 const SESSION_FLAGS_MIN_INTERVAL_MS = 60000;
 
 const SESSION_END_COPY = {
@@ -266,7 +267,7 @@ export function PortalProvider({ children }) {
 
   // ── Session flags ─────────────────────────────────────────────────────────
   //
-  // canApprove and pipelineV2 can change while a session is open, and the
+  // permissions and pipelineV2 can change while a session is open, and the
   // stored user would otherwise keep the values from sign-in. The server is
   // always right (it re-reads the user on every request); this only keeps what
   // the UI shows in step. Silent on failure: the flags just stay as they were.
@@ -281,7 +282,7 @@ export function PortalProvider({ children }) {
       // Read after the await: a sign-out meanwhile must not be undone.
       const stored = readStoredUser();
       if (!stored) return;
-      if (stored.canApprove === flags.canApprove && stored.pipelineV2 === flags.pipelineV2) return;
+      if (samePermissions(stored.permissions, flags.permissions) && stored.pipelineV2 === flags.pipelineV2) return;
       localStorage.setItem(TOKEN_STORAGE_KEYS.user, JSON.stringify({ ...stored, ...flags }));
       dispatch({ type: 'UPDATE_CURRENT_USER', payload: flags });
     } catch {
@@ -797,15 +798,20 @@ export function PortalProvider({ children }) {
     }
   };
 
-  const setAdminCanApprove = async (adminId, canApprove) => {
+  // Sends only what differs from the admin's current permissions. `nextKeys`
+  // is the full set the superadmin wants them to hold.
+  const setAdminPermissions = async (adminId, nextKeys) => {
     const target = state.admins.find((a) => a.id === adminId);
+    if (!target) return false;
+    const { grant, revoke } = diffPermissions(target.permissions, nextKeys);
+    if (grant.length === 0 && revoke.length === 0) return true;
     try {
-      const updated = await userService.setCanApprove(adminId, canApprove);
-      dispatch({ type: 'UPDATE_ADMIN', payload: { ...target, canApprove: updated.canApprove } });
-      addToast('info', 'Permission Changed', `${target?.name || 'The admin'} ${updated.canApprove ? 'can now' : 'can no longer'} approve candidates.`);
+      const updated = await userService.changePermissions(adminId, { grant, revoke });
+      dispatch({ type: 'UPDATE_ADMIN', payload: { ...target, permissions: updated.permissions, canApprove: updated.canApprove } });
+      addToast('info', 'Permissions Updated', `${target.name}'s permissions were saved.`);
       return true;
     } catch (err) {
-      handleApiError(err, 'Permission Change Failed', 'Could not update the approval permission.');
+      handleApiError(err, 'Permission Change Failed', 'Could not update the permissions.');
       return false;
     }
   };
@@ -929,7 +935,7 @@ export function PortalProvider({ children }) {
         bulkReviewApplications,
         registerAdmin,
         toggleAdminSuspension,
-        setAdminCanApprove,
+        setAdminPermissions,
         resetAdminPass,
         removeAdmin,
         addCategory,
