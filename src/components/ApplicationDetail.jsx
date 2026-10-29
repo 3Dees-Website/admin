@@ -6,6 +6,8 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
+import { CandidateAvatar } from './CandidateAvatar';
+import { StatusBadge } from './StatusBadge';
 import { DuplicateFlagsPanel } from './DuplicateFlagsPanel';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { useApprovalCap } from '../hooks/useApprovalCap';
@@ -339,14 +341,37 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
     }
   };
 
+  // The passport photo the detail endpoint signs inline; absent when the job didn't ask for one.
+  const photo = app.documents?.passportPhotoUpload;
+
   return (
     <div className="ad-wrapper" ref={wrapperRef}>
-      <div className="ad-print-header">
-        <h1 className="ad-print-name">{app.applicantName}</h1>
-        <p className="ad-print-meta">
-          {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`, `Status: ${app.status}`].filter(Boolean).join(' · ')}
-        </p>
-        <p className="ad-print-date">Printed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</p>
+      <div className="ad-head">
+        <div className="ad-print-header">
+          <h1 className="ad-print-name">{app.applicantName}</h1>
+          <p className="ad-print-meta">
+            {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`, `Status: ${app.status}`].filter(Boolean).join(' · ')}
+          </p>
+          <p className="ad-print-date">Printed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</p>
+        </div>
+
+        {/* On screen: photo + name, job, reference and status. In print only the
+            photo shows, beside the print header above, which carries the text. */}
+        <div className="ad-identity">
+          <CandidateAvatar
+            className="ad-identity-avatar"
+            name={app.applicantName}
+            photoUrl={photo?.url}
+            onRefreshUrl={photo?.key ? () => applicationService.getDocumentUrl(app.id, photo.key) : undefined}
+          />
+          <div className="ad-identity-text">
+            <h2 className="ad-identity-name">{app.applicantName}</h2>
+            <p className="ad-identity-sub">
+              {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`].filter(Boolean).join(' · ')}
+            </p>
+            <StatusBadge status={app.status} className="ad-identity-status" />
+          </div>
+        </div>
       </div>
 
       <div className="ad-view-meta">

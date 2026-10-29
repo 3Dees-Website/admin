@@ -1,0 +1,40 @@
+.cav {
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Used when the caller supplies no className of its own. */
+.cav--default {
+  width: 2.25rem;
+  height: 2.25rem;
+  background-color: rgba(255, 102, 0, 0.1);
+  color: var(--color-brand-primary);
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.cav-initials {
+  position: relative;
+  z-index: 0;
+}
+
+/* Hidden until it has loaded, so a slow or failing image never shows a broken-image icon. */
+.cav-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.cav-img--loaded {
+  opacity: 1;
+}

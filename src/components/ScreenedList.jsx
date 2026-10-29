@@ -12,6 +12,7 @@ import { StatusActions } from './StatusActions';
 import { EgiDecisionBadge } from './EgiBadges';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
 import { DuplicateFlagBadges } from './DuplicateFlagBadges';
+import { CandidateAvatar } from './CandidateAvatar';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
@@ -204,12 +205,17 @@ export function ScreenedList() {
               {!isLoading && items.map((item) => (
                 <tr key={item.id} className="scr-row">
                   <td className="scr-td">
-                    <span className="scr-name">{item.applicantName}</span>
-                    <span className="scr-meta">{item.applicantEmail}</span>
-                    <DuplicateFlagBadges flags={item.duplicateFlags} />
-                    <span className="scr-meta">
-                      {item.referenceId} · <Link className="scr-link" to={`${base}/applications?openApp=${item.id}`}>Open file</Link>
-                    </span>
+                    <div className="scr-candidate">
+                      <CandidateAvatar name={item.applicantName} photoUrl={item.photoUrl} />
+                      <div className="scr-candidate-text">
+                        <span className="scr-name">{item.applicantName}</span>
+                        <span className="scr-meta">{item.applicantEmail}</span>
+                        <DuplicateFlagBadges flags={item.duplicateFlags} />
+                        <span className="scr-meta">
+                          {item.referenceId} · <Link className="scr-link" to={`${base}/applications?openApp=${item.id}`}>Open file</Link>
+                        </span>
+                      </div>
+                    </div>
                   </td>
                   <td className="scr-td">
                     {item.jobTitle || 'Deleted Position'}

@@ -70,10 +70,42 @@
     margin-top: 12pt;
   }
 
-  .ad-print-header {
-    display: block;
+  /* Print header on the left, the photo (if one loaded) on the right. */
+  .ad-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12pt;
     border-bottom: 2pt solid #000;
     padding-bottom: 8pt;
+  }
+
+  .ad-print-header {
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* The name, job, reference and status are already in the print header. */
+  .ad-identity-text {
+    display: none;
+  }
+
+  .ad-identity {
+    flex: none;
+  }
+
+  .ad-identity .ad-identity-avatar {
+    width: 28mm;
+    height: 28mm;
+    border-radius: 2pt;
+    border: 1pt solid #888;
+    box-shadow: none;
+  }
+
+  /* No photo, or it didn't load: don't print placeholder initials. */
+  .ad-identity .cav:not([data-photo-status="loaded"]) {
+    display: none;
   }
 
   .ad-print-name {

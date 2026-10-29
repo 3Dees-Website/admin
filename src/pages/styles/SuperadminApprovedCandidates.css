@@ -430,23 +430,6 @@
   gap: 1rem;
 }
 
-.sac-ref-mono {
-  font-family: monospace;
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #6b7280;
-}
-
-.sac-current-status {
-  font-weight: 600;
-  color: var(--color-brand-primary);
-}
-
-.sac-detail-muted {
-  font-weight: 600;
-  color: #6b7280;
-}
-
 .sac-detail-dark {
   font-weight: 600;
   color: var(--color-brand-dark);

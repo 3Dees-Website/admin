@@ -17,8 +17,9 @@ import { ApplicationDetail } from '../components/ApplicationDetail';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
+import { CandidateAvatar } from '../components/CandidateAvatar';
 import {
-  statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions, getStatusLabel,
+  statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions,
 } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -288,10 +289,13 @@ export function SuperadminViewAllApplications() {
               {!isLoading && items.map((a) => (
                 <tr key={a.id} className="sva-row">
                   <td className="sva-td">
-                    <div className="sva-applicant-info">
-                      <span className="sva-applicant-name">{a.applicantName}</span>
-                      <span className="sva-applicant-meta">{a.applicantEmail}</span>
-                      <DuplicateFlagBadges flags={a.duplicateFlags} />
+                    <div className="sva-applicant-info sva-applicant-info--with-avatar">
+                      <CandidateAvatar name={a.applicantName} photoUrl={a.photoUrl} />
+                      <div className="sva-applicant-text">
+                        <span className="sva-applicant-name">{a.applicantName}</span>
+                        <span className="sva-applicant-meta">{a.applicantEmail}</span>
+                        <DuplicateFlagBadges flags={a.duplicateFlags} />
+                      </div>
                     </div>
                   </td>
                   <td className="sva-td sva-job-title">{getJobTitle(a.jobId)}</td>
@@ -367,11 +371,8 @@ export function SuperadminViewAllApplications() {
                 </div>
               </div>
 
-              {/* Details Grid */}
+              {/* Details Grid (the job, reference and status are in the identity block below) */}
               <div className="sva-details-grid">
-                <div><strong>Evaluation Stamp:</strong> <span className="sva-ref-mono">{activeApp.referenceId}</span></div>
-                <div><strong>Current evaluation state:</strong> <span className="sva-current-status">{getStatusLabel(activeApp.status)}</span></div>
-                <div><strong>Target Position:</strong> <span className="sva-detail-muted">{getJobTitle(activeApp.jobId)}</span></div>
                 <div><strong>Client Sponsoring:</strong> <span className="sva-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
 

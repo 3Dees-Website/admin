@@ -28,3 +28,28 @@ export function getExperienceParentKeys(fields) {
 export function getSubfieldsForParent(fields, parentKey) {
   return fields.filter((f) => f.conditionalOn === parentKey);
 }
+
+/**
+ * Returns a copy of a job's application requirements that satisfies the
+ * backend's InvalidRequirements check: every catalog mandatory key is
+ * "required", and a non-mandatory declaration field stored as "optional" is
+ * "required" (the backend allows only Off or Required for those). Everything
+ * else, including keys the catalog no longer lists, is left as it is. A
+ * missing or non-object input is treated as {}.
+ *
+ * Shared by the requirements builder and PortalContext.editJob, so a job
+ * saved without opening the form (e.g. a status toggle) is healed the same way.
+ */
+export function healRequirements(requirements, catalog) {
+  const next = requirements && typeof requirements === 'object' && !Array.isArray(requirements)
+    ? { ...requirements }
+    : {};
+  const mandatory = new Set(catalog?.mandatoryKeys || []);
+  mandatory.forEach((key) => { next[key] = 'required'; });
+  (catalog?.fields || []).forEach((f) => {
+    if (f.type === 'declaration' && !mandatory.has(f.key) && next[f.key] === 'optional') {
+      next[f.key] = 'required';
+    }
+  });
+  return next;
+}

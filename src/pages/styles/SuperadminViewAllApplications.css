@@ -235,6 +235,18 @@
   flex-direction: column;
 }
 
+.sva-applicant-info--with-avatar {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sva-applicant-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .sva-applicant-name {
   font-weight: 700;
   color: var(--color-brand-dark);
@@ -447,23 +459,6 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
-}
-
-.sva-ref-mono {
-  font-family: monospace;
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #6b7280;
-}
-
-.sva-current-status {
-  font-weight: 600;
-  color: var(--color-brand-primary);
-}
-
-.sva-detail-muted {
-  font-weight: 600;
-  color: #6b7280;
 }
 
 .sva-detail-dark {

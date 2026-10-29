@@ -188,6 +188,55 @@
   display: none;
 }
 
+.ad-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ad-identity-avatar {
+  width: 5.5rem;
+  height: 5.5rem;
+  background-color: rgba(255, 102, 0, 0.1);
+  color: var(--color-brand-primary);
+  font-size: 1.4rem;
+  font-weight: 800;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #e5e7eb;
+}
+
+.ad-identity-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ad-identity-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-brand-dark);
+  overflow-wrap: anywhere;
+}
+
+.ad-identity-sub {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.ad-identity-status {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
 .ad-view-meta {
   display: flex;
   flex-wrap: wrap;

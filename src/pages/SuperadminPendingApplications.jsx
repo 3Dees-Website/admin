@@ -20,6 +20,7 @@ import {
   Search, Inbox, Clock, UserCheck, UserX,
   ShieldAlert, Zap
 } from 'lucide-react';
+import { CandidateAvatar } from '../components/CandidateAvatar';
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
@@ -308,9 +309,7 @@ export function SuperadminPendingApplications() {
 
                     <td className="spa-td">
                       <div className="spa-candidate">
-                        <div className="spa-avatar">
-                          {(app.applicantName || '?').slice(0, 2).toUpperCase()}
-                        </div>
+                        <CandidateAvatar className="spa-avatar" name={app.applicantName} photoUrl={app.photoUrl} />
                         <div className="spa-candidate-info">
                           <span className="spa-candidate-name">{app.applicantName}</span>
                           <span className="spa-candidate-meta">{app.applicantEmail}</span>

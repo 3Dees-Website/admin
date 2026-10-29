@@ -14,6 +14,7 @@ import { ApplicationDetail } from '../components/ApplicationDetail';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
+import { CandidateAvatar } from '../components/CandidateAvatar';
 import { statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -376,10 +377,13 @@ export function AdminApplications() {
                       />
                     </td>
                     <td>
-                      <div className="candidate-cell">
-                        <span className="candidate-name">{a.applicantName}</span>
-                        <span className="candidate-meta">{a.applicantEmail}</span>
-                        <DuplicateFlagBadges flags={a.duplicateFlags} />
+                      <div className="candidate-cell candidate-cell--with-avatar">
+                        <CandidateAvatar name={a.applicantName} photoUrl={a.photoUrl} />
+                        <div className="candidate-cell-text">
+                          <span className="candidate-name">{a.applicantName}</span>
+                          <span className="candidate-meta">{a.applicantEmail}</span>
+                          <DuplicateFlagBadges flags={a.duplicateFlags} />
+                        </div>
                       </div>
                     </td>
                     <td className="role-cell">{getJobTitle(a.jobId)}</td>

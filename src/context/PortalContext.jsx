@@ -4,6 +4,7 @@ import { jobService } from '../services/jobService';
 import { applicationService } from '../services/applicationService';
 import { userService } from '../services/userService';
 import { categoryService } from '../services/categoryService';
+import { fieldCatalogService } from '../services/fieldCatalogService';
 import { notificationService } from '../services/notificationService';
 import { profileService } from '../services/profileService';
 import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
@@ -11,6 +12,7 @@ import { mapLockError } from '../utils/applicationLock';
 import { getStatusLabel } from '../utils/applicationStatus';
 import { diffPermissions, samePermissions } from '../utils/permissions';
 import { recordApprovalCapFromError, clearApprovalCaps } from '../utils/approvalCap';
+import { healRequirements } from '../utils/fieldCatalogHelpers';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
 const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
@@ -504,9 +506,25 @@ export function PortalProvider({ children }) {
 
   // `options.screeningConfig` is sent only by the superadmin's screening editor
   // (see jobService.updateJob); an ordinary save leaves the configuration alone.
+  //
+  // Every save sends the job's whole applicationRequirements and the server
+  // rejects the PUT if a mandatory key isn't "required". A job saved without
+  // the form (the status toggle) carries whatever it was stored with, so the
+  // requirements are healed here, the one place all job saves pass through. If
+  // the catalog can't be fetched they go as they are and the server decides.
   const editJob = async (updatedJobData, options) => {
     try {
-      const saved = await jobService.updateJob(updatedJobData.id, updatedJobData, {
+      let jobData = updatedJobData;
+      try {
+        const catalog = await fieldCatalogService.getFieldCatalog();
+        jobData = {
+          ...updatedJobData,
+          applicationRequirements: healRequirements(updatedJobData.applicationRequirements, catalog),
+        };
+      } catch {
+        // send as-is
+      }
+      const saved = await jobService.updateJob(jobData.id, jobData, {
         screeningConfig: options?.screeningConfig,
       });
       dispatch({ type: 'UPDATE_JOB', payload: saved });

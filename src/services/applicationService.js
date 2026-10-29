@@ -36,6 +36,10 @@ function normalizeApplication(app) {
     approvalCap,
     // Only the GET endpoints send this; undefined = the response didn't carry it.
     duplicateFlags: normalizeDuplicateFlags(app.duplicateFlags),
+    // 1-hour signed URL of the passport photo, or null; undefined = the response
+    // didn't carry it. The list endpoints send it; the detail one carries it on
+    // documents.passportPhotoUpload.url.
+    photoUrl: app.photoUrl,
     id: app.id,
     jobId: app.job_id,
     referenceId: app.reference_id,
@@ -131,6 +135,7 @@ function normalizeScreenedItem(item) {
   return {
     approvalCap,
     duplicateFlags: normalizeDuplicateFlags(item.duplicateFlags),
+    photoUrl: item.photoUrl,
     id: item.id,
     referenceId: item.reference_id,
     applicantName: item.applicant_name || '',

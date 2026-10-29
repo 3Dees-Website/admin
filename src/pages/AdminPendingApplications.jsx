@@ -17,6 +17,7 @@ import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
+import { CandidateAvatar } from '../components/CandidateAvatar';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
@@ -284,9 +285,7 @@ export function AdminPendingApplications() {
 
                   <td className="apa-td">
                     <div className="apa-candidate">
-                      <div className="apa-avatar">
-                        {(app.applicantName || '?').slice(0, 2).toUpperCase()}
-                      </div>
+                      <CandidateAvatar className="apa-avatar" name={app.applicantName} photoUrl={app.photoUrl} />
                       <div className="apa-candidate-info">
                         <span className="apa-candidate-name">{app.applicantName}</span>
                         <span className="apa-candidate-meta">{app.applicantEmail}</span>

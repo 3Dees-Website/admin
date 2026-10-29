@@ -16,7 +16,7 @@ import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
-import { egiDecisionFilterOptions, getStatusLabel } from '../utils/applicationStatus';
+import { egiDecisionFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -347,11 +347,8 @@ export function SuperadminApprovedCandidates() {
                 </div>
               </div>
 
-              {/* Details Grid */}
+              {/* Details Grid (the job, reference and status are in the identity block below) */}
               <div className="sac-details-grid">
-                <div><strong>Evaluation Stamp:</strong> <span className="sac-ref-mono">{activeApp.referenceId}</span></div>
-                <div><strong>Current evaluation state:</strong> <span className="sac-current-status">{getStatusLabel(activeApp.status)}</span></div>
-                <div><strong>Target Position:</strong> <span className="sac-detail-muted">{getJobTitle(activeApp.jobId)}</span></div>
                 <div><strong>Client Sponsoring:</strong> <span className="sac-detail-dark">{jobs.find((j) => j.id === activeApp.jobId)?.clientOrg || 'Unknown Client'}</span></div>
               </div>
 

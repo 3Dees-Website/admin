@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, Lock } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
-import { groupFieldsBySection, getExperienceParentKeys } from '../utils/fieldCatalogHelpers';
+import { groupFieldsBySection, getExperienceParentKeys, healRequirements } from '../utils/fieldCatalogHelpers';
 import './styles/RequirementsBuilder.css';
 
 const STATES = ['off', 'optional', 'required'];
@@ -60,10 +60,7 @@ export function RequirementsBuilder({ value, onChange }) {
   // without requiring user interaction.
   useEffect(() => {
     if (!catalog) return;
-    const next = withMandatory(value);
-    declarationKeys.forEach((key) => {
-      if (key in next && next[key] !== 'required') next[key] = 'required';
-    });
+    const next = healRequirements(value, catalog);
     const changed = Object.keys(next).some((key) => next[key] !== value[key]);
     if (changed) onChange(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
