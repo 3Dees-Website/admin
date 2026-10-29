@@ -51,7 +51,8 @@ function SortHeader({ sortKey, sort, order, onSort, className = '' }) {
   );
 }
 
-function ScreenedTable() {
+/** The Screened list. */
+export function ScreenedList() {
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { reviewApplication } = useApplications();
@@ -117,7 +118,6 @@ function ScreenedTable() {
     return (
       <StatusActions
         app={app}
-        pipelineV2
         only={['Archived', 'Approved']}
         emptyText="—"
         buttonClass={ROW_BUTTONS}
@@ -253,17 +253,4 @@ function ScreenedTable() {
       </div>
     </div>
   );
-}
-
-/** The Screened list. Its endpoint only exists once the applicant pipeline is on. */
-export function ScreenedList() {
-  const { currentUser } = useAuth();
-  if (currentUser?.pipelineV2 !== true) {
-    return (
-      <div className="scr-wrapper">
-        <p className="scr-message">The Screened list isn&apos;t available yet: the applicant pipeline hasn&apos;t been switched on.</p>
-      </div>
-    );
-  }
-  return <ScreenedTable />;
 }

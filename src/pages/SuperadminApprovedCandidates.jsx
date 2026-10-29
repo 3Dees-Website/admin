@@ -11,7 +11,6 @@ import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useToast } from '../hooks/useToast';
-import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
@@ -40,7 +39,6 @@ export function SuperadminApprovedCandidates() {
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeApp, setActiveApp] = useState(null);
-  const notesDraft = useNotesDraft(activeApp);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -103,8 +101,7 @@ export function SuperadminApprovedCandidates() {
       try {
         const app = await applicationService.getApplication(openAppId);
         if (!cancelled) {
-          // An open drawer with unsaved notes asks before it is replaced.
-          notesDraft.requestClose(() => setActiveApp(app));
+          setActiveApp(app);
         }
       } catch {
         if (!cancelled) {
@@ -136,7 +133,7 @@ export function SuperadminApprovedCandidates() {
     setActiveApp(app);
   }
 
-  const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
+  const closeDrawer = () => setActiveApp(null);
 
   // `input` is whatever the move needed ({ egiNote } today). The server's reply
   // carries a fresh allowedTransitions, so the drawer's buttons stay right.
@@ -211,7 +208,7 @@ export function SuperadminApprovedCandidates() {
             className="sac-select"
           >
             <option value="All">All EGI Decisions</option>
-            {egiDecisionFilterOptions({ pipelineV2: currentUser?.pipelineV2 === true }).map((o) => (
+            {egiDecisionFilterOptions().map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -360,7 +357,6 @@ export function SuperadminApprovedCandidates() {
               <ApplicationDetail
                 app={activeApp}
                 currentUser={currentUser}
-                notesDraft={notesDraft}
                 onAppUpdated={setActiveApp}
                 onDeleted={() => {
                   setActiveApp(null);
@@ -378,7 +374,6 @@ export function SuperadminApprovedCandidates() {
               <div className="sac-action-btns">
                 <StatusActions
                   app={activeApp}
-                  pipelineV2={currentUser?.pipelineV2 === true}
                   buttonClass={{ reject: 'sac-btn-reject', shortlist: 'sac-btn-shortlist', approve: 'sac-btn-approve' }}
                   labels={{ reject: 'Reject & Block', shortlist: 'Force Shortlist', approve: 'Approve & Portal Sync' }}
                   onTransition={handleUpdateApplicantStatus}

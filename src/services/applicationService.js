@@ -176,7 +176,7 @@ export const applicationService = {
   /**
    * The Screened (and Saved) list. view: 'Screened' | 'Archived' | 'both'
    * (case-sensitive; anything else is a 400). sort: score | name | state | job |
-   * submitted, order: asc | desc. Only exists once the pipeline is on.
+   * submitted, order: asc | desc.
    */
   async getScreenedPage({ page, pageSize, ...filters } = {}) {
     const res = await apiClient.get('/api/admin/applications/screened', { ...filters, page, pageSize });
@@ -211,16 +211,10 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  // The dashboard no longer sends the notepad with a status change — a copy
-  // taken when the drawer opened could overwrite a newer note. Notes are
-  // saved on their own through saveNotes; `notes` here is only sent if a
-  // caller explicitly passes it.
-  //
   // `rejection` is { template:'standard' } or { message } (exactly one);
   // `invite` is the shortlist invitation ({ mode:'text', body } or
-  // { mode:'structured', venue, dateTime, phone, instructions? }); `notes` is,
-  // under the pipeline, an internal note written to the timeline at the new
-  // stage.
+  // { mode:'structured', venue, dateTime, phone, instructions? }); `notes` is
+  // an internal note written to the timeline at the new stage.
   async updateStatus(id, { status, notes, egiNote, invite, rejection, changedBy }) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/status`, {
       status,
@@ -233,16 +227,7 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
-  // The internal notepad. `notes` is the exact new value ('' clears it);
-  // `previousNotes` is the value last loaded or saved. If the stored notes no
-  // longer match previousNotes the server answers 409 { error: 'Conflict',
-  // data: { notes } } with the current value instead of overwriting it.
-  async saveNotes(id, { notes, previousNotes }) {
-    const res = await apiClient.patch(`/api/admin/applications/${id}/notes`, { notes, previousNotes });
-    return normalizeApplication(res.data);
-  },
-
-  // The notes timeline (pipeline): oldest first, append-only. Nothing edits or
+  // The notes timeline: oldest first, append-only. Nothing edits or
   // removes a note, so there is no conflict to handle.
   async getNotes(id) {
     const res = await apiClient.get(`/api/admin/applications/${id}/notes`);

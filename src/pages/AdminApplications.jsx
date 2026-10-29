@@ -5,7 +5,6 @@ import { usePaginatedApplications } from '../hooks/usePaginatedApplications';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import { useNotesDraft } from '../hooks/useNotesDraft';
 import { Search, Download, Eye, X, RefreshCw } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
 import { InviteModal } from '../components/InviteModal';
@@ -38,7 +37,6 @@ export function AdminApplications() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAppIds, setSelectedAppIds] = useState([]);
   const [activeApp, setActiveApp] = useState(null);
-  const notesDraft = useNotesDraft(activeApp);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
@@ -103,8 +101,7 @@ export function AdminApplications() {
       try {
         const app = await applicationService.getApplication(openAppId);
         if (!cancelled) {
-          // An open drawer with unsaved notes asks before it is replaced.
-          notesDraft.requestClose(() => setActiveApp(app));
+          setActiveApp(app);
         }
       } catch {
         if (!cancelled) {
@@ -127,8 +124,6 @@ export function AdminApplications() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const pipelineV2 = currentUser?.pipelineV2 === true;
-
   const getJobTitle = (jobId) => {
     const found = jobs.find((j) => j.id === jobId);
     return found ? found.title : 'Deleted Position';
@@ -150,18 +145,7 @@ export function AdminApplications() {
     }
   };
 
-  const handleBulkAction = async (status) => {
-    if (selectedAppIds.length === 0) {
-      addToast('info', 'Bulk Action Null', 'No applicants were selected in the active list.');
-      return;
-    }
-    const result = await bulkReviewApplications(selectedAppIds, status);
-    // null = whole request rejected: keep the selection. Otherwise keep only failures.
-    if (result) setSelectedAppIds(result.failed.map((f) => f.id));
-    refetch();
-  };
-
-  // With the pipeline on, bulk Shortlist sends one shared invitation (and
+  // Bulk Shortlist sends one shared invitation (and
   // optional note) to everyone selected. A null result means the whole request
   // was refused (e.g. a malformed invitation): the modal stays open with what
   // was typed.
@@ -190,7 +174,7 @@ export function AdminApplications() {
     setActiveApp(app);
   };
 
-  const closeDrawer = () => notesDraft.requestClose(() => setActiveApp(null));
+  const closeDrawer = () => setActiveApp(null);
 
   // `input` is whatever the move needed ({ egiNote } today). The server's reply
   // carries a fresh allowedTransitions, so the drawer's buttons stay right.
@@ -286,7 +270,7 @@ export function AdminApplications() {
             className="filter-select"
           >
             <option value="All">All Vetting States</option>
-            {statusFilterOptions({ pipelineV2 }).map((o) => (
+            {statusFilterOptions().map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -299,7 +283,7 @@ export function AdminApplications() {
             className="filter-select"
           >
             <option value="All">All EGI Decisions</option>
-            {egiDecisionFilterOptions({ pipelineV2 }).map((o) => (
+            {egiDecisionFilterOptions().map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -327,13 +311,13 @@ export function AdminApplications() {
           </span>
           <div className="bulk-hud-actions">
             <button
-              onClick={() => (pipelineV2 ? setBulkInviteOpen(true) : handleBulkAction('Shortlisted'))}
+              onClick={() => setBulkInviteOpen(true)}
               className="btn btn-primary btn-sm"
             >
               Bulk Shortlist Selection
             </button>
             <button
-              onClick={() => (pipelineV2 ? setBulkRejectOpen(true) : handleBulkAction('Rejected'))}
+              onClick={() => setBulkRejectOpen(true)}
               className="btn btn-danger btn-sm"
             >
               Bulk Reject Selection
@@ -474,7 +458,6 @@ export function AdminApplications() {
               <ApplicationDetail
                 app={activeApp}
                 currentUser={currentUser}
-                notesDraft={notesDraft}
                 onAppUpdated={setActiveApp}
                 onDeleted={() => {
                   setActiveApp(null);
@@ -492,7 +475,6 @@ export function AdminApplications() {
               <div className="drawer-footer-actions">
                 <StatusActions
                   app={activeApp}
-                  pipelineV2={pipelineV2}
                   approveIcon
                   buttonClass={{ reject: 'btn btn-reject', shortlist: 'btn btn-shortlist', approve: 'btn btn-approve' }}
                   labels={{ reject: 'Reject Dossier' }}

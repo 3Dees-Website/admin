@@ -6,7 +6,7 @@ import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { EgiNoteModal } from './EgiNoteModal';
 import { DeleteApplicationDialog } from './DeleteApplicationDialog';
-import { NotesPanel } from './NotesPanel';
+import { NotesTimelinePanel } from './NotesTimelinePanel';
 import { InvitePanel } from './InvitePanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
 import { groupFieldsBySection, getSubfieldsForParent } from '../utils/fieldCatalogHelpers';
@@ -64,7 +64,7 @@ const renderFieldValue = (field, value) => {
  * viewing, editing form_data, applicant documents, verification documents,
  * and EGI resend.
  */
-export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, onDeleted, onDeleteFailed }) {
+export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, onDeleteFailed }) {
   const { catalog, isLoading } = useFieldCatalog();
   const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi, deleteApplication } = useApplications();
 
@@ -99,10 +99,6 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     applicationService.getApplication(app.id)
       .then((fresh) => {
         if (cancelled) return;
-        // List rows can be up to a poll old; the fresh notes become
-        // previousNotes (while the draft is untouched) so a stale row
-        // can't cause a false conflict.
-        notesDraft?.adoptServerNotes(fresh.id, fresh.notes);
         // The drawer may have been open a while, or a content edit may have
         // returned an object without allowedTransitions. Take the fresh row
         // whenever the status, the allowed moves or the invitation differ, so
@@ -154,13 +150,10 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [egiFallback, app.id]);
 
-  // With the pipeline, a superadmin is offered Delete at any stage and the
-  // server refuses what cannot go (live at EGI, delivery in flight, inside the
-  // wait after an EGI decline). Before the pipeline the old rule still holds.
-  const canDelete =
-    currentUser?.role === 'superadmin' &&
-    (currentUser?.pipelineV2 === true ||
-      (app.status === 'Rejected' && app.egiSyncStatus === 'Pending' && app.egiDecision === 'Pending'));
+  // A superadmin is offered Delete at any stage and the server refuses what
+  // cannot go (live at EGI, delivery in flight, inside the wait after an EGI
+  // decline).
+  const canDelete = currentUser?.role === 'superadmin';
   // Not-deletable and delivery-in-flight keep the button shown but disabled,
   // with the reason. NotDeletableYet is handled by the dialog's countdown.
   const deleteBlocked = deleteRefusal && ['NotDeletable', 'DeliveryInFlight'].includes(deleteRefusal.error);
@@ -449,9 +442,9 @@ export function ApplicationDetail({ app, currentUser, notesDraft, onAppUpdated, 
         />
       </section>
 
-      {currentUser?.pipelineV2 === true && <InvitePanel app={app} onUpdated={publishUpdate} />}
+      <InvitePanel app={app} onUpdated={publishUpdate} />
 
-      <NotesPanel app={app} pipelineV2={currentUser?.pipelineV2 === true} notesDraft={notesDraft} />
+      <NotesTimelinePanel app={app} />
 
       <section className="ad-section">
         <h3 className="ad-section-title">Evaluation Audit Trace</h3>

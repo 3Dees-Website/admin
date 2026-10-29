@@ -29,8 +29,6 @@ const INPUT_MODALS = { invite: ShortlistInviteModal, rejection: RejectApplicatio
  */
 export function StatusActions({
   app,
-  pipelineV2 = false,
-  showLegacyApprove = true,
   approveIcon = false,
   buttonClass = {},
   labels = {},
@@ -44,7 +42,7 @@ export function StatusActions({
 
   // `only` limits the buttons to some target statuses (a compact row that
   // offers just Save and Approve); the server's list still decides if they show.
-  const actions = getStatusActions(app, { pipelineV2, showLegacyApprove })
+  const actions = getStatusActions(app)
     .filter((action) => !only || only.includes(action.target));
 
   const run = async (action, input) => {
@@ -74,7 +72,7 @@ export function StatusActions({
   };
 
   if (actions.length === 0) {
-    return pipelineV2 && emptyText ? <span className="sta-none">{emptyText}</span> : null;
+    return emptyText ? <span className="sta-none">{emptyText}</span> : null;
   }
 
   const ExtraModal = pending ? INPUT_MODALS[pending.input] : null;

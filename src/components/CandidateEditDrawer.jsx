@@ -7,7 +7,6 @@ import { X, ShieldAlert } from 'lucide-react';
 import { ApplicationDetail } from './ApplicationDetail';
 import { StatusActions } from './StatusActions';
 import { StatusBadge } from './StatusBadge';
-import { useNotesDraft } from '../hooks/useNotesDraft';
 import './styles/CandidateEditDrawer.css';
 
 /**
@@ -15,10 +14,6 @@ import './styles/CandidateEditDrawer.css';
  * content. Status transitions (Reject/Shortlist/Approve) stay here since
  * they're page-orchestrated; everything else (view/edit/documents/
  * verification/resend) lives in ApplicationDetail.
- *
- * The owning pages close the drawer after a successful status change, so the
- * notepad is saved first: if it can't be saved the status is not changed,
- * rather than the draft being lost with the drawer.
  */
 export function CandidateEditDrawer({
   app,
@@ -29,13 +24,9 @@ export function CandidateEditDrawer({
   onStatusChange,
   onAppUpdated,
 }) {
-  const notesDraft = useNotesDraft(app);
-
-  const handleClose = () => notesDraft.requestClose(onClose);
-
   return (
     <div className="ced-overlay">
-      <div className="ced-backdrop" onClick={handleClose} />
+      <div className="ced-backdrop" onClick={onClose} />
 
       <div className="ced-drawer">
 
@@ -48,7 +39,7 @@ export function CandidateEditDrawer({
             <h2 className="ced-name">{app.applicantName}</h2>
             <span className="ced-meta">{jobTitle}&nbsp;·&nbsp;Ref:&nbsp;{app.referenceId}</span>
           </div>
-          <button onClick={handleClose} className="ced-close-btn">
+          <button onClick={onClose} className="ced-close-btn">
             <X className="ced-close-icon" />
           </button>
         </div>
@@ -69,7 +60,6 @@ export function CandidateEditDrawer({
           <ApplicationDetail
             app={app}
             currentUser={currentUser}
-            notesDraft={notesDraft}
             onAppUpdated={onAppUpdated}
           />
         </div>
@@ -83,23 +73,17 @@ export function CandidateEditDrawer({
             </span>
             {onStatusChange && (
               <div className="ced-status-btns">
-                {/* beforeAction: the drawer closes after a status change, so the
-                    notepad is saved first; if it can't be, the status is left
-                    alone (ensureSaved has already said why). */}
                 <StatusActions
                   app={app}
-                  pipelineV2={currentUser?.pipelineV2 === true}
-                  showLegacyApprove={isSuperadmin}
                   approveIcon
                   buttonClass={{ reject: 'ced-btn-reject', shortlist: 'ced-btn-shortlist', approve: 'ced-btn-approve' }}
-                  beforeAction={notesDraft.ensureSaved}
                   onTransition={onStatusChange}
                 />
               </div>
             )}
           </div>
           <div className="ced-footer-save">
-            <button type="button" onClick={handleClose} className="ced-btn-cancel">Close</button>
+            <button type="button" onClick={onClose} className="ced-btn-cancel">Close</button>
           </div>
         </div>
 

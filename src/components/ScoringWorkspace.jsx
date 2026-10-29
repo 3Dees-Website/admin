@@ -88,7 +88,8 @@ function groupReasons(failed) {
  * Used by both the admin and superadmin routes. The list is not polled: a
  * refresh would fight with what is being typed.
  */
-function ScoringGrid() {
+/** The scoring screen. */
+export function ScoringWorkspace() {
   const { jobs, jobsStatus, jobsError, reloadJobs } = useJobs();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
@@ -474,17 +475,4 @@ function ScoringGrid() {
       {body}
     </div>
   );
-}
-
-/** The scoring screen. Its endpoints only exist once the applicant pipeline is on. */
-export function ScoringWorkspace() {
-  const { currentUser } = useAuth();
-  if (currentUser?.pipelineV2 !== true) {
-    return (
-      <div className="scw-wrapper">
-        <p className="scw-message">Candidate scoring isn&apos;t available yet: the applicant pipeline hasn&apos;t been switched on.</p>
-      </div>
-    );
-  }
-  return <ScoringGrid />;
 }

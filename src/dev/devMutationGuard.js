@@ -177,21 +177,13 @@ async function fakeScoreOne({ entry, config, finalize, jobId, read }) {
 }
 
 // The server's refusal for deleting an application, judged on the row as read
-// (a fake cannot lock it). With the pipeline on (the row carries
-// allowedTransitions) a superadmin may delete at any stage except while it is
-// live at EGI, queued/being sent, or inside the 48-hour wait after an EGI
+// (a fake cannot lock it). A superadmin may delete at any stage except while
+// it is live at EGI, queued/being sent, or inside the 48-hour wait after an EGI
 // decline. The wait here starts at egi_decision_at only: the real server also
 // takes the later of 3DEES's own receipt time, which a fake cannot read.
 const DECLINE_GRACE_MS = 48 * 60 * 60 * 1000;
-const pipelineRow = (app) => Array.isArray(app.allowedTransitions) || Array.isArray(app.allowed_transitions);
 
 function fakeDeleteRefusal(app) {
-  if (!pipelineRow(app)) {
-    const neverPushed = app.egi_sync_status === 'Pending' && app.egi_decision === 'Pending';
-    return app.status === 'Rejected' && neverPushed
-      ? null
-      : { error: 'NotDeletable', message: 'Only 3DEES-rejected applications that were never sent to EGI can be deleted.' };
-  }
   if (app.status === 'Approved' && app.egi_decision !== 'Declined') {
     return {
       error: 'NotDeletable',
@@ -323,12 +315,6 @@ const HANDLERS = [
     path: /^\/api\/admin\/applications\/([^/]+)\/invite$/,
     run: async ({ body, match, read }) =>
       ok({ ...(await readApp(read, match[1])), invite_details: body.invite }, 'Invitation update (no email sent)'),
-  },
-  {
-    method: 'PATCH',
-    path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
-    run: async ({ body, match, read }) =>
-      ok({ ...(await readApp(read, match[1])), notes: body.notes }, 'Notes save'),
   },
   {
     method: 'PATCH',

@@ -22,10 +22,7 @@ export const STATUS_META = {
   Archived:    { label: 'Saved',       tone: 'saved' },
 };
 
-// Filter order. The first four are all a pre-pipeline backend knows about;
-// Screened and Archived only exist (and only return rows) once pipelineV2 is on.
-const LEGACY_STATUS_ORDER = ['Pending', 'Shortlisted', 'Approved', 'Rejected'];
-const PIPELINE_STATUS_ORDER = ['Pending', 'Shortlisted', 'Screened', 'Approved', 'Rejected', 'Archived'];
+const STATUS_ORDER = ['Pending', 'Shortlisted', 'Screened', 'Approved', 'Rejected', 'Archived'];
 
 export const EGI_DECISION_META = {
   Pending:  { label: 'Awaiting EGI',    tone: 'gray' },
@@ -70,19 +67,18 @@ export const getEgiSyncMeta = (status) =>
 
 const toOptions = (keys, meta) => keys.map((value) => ({ value, label: meta[value].label }));
 
-/** <option>s for a status filter. `pipelineV2` comes from currentUser. */
-export const statusFilterOptions = ({ pipelineV2 = false } = {}) =>
-  toOptions(pipelineV2 ? PIPELINE_STATUS_ORDER : LEGACY_STATUS_ORDER, STATUS_META);
+/** <option>s for a status filter. */
+export const statusFilterOptions = () => toOptions(STATUS_ORDER, STATUS_META);
 
-export const egiDecisionFilterOptions = ({ pipelineV2 = false } = {}) =>
-  toOptions(pipelineV2 ? ['Pending', 'Accepted', 'Declined', 'Saved'] : ['Pending', 'Accepted', 'Declined'], EGI_DECISION_META);
+export const egiDecisionFilterOptions = () =>
+  toOptions(['Pending', 'Accepted', 'Declined', 'Saved'], EGI_DECISION_META);
 
 export const egiSyncFilterOptions = () => toOptions(Object.keys(EGI_SYNC_META), EGI_SYNC_META);
 
 /**
  * The statuses the server says this user may move this application to right
  * now (already filtered by role, can_approve and the application's state).
- * `null` means the server did not say (a backend without the pipeline), which
+ * `null` means the server did not say (e.g. a list row without it), which
  * is different from `[]` ("nothing is allowed"): callers decide what null means.
  */
 export const getAllowedTransitions = (app) =>
@@ -111,24 +107,12 @@ const ACTION_META = {
 /**
  * The buttons to show for one application: [{ target, tone, label, input }].
  *
- * With a pipeline backend the server's allowedTransitions decides. Without
- * one (null — a backend before the pipeline), the original three buttons are
- * kept so nothing changes while the flag is off. With the pipeline on but no
- * list on this object, nothing is offered rather than guessing.
+ * The server's allowedTransitions decides. With no list on this object,
+ * nothing is offered rather than guessing.
  */
-export function getStatusActions(app, { pipelineV2 = false, showLegacyApprove = true } = {}) {
+export function getStatusActions(app) {
   const allowed = getAllowedTransitions(app);
-
-  if (allowed === null) {
-    if (pipelineV2) return [];
-    return ['Rejected', 'Shortlisted', 'Approved']
-      .filter((target) => target !== 'Approved' || showLegacyApprove)
-      .map((target) => ({
-        target,
-        ...ACTION_META[target],
-        input: target === 'Approved' ? 'egiNote' : null,
-      }));
-  }
+  if (allowed === null) return [];
 
   allowed.forEach((target) => {
     if (!ACTION_META[target]) unknownMeta('allowed transition', target);

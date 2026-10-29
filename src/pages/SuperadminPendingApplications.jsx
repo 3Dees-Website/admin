@@ -12,7 +12,6 @@ import { useAuth } from '../hooks/useAuth';
 import { CandidateEditDrawer } from '../components/CandidateEditDrawer';
 import { InviteModal } from '../components/InviteModal';
 import { RejectModal } from '../components/RejectModal';
-import { EgiNoteModal } from '../components/EgiNoteModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -27,18 +26,14 @@ export function SuperadminPendingApplications() {
   const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  // With the pipeline on there is no Pending -> Approved, shortlisting needs an
-  // invitation and rejecting needs a message (the one-click shortlist is gone;
-  // bulk collects one shared invitation or message first).
-  const pipelineV2 = currentUser?.pipelineV2 === true;
+  // There is no Pending -> Approved; shortlisting needs an invitation and
+  // rejecting needs a message (bulk collects one shared invitation or message
+  // first).
 
   const [searchTerm,    setSearchTerm]    = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [editingApp,    setEditingApp]    = useState(null);
   const [selectedIds,   setSelectedIds]   = useState(new Set());
-  const [approveTarget, setApproveTarget] = useState(null); // single app being approved via quick action
-  const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
-  const [approveBusy, setApproveBusy] = useState(false);
   const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
   const [bulkInviteBusy, setBulkInviteBusy] = useState(false);
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
@@ -128,12 +123,6 @@ export function SuperadminPendingApplications() {
     setEditingApp(app);
   };
 
-  const handleQuickShortlist = async (app) => {
-    await reviewApplication(app.id, 'Shortlisted');
-    refetch();
-    refetchStats();
-  };
-
   /* Bulk shortlist/reject — one bulk request for the rows selected on the
      current page; only failures stay selected. `input` is the batch's one
      shared payload. null = the whole request was refused: selection is kept. */
@@ -149,7 +138,7 @@ export function SuperadminPendingApplications() {
     return result;
   };
 
-  // With the pipeline on, shortlisting collects one shared invitation first;
+  // Shortlisting collects one shared invitation first;
   // the modal stays open if the request is refused.
   const handleBulkShortlistConfirm = async (input) => {
     setBulkInviteBusy(true);
@@ -164,36 +153,6 @@ export function SuperadminPendingApplications() {
     const result = await runBulk('Rejected', input);
     setBulkRejectBusy(false);
     if (result) setBulkRejectOpen(false);
-  };
-
-  const handleQuickApproveConfirm = async (egiNote) => {
-    if (!approveTarget) return;
-    setApproveBusy(true);
-    const updated = await reviewApplication(approveTarget.id, 'Approved', { egiNote });
-    setApproveBusy(false);
-    if (updated) setApproveTarget(null);
-    refetch();
-    refetchStats();
-  };
-
-  const handleBulkApproveConfirm = async (egiNote) => {
-    if (selectedIds.size === 0) return;
-    setApproveBusy(true);
-    const result = await bulkReviewApplications(Array.from(selectedIds), 'Approved', { egiNote });
-    setApproveBusy(false);
-    refetch();
-    refetchStats();
-    // null = whole request rejected (e.g. note too long): keep modal, note and selection.
-    if (!result) return;
-    // Timed out: the server is most likely still approving. Close the modal
-    // and drop the selection so nothing invites a duplicate resubmit.
-    if (result.timedOut) {
-      setSelectedIds(new Set());
-      setBulkApproveOpen(false);
-      return;
-    }
-    setSelectedIds(new Set(result.failed.map((f) => f.id)));
-    if (result.success.length > 0) setBulkApproveOpen(false);
   };
 
   const daysWaiting = (dateStr) =>
@@ -287,18 +246,13 @@ export function SuperadminPendingApplications() {
               <Zap className="spa-bulk-zap" /> {selectedIds.size} selected
             </span>
             <button
-              onClick={() => (pipelineV2 ? setBulkInviteOpen(true) : runBulk('Shortlisted'))}
+              onClick={() => setBulkInviteOpen(true)}
               className="spa-bulk-shortlist"
             >
               <UserCheck className="spa-bulk-icon" /> Bulk Shortlist
             </button>
-            {!pipelineV2 && (
-              <button onClick={() => setBulkApproveOpen(true)} className="spa-bulk-approve">
-                <UserCheck className="spa-bulk-icon" /> Bulk Approve & Sync
-              </button>
-            )}
             <button
-              onClick={() => (pipelineV2 ? setBulkRejectOpen(true) : runBulk('Rejected'))}
+              onClick={() => setBulkRejectOpen(true)}
               className="spa-bulk-reject"
             >
               <UserX className="spa-bulk-icon" /> Bulk Reject
@@ -390,22 +344,6 @@ export function SuperadminPendingApplications() {
 
                     <td className="spa-td spa-td-right">
                       <div className="spa-row-actions">
-                        {!pipelineV2 && (
-                          <>
-                            <button
-                              onClick={() => handleQuickShortlist(app)}
-                              className="spa-quick-shortlist"
-                            >
-                              Shortlist
-                            </button>
-                            <button
-                              onClick={() => setApproveTarget(app)}
-                              className="spa-quick-approve"
-                            >
-                              Approve
-                            </button>
-                          </>
-                        )}
                         <button
                           onClick={() => handleOpenEdit(app)}
                           className="spa-open-btn"
@@ -472,37 +410,6 @@ export function SuperadminPendingApplications() {
           onAppUpdated={setEditingApp}
         />
       )}
-
-      {/* Quick-approve (row action) */}
-      <EgiNoteModal
-        open={!!approveTarget}
-        busy={approveBusy}
-        description={approveTarget ? `Approving ${approveTarget.applicantName} sends this note to EGI along with the candidate record.` : ''}
-        verificationDocuments={approveTarget?.verificationDocuments}
-        onCancel={() => setApproveTarget(null)}
-        onConfirm={handleQuickApproveConfirm}
-      />
-
-      {/* Bulk approve */}
-      <EgiNoteModal
-        open={bulkApproveOpen}
-        busy={approveBusy}
-        title="Bulk Approve & Notify EGI"
-        confirmLabel={`Approve ${selectedIds.size} & Send to EGI`}
-        description={
-          <>
-            <strong>
-              {selectedIds.size} applicant{selectedIds.size !== 1 ? 's' : ''} will be sent to EGI
-            </strong>
-            , each as {selectedIds.size !== 1 ? 'its own record, all' : 'a record'} with the note below.
-            <br />
-            <strong className="spa-bulk-final">Approval is final. It cannot be undone.</strong>
-          </>
-        }
-        hint={`This one note is attached to every record sent. It's separate from internal admin notes.`}
-        onCancel={() => setBulkApproveOpen(false)}
-        onConfirm={handleBulkApproveConfirm}
-      />
 
     </div>
   );

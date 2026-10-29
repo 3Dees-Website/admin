@@ -46,7 +46,6 @@ export function AdminLayout({ children, role }) {
     e?.preventDefault();
     setPendingLeave({ message: guard.message, run });
   };
-  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   const lastActivityRef = useRef(Date.now());
   const logoutIdleRef = useRef(logoutIdle);
@@ -82,8 +81,8 @@ export function AdminLayout({ children, role }) {
     { name: 'Manage Jobs',    path: '/admin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Pending Queue',  path: '/admin/pending',       icon: <Inbox size={16} /> },
     { name: 'Applications',   path: '/admin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} />, pipeline: true },
-    { name: 'Screened',       path: '/admin/screened',      icon: <ListChecks size={16} />, pipeline: true },
+    { name: 'Scoring',        path: '/admin/scoring',       icon: <ClipboardCheck size={16} /> },
+    { name: 'Screened',       path: '/admin/screened',      icon: <ListChecks size={16} /> },
     { name: 'Profile',        path: '/admin/profile',       icon: <UserCircle size={16} /> },
   ];
 
@@ -91,8 +90,8 @@ export function AdminLayout({ children, role }) {
     { name: 'Dashboard',      path: '/superadmin/dashboard',     icon: <LayoutDashboard size={16} /> },
     { name: 'Pending Queue',      path: '/superadmin/pending',       icon: <Inbox size={16} /> },
     { name: 'All Applications',   path: '/superadmin/applications',  icon: <FileUser size={16} /> },
-    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} />, pipeline: true },
-    { name: 'Screened',           path: '/superadmin/screened',      icon: <ListChecks size={16} />, pipeline: true },
+    { name: 'Scoring',            path: '/superadmin/scoring',       icon: <ClipboardCheck size={16} /> },
+    { name: 'Screened',           path: '/superadmin/screened',      icon: <ListChecks size={16} /> },
     { name: 'Approved Candidates', path: '/superadmin/approved',    icon: <UserCheck size={16} /> },
     { name: 'Manage Jobs',      path: '/superadmin/jobs',          icon: <Briefcase size={16} /> },
     { name: 'Manage Admins',     path: '/superadmin/admins',        icon: <Users size={16} /> },
@@ -102,9 +101,7 @@ export function AdminLayout({ children, role }) {
     { name: 'Profile',          path: '/superadmin/profile',       icon: <UserCircle size={16} /> },
   ];
 
-  // Pages that only work once the backend's applicant pipeline is on stay out
-  // of the menus until it is.
-  const menu = (role === 'superadmin' ? superAdminMenu : adminMenu).filter((item) => !item.pipeline || pipelineV2);
+  const menu = role === 'superadmin' ? superAdminMenu : adminMenu;
 
   return (
     <div className="admin-layout" id="admin-workspace-layout">

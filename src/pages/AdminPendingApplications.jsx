@@ -23,10 +23,8 @@ export function AdminPendingApplications() {
   const { reviewApplication, bulkReviewApplications } = useApplications();
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  // With the pipeline on, shortlisting needs an invitation and rejecting needs
-  // a message (the one-click shortlist is gone; bulk collects one shared
-  // invitation or message first).
-  const pipelineV2 = currentUser?.pipelineV2 === true;
+  // Shortlisting needs an invitation and rejecting needs a message (bulk
+  // collects one shared invitation or message first).
 
   const [searchTerm,     setSearchTerm]     = useState('');
   const [selectedJobId,  setSelectedJobId]  = useState('All');
@@ -116,13 +114,6 @@ export function AdminPendingApplications() {
     setEditingApp(app);
   };
 
-  /* Quick single-row shortlist */
-  const handleQuickShortlist = async (app) => {
-    await reviewApplication(app.id, 'Shortlisted');
-    refetch();
-    refetchStats();
-  };
-
   /* Bulk shortlist/reject — one bulk request for the rows selected on the
      current page; only failures stay selected. `input` is the batch's one
      shared payload. null = the whole request was refused: selection is kept. */
@@ -155,8 +146,8 @@ export function AdminPendingApplications() {
     if (result) setBulkRejectOpen(false);
   };
 
-  const handleBulkShortlist = () => (pipelineV2 ? setBulkInviteOpen(true) : runBulk('Shortlisted'));
-  const handleBulkReject = () => (pipelineV2 ? setBulkRejectOpen(true) : runBulk('Rejected'));
+  const handleBulkShortlist = () => setBulkInviteOpen(true);
+  const handleBulkReject = () => setBulkRejectOpen(true);
 
   /* Days waiting helper */
   const daysWaiting = (dateStr) => {
@@ -331,15 +322,6 @@ export function AdminPendingApplications() {
 
                   <td className="apa-td apa-td-right">
                     <div className="apa-row-actions">
-                      {!pipelineV2 && (
-                        <button
-                          onClick={() => handleQuickShortlist(app)}
-                          className="apa-quick-shortlist"
-                          title="Quick shortlist"
-                        >
-                          ✓ Shortlist
-                        </button>
-                      )}
                       <button
                         onClick={() => handleOpenEdit(app)}
                         className="apa-open-btn"

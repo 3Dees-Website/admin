@@ -6,7 +6,6 @@
 import { useState, useMemo } from 'react';
 import { usePaginatedAuditLogs } from '../hooks/usePaginatedAuditLogs';
 import { useToast } from '../hooks/useToast';
-import { useAuth } from '../hooks/useAuth';
 import { Search, Download } from 'lucide-react';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -51,7 +50,6 @@ function describeJobEdit(details) {
 
 export function SuperadminAuditTrail() {
   const { addToast } = useToast();
-  const { currentUser } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActor, setSelectedActor] = useState('All');
@@ -102,7 +100,6 @@ export function SuperadminAuditTrail() {
       ? <StatusBadge status={status} className="sat-status-badge" />
       : <span className="sat-status-badge sat-badge-neutral">{status}</span>
   );
-  const pipelineV2 = currentUser?.pipelineV2 === true;
 
   return (
     <div className="sat-wrapper" id="superadmin-audit-ledger">
@@ -168,7 +165,7 @@ export function SuperadminAuditTrail() {
             className="sat-select"
           >
             <option value="All">All Vetted Outcomes</option>
-            {statusFilterOptions({ pipelineV2 }).map((o) => (
+            {statusFilterOptions().map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>

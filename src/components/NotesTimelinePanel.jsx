@@ -7,7 +7,7 @@ import './styles/NotesTimelinePanel.css';
 const COUNTER_FROM = 9000;
 
 /**
- * The Administrative Notes section when the pipeline is on: every note from
+ * The Administrative Notes section: every note from
  * every stage, newest last, with who wrote it and the stage the application
  * was in. Notes can only be added. Visible to every admin; none of it is sent
  * to EGI except the approval note, which is marked.

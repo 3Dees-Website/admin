@@ -8,7 +8,7 @@ import './styles/InvitePanel.css';
 /**
  * The invitation on record for a candidate, and — while they are Shortlisted —
  * "Update & resend invite", which opens the same form pre-filled and emails
- * the applicant the new details. Only shown when the pipeline is on.
+ * the applicant the new details.
  *
  * `onUpdated(app)` receives the changed application.
  */
