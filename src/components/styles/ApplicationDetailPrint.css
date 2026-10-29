@@ -1,0 +1,147 @@
+/* ══════════════════════════════════════════
+   ApplicationDetailPrint.css  —  print layout for ApplicationDetail
+   Screen styles are untouched; everything here is inside @media print.
+   ad-print-path / ad-print-hide are toggled by ApplicationDetail.jsx.
+   ══════════════════════════════════════════ */
+
+@media print {
+  @page {
+    margin: 15mm;
+  }
+
+  /* Host chain (drawer, overlay, root, body): flow normally on paper. */
+  .ad-print-path {
+    position: static !important;
+    display: block !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    transform: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    background: #fff !important;
+  }
+
+  .ad-print-hide,
+  .ad-no-print,
+  .ad-wrapper .ad-nav,
+  .ad-wrapper .ad-lock-banner,
+  .ad-wrapper .ad-edit-toolbar,
+  .ad-wrapper .ad-resend-btn,
+  .ad-wrapper .ad-danger-zone,
+  .ad-wrapper .ad-verification-upload-form,
+  .ad-wrapper .ad-doc-card > .ad-doc-view-wrap,
+  .ad-wrapper .ad-doc-card-actions,
+  .ad-wrapper .ad-notes-textarea,
+  .ad-wrapper .ntp-footer,
+  .ad-wrapper .ntp-add-error,
+  .ad-wrapper .ntp-link-btn,
+  .ad-wrapper .ivp-btn,
+  .ad-wrapper .ad-doc-error {
+    display: none !important;
+  }
+
+  .ad-wrapper {
+    display: block;
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  .ad-wrapper,
+  .ad-wrapper * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .ad-wrapper > * + * {
+    margin-top: 12pt;
+  }
+
+  .ad-print-header {
+    display: block;
+    border-bottom: 2pt solid #000;
+    padding-bottom: 8pt;
+  }
+
+  .ad-print-name {
+    font-size: 20pt;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .ad-print-meta,
+  .ad-print-date {
+    margin: 3pt 0 0;
+    font-size: 10pt;
+  }
+
+  .ad-section-title {
+    font-size: 12pt;
+    border-bottom: 1pt solid #888;
+    padding-bottom: 3pt;
+    break-after: avoid;
+  }
+
+  .ad-field-block,
+  .ad-field-row,
+  .ad-doc-card,
+  .ad-history-item,
+  .ntp-item,
+  .ad-egi-panel {
+    break-inside: avoid;
+  }
+
+  /* Text sizes in the app are small for screen density; lift them for paper. */
+  .ad-wrapper .ad-field-label,
+  .ad-wrapper .ad-field-value,
+  .ad-wrapper .ad-doc-card-label,
+  .ad-wrapper .ad-doc-card-name,
+  .ad-wrapper .ad-doc-card-meta,
+  .ad-wrapper .ad-history-item,
+  .ad-wrapper .ad-egi-panel,
+  .ad-wrapper .ad-egi-meta,
+  .ad-wrapper .ntp-meta,
+  .ad-wrapper .ntp-body,
+  .ad-wrapper .ivp-list,
+  .ad-wrapper .ivp-text,
+  .ad-wrapper .ad-empty-hint {
+    font-size: 10pt !important;
+  }
+
+  .ad-wrapper .ntp-body,
+  .ad-wrapper .ad-field-value {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ad-wrapper .ad-egi-panel,
+  .ad-wrapper .ad-doc-card,
+  .ad-wrapper .ntp-item {
+    border: 1pt solid #999 !important;
+  }
+
+  /* The document name inside a field row is a button on screen; print it as text. */
+  .ad-wrapper .ad-doc-view-btn {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  .ad-wrapper .ad-doc-view-btn svg {
+    display: none;
+  }
+
+  .ad-wrapper a {
+    text-decoration: none;
+  }
+}

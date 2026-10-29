@@ -52,6 +52,7 @@ export function InvitePanel({ app, onUpdated }) {
         </button>
       )}
 
+      <div className="ad-no-print">
       <InviteModal
         open={open}
         busy={busy}
@@ -63,6 +64,7 @@ export function InvitePanel({ app, onUpdated }) {
         onCancel={() => setOpen(false)}
         onConfirm={handleConfirm}
       />
+      </div>
     </section>
   );
 }

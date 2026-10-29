@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Eye, Trash2, Edit2, Save, X as XIcon, Send } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Eye, Trash2, Edit2, Save, X as XIcon, Send, Printer } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
@@ -14,6 +14,7 @@ import { getLockInfo } from '../utils/applicationLock';
 import { can, PERM } from '../utils/permissions';
 import { VERIFICATION_DOC_TYPES } from '../utils/verificationDocTypes';
 import './styles/ApplicationDetail.css';
+import './styles/ApplicationDetailPrint.css';
 
 // allowedTransitions arrives in no fixed order, so compare as sets.
 const sameTransitions = (a, b) =>
@@ -22,6 +23,35 @@ const sameTransitions = (a, b) =>
     : a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
 
 const formatWhen = (value) => (value ? new Date(value).toLocaleString() : null);
+
+/**
+ * The drawers that host this component are fixed, scrollable overlays, so
+ * printing them as-is would clip to one page and drag the app shell along.
+ * Before printing, every ancestor of the wrapper is flagged to flow normally
+ * (ad-print-path) and each of its siblings is hidden (ad-print-hide); the
+ * rules live in ApplicationDetailPrint.css. Done in JS because the host
+ * drawers each have their own class names.
+ */
+function markPrintLayout(wrapper) {
+  unmarkPrintLayout();
+  for (let node = wrapper; node && node !== document.documentElement; node = node.parentElement) {
+    const parent = node.parentElement;
+    if (!parent) break;
+    parent.classList.add('ad-print-path');
+    Array.from(parent.children).forEach((sibling) => {
+      if (sibling !== node) sibling.classList.add('ad-print-hide');
+    });
+  }
+  document.documentElement.classList.add('ad-print-path');
+}
+
+function unmarkPrintLayout() {
+  document.querySelectorAll('.ad-print-path, .ad-print-hide')
+    .forEach((el) => el.classList.remove('ad-print-path', 'ad-print-hide'));
+}
+
+const formatPrintDate = () =>
+  new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
 /**
  * One line saying what is actually happening with the latest delivery, and
@@ -94,6 +124,24 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
     setEditedFormData(app.formData);
     setIsEditing(false);
   }, [app.id]);
+
+  // Covers Ctrl/Cmd+P as well as the Print button.
+  const wrapperRef = useRef(null);
+  useEffect(() => {
+    const before = () => { if (wrapperRef.current) markPrintLayout(wrapperRef.current); };
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', unmarkPrintLayout);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', unmarkPrintLayout);
+      unmarkPrintLayout();
+    };
+  }, []);
+
+  const handlePrint = () => {
+    if (wrapperRef.current) markPrintLayout(wrapperRef.current);
+    window.print();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -275,7 +323,15 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   };
 
   return (
-    <div className="ad-wrapper">
+    <div className="ad-wrapper" ref={wrapperRef}>
+      <div className="ad-print-header">
+        <h1 className="ad-print-name">{app.applicantName}</h1>
+        <p className="ad-print-meta">
+          {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`, `Status: ${app.status}`].filter(Boolean).join(' · ')}
+        </p>
+        <p className="ad-print-date">Printed on {formatPrintDate()}</p>
+      </div>
+
       {lockInfo.banner && (
         <div className={`ad-lock-banner ad-lock-banner--${lockInfo.tone}`}>{lockInfo.banner}</div>
       )}
@@ -329,24 +385,31 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
         )}
       </div>
 
-      {!lockInfo.locked && (
-        <div className="ad-edit-toolbar">
-          {!isEditing ? (
-            <button type="button" className="ad-edit-btn" onClick={handleStartEdit}>
-              <Edit2 size={14} /> Edit Application
+      <div className="ad-edit-toolbar">
+        <button
+          type="button"
+          className="ad-edit-btn"
+          onClick={handlePrint}
+          disabled={isEditing}
+          title={isEditing ? 'Save or cancel your edits before printing' : 'Print this candidate file'}
+        >
+          <Printer size={14} /> Print
+        </button>
+        {!lockInfo.locked && (!isEditing ? (
+          <button type="button" className="ad-edit-btn" onClick={handleStartEdit}>
+            <Edit2 size={14} /> Edit Application
+          </button>
+        ) : (
+          <div className="ad-edit-actions">
+            <button type="button" className="ad-cancel-edit-btn" onClick={handleCancelEdit} disabled={saving}>
+              <XIcon size={14} /> Cancel
             </button>
-          ) : (
-            <div className="ad-edit-actions">
-              <button type="button" className="ad-cancel-edit-btn" onClick={handleCancelEdit} disabled={saving}>
-                <XIcon size={14} /> Cancel
-              </button>
-              <button type="button" className="ad-save-edit-btn" onClick={handleSaveEdits} disabled={saving}>
-                <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            <button type="button" className="ad-save-edit-btn" onClick={handleSaveEdits} disabled={saving}>
+              <Save size={14} /> {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        ))}
+      </div>
 
       {sectionGroups.map(({ section, fields }) => {
         if (section.key === 'documents') {
@@ -490,6 +553,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
         </section>
       )}
 
+      <div className="ad-no-print">
       {isRedelivery ? (
         <EgiNoteModal
           open={resendModalOpen}
@@ -524,6 +588,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
           onConfirm={handleDeleteConfirm}
         />
       )}
+      </div>
     </div>
   );
 }

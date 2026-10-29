@@ -176,6 +176,16 @@
 .ad-edit-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.ad-edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ad-print-header {
+  display: none;
 }
 
 .ad-edit-btn,
