@@ -11,7 +11,9 @@ import { InviteModal } from '../components/InviteModal';
 import { RejectModal } from '../components/RejectModal';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
+import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
 import { statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -181,7 +183,7 @@ export function AdminApplications() {
   const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
     const updated = await reviewApplication(activeApp.id, status, input);
-    if (updated) setActiveApp(updated);
+    if (updated) setActiveApp(keepDuplicateFlags(updated, activeApp));
     refetch();
     return updated;
   };
@@ -377,6 +379,7 @@ export function AdminApplications() {
                       <div className="candidate-cell">
                         <span className="candidate-name">{a.applicantName}</span>
                         <span className="candidate-meta">{a.applicantEmail}</span>
+                        <DuplicateFlagBadges flags={a.duplicateFlags} />
                       </div>
                     </td>
                     <td className="role-cell">{getJobTitle(a.jobId)}</td>

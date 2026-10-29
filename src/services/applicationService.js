@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import {
   recordApprovalCap, recordApprovalCaps, registerApplicationJob,
 } from '../utils/approvalCap';
+import { normalizeDuplicateFlags } from '../utils/duplicateFlags';
 
 // Bulk status updates run server-side four at a time (up to 100 ids), so a
 // large batch can outlast apiClient's ordinary 45s timeout.
@@ -33,6 +34,8 @@ function normalizeApplication(app) {
   return {
     // The approval cap of this application's job: { approved, max, full, overCap } or null.
     approvalCap,
+    // Only the GET endpoints send this; undefined = the response didn't carry it.
+    duplicateFlags: normalizeDuplicateFlags(app.duplicateFlags),
     id: app.id,
     jobId: app.job_id,
     referenceId: app.reference_id,
@@ -127,6 +130,7 @@ function normalizeScreenedItem(item) {
   const approvalCap = recordApprovalCap(item.job_id, item.approvalCap);
   return {
     approvalCap,
+    duplicateFlags: normalizeDuplicateFlags(item.duplicateFlags),
     id: item.id,
     referenceId: item.reference_id,
     applicantName: item.applicant_name || '',

@@ -1,0 +1,80 @@
+.dfp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dfp-group {
+  border: 1px solid;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+}
+
+.dfp-group--same-job {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.dfp-group--accepted {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.dfp-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+}
+
+.dfp-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.dfp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dfp-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.dfp-ref {
+  font-weight: 700;
+}
+
+.dfp-date {
+  opacity: 0.8;
+}
+
+.dfp-link {
+  margin-left: auto;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.dfp-more {
+  margin: 0.35rem 0 0;
+  opacity: 0.8;
+}
+
+.dfp-status {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+}

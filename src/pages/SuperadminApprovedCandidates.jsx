@@ -15,6 +15,7 @@ import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { egiDecisionFilterOptions, getStatusLabel } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
 import { TableLoadingRows } from '../components/TableLoadingRows';
@@ -140,7 +141,7 @@ export function SuperadminApprovedCandidates() {
   const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
     const updated = await reviewApplication(activeApp.id, status, input);
-    if (updated) setActiveApp(updated);
+    if (updated) setActiveApp(keepDuplicateFlags(updated, activeApp));
     refetch();
     return updated;
   };

@@ -1,0 +1,35 @@
+.dfb {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.dfb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: default;
+}
+
+.dfb-pill--same-job {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.dfb-pill--accepted {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.dfb-icon {
+  width: 0.7rem;
+  height: 0.7rem;
+}

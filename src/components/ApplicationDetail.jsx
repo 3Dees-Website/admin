@@ -6,6 +6,8 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
+import { DuplicateFlagsPanel } from './DuplicateFlagsPanel';
+import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { useApprovalCap } from '../hooks/useApprovalCap';
 import { approvalCapBlockReason } from '../utils/approvalCap';
 import { EgiNoteModal } from './EgiNoteModal';
@@ -248,7 +250,9 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   // Edit, upload and resend responses don't carry allowedTransitions. Keep the
   // current list for an instant paint and refetch the row (bumping the tick
   // reruns the fetch effect above) so the server's fresh list replaces it.
-  const publishUpdate = (updated) => {
+  // These responses don't carry duplicateFlags either; keep the row's own.
+  const publishUpdate = (response) => {
+    const updated = keepDuplicateFlags(response, app);
     if (updated.allowedTransitions === null) {
       onAppUpdated?.({ ...updated, allowedTransitions: app.allowedTransitions });
       setEgiInfoTick((t) => t + 1);
@@ -350,6 +354,8 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
         <ApprovalCapBadge jobId={app.jobId} cap={app.approvalCap} />
         <span className="ad-view-meta-viewed">Viewed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</span>
       </div>
+
+      <DuplicateFlagsPanel flags={app.duplicateFlags} />
 
       {lockInfo.banner && (
         <div className={`ad-lock-banner ad-lock-banner--${lockInfo.tone}`}>{lockInfo.banner}</div>

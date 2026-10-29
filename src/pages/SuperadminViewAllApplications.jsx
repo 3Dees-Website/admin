@@ -14,7 +14,9 @@ import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
+import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
 import {
   statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions, getStatusLabel,
 } from '../utils/applicationStatus';
@@ -140,7 +142,7 @@ export function SuperadminViewAllApplications() {
   const handleUpdateApplicantStatus = async (status, input) => {
     if (!activeApp) return null;
     const updated = await reviewApplication(activeApp.id, status, input);
-    if (updated) setActiveApp(updated);
+    if (updated) setActiveApp(keepDuplicateFlags(updated, activeApp));
     refetch();
     return updated;
   };
@@ -289,6 +291,7 @@ export function SuperadminViewAllApplications() {
                     <div className="sva-applicant-info">
                       <span className="sva-applicant-name">{a.applicantName}</span>
                       <span className="sva-applicant-meta">{a.applicantEmail}</span>
+                      <DuplicateFlagBadges flags={a.duplicateFlags} />
                     </div>
                   </td>
                   <td className="sva-td sva-job-title">{getJobTitle(a.jobId)}</td>

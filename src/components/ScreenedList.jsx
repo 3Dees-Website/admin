@@ -11,6 +11,7 @@ import { StatusBadge } from './StatusBadge';
 import { StatusActions } from './StatusActions';
 import { EgiDecisionBadge } from './EgiBadges';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
+import { DuplicateFlagBadges } from './DuplicateFlagBadges';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
@@ -205,6 +206,7 @@ export function ScreenedList() {
                   <td className="scr-td">
                     <span className="scr-name">{item.applicantName}</span>
                     <span className="scr-meta">{item.applicantEmail}</span>
+                    <DuplicateFlagBadges flags={item.duplicateFlags} />
                     <span className="scr-meta">
                       {item.referenceId} · <Link className="scr-link" to={`${base}/applications?openApp=${item.id}`}>Open file</Link>
                     </span>
