@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { recordApprovalCap } from '../utils/approvalCap';
 
 // The API returns snake_case keys at the top level. Normalise to camelCase
 // so the rest of the app stays unchanged.
@@ -16,6 +17,7 @@ function normalizeScreeningConfig(config) {
 }
 
 function normalizeJob(job) {
+  const approvalCap = recordApprovalCap(job.id, job.approvalCap ?? job.approval_cap);
   return {
     id: job.id,
     title: job.title,
@@ -34,6 +36,8 @@ function normalizeJob(job) {
     applicationRequirements: job.application_requirements,
     createdAt: job.created_at,
     isExpired: job.is_expired,
+    // { approved, max, full, overCap } or null if the server didn't send one.
+    approvalCap,
     // View-only for any admin; editing is superadmin-only (server-enforced).
     screeningConfig: normalizeScreeningConfig(job.screening_config),
     // Only GET /admin/jobs and /:id carry this. POST/PUT responses don't, so it
@@ -73,6 +77,16 @@ export const jobService = {
     const body = screeningConfig !== undefined ? { ...rest, screeningConfig } : rest;
     const res = await apiClient.put(`/api/admin/jobs/${id}`, body);
     return normalizeJob(res.data);
+  },
+
+  /**
+   * PUT /jobs/:id/approval-cap. `maxApproved` is a whole number >= 0, or null
+   * for no cap. Its own endpoint, not part of the job save. Resolves to the
+   * job's new { approved, max, full, overCap }.
+   */
+  async setApprovalCap(id, maxApproved) {
+    const res = await apiClient.put(`/api/admin/jobs/${id}/approval-cap`, { maxApproved });
+    return recordApprovalCap(id, res.data?.approvalCap);
   },
 
   async deleteJob(id) {

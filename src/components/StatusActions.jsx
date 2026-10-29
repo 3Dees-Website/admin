@@ -4,6 +4,8 @@ import { EgiNoteModal } from './EgiNoteModal';
 import { ShortlistInviteModal } from './InviteModal';
 import { RejectApplicationModal } from './RejectModal';
 import { getStatusActions } from '../utils/applicationStatus';
+import { useApprovalCap } from '../hooks/useApprovalCap';
+import { approvalCapBlockReason } from '../utils/approvalCap';
 import './styles/StatusActions.css';
 
 // Modals for the moves that need input before they can be sent. 'egiNote'
@@ -23,6 +25,10 @@ const INPUT_MODALS = { invite: ShortlistInviteModal, rejection: RejectApplicatio
  * `only` (optional) lists the target statuses to offer; `emptyText` is what
  * shows when there are none (null shows nothing).
  *
+ * Approve is disabled, with the reason as its tooltip, while the application's
+ * job has reached its approval cap. That is advisory (the server enforces the
+ * cap and a stale screen is corrected from its JobFull reply).
+ *
  * `onTransition(status, input)` does the request and resolves truthy on
  * success; `beforeAction()` (optional) resolves false to stop, e.g. when
  * unsaved notes could not be saved.
@@ -39,6 +45,7 @@ export function StatusActions({
 }) {
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
+  const capBlock = approvalCapBlockReason(useApprovalCap(app.jobId, app.approvalCap));
 
   // `only` limits the buttons to some target statuses (a compact row that
   // offers just Save and Approve); the server's list still decides if they show.
@@ -84,7 +91,8 @@ export function StatusActions({
           key={action.target}
           type="button"
           className={buttonClass[action.tone] ?? `sta-btn sta-btn--${action.tone}`}
-          disabled={busy}
+          disabled={busy || (action.tone === 'approve' && Boolean(capBlock))}
+          title={action.tone === 'approve' && capBlock ? capBlock : undefined}
           onClick={() => start(action)}
         >
           {approveIcon && action.tone === 'approve' && <Check size={14} />}

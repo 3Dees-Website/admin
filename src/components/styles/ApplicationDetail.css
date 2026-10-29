@@ -722,3 +722,8 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.ad-resend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

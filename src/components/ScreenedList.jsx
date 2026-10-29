@@ -10,6 +10,7 @@ import { useScreenedRowDetails, detailKey } from '../hooks/useScreenedRowDetails
 import { StatusBadge } from './StatusBadge';
 import { StatusActions } from './StatusActions';
 import { EgiDecisionBadge } from './EgiBadges';
+import { ApprovalCapBadge } from './ApprovalCapBadge';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
@@ -208,7 +209,10 @@ export function ScreenedList() {
                       {item.referenceId} · <Link className="scr-link" to={`${base}/applications?openApp=${item.id}`}>Open file</Link>
                     </span>
                   </td>
-                  <td className="scr-td">{item.jobTitle || 'Deleted Position'}</td>
+                  <td className="scr-td">
+                    {item.jobTitle || 'Deleted Position'}
+                    <ApprovalCapBadge jobId={item.jobId} cap={item.approvalCap} className="scr-cap" />
+                  </td>
                   <td className="scr-td">{item.stateOfOrigin || '—'}</td>
                   <td className="scr-td scr-td-center">
                     {item.screeningTotal !== null ? (

@@ -14,5 +14,6 @@ export function useJobs() {
     postJob: context.postJob,
     editJob: context.editJob,
     removeJob: context.removeJob,
+    setJobApprovalCap: context.setJobApprovalCap,
   };
 }

@@ -10,6 +10,7 @@ import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
 import { RequirementsBuilder } from './RequirementsBuilder';
 import { ScreeningConfigEditor } from './ScreeningConfigEditor';
+import { ApprovalCapControl } from './ApprovalCapControl';
 import { jobService } from '../services/jobService';
 import { can, PERM } from '../utils/permissions';
 import { draftFromConfig, validateDraft, payloadFromDraft } from '../utils/screeningConfig';
@@ -367,6 +368,9 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
               />
             </div>
           )}
+
+          {/* Approval cap: its own endpoint and button, existing jobs only (needs manage_approval_cap) */}
+          {editingJob && <ApprovalCapControl job={editingJob} />}
 
           {/* Footer: Status + Buttons */}
           <div className="jfm-form-footer">

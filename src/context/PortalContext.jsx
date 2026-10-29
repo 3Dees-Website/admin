@@ -10,6 +10,7 @@ import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 import { mapLockError } from '../utils/applicationLock';
 import { getStatusLabel } from '../utils/applicationStatus';
 import { diffPermissions, samePermissions } from '../utils/permissions';
+import { recordApprovalCapFromError, clearApprovalCaps } from '../utils/approvalCap';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
 const HEARTBEAT_KEY = '3dees_last_heartbeat';        // localStorage, shared across tabs
@@ -159,10 +160,13 @@ export function PortalProvider({ children }) {
       return;
     }
 
-    // Group identical reasons with a count; cap at 3 groups.
+    // Group identical reasons with a count; cap at 3 groups. Items the job's
+    // approval cap refused are labelled, so they read as "job full" and not
+    // as a fault.
     const counts = new Map();
-    for (const { reason } of result.failed) {
-      const key = reason || 'Unknown error';
+    for (const { reason, error } of result.failed) {
+      const base = reason || 'Unknown error';
+      const key = error === 'JobFull' ? `Job full: ${base}` : base;
       counts.set(key, (counts.get(key) || 0) + 1);
     }
     const groups = [...counts.entries()].map(([reason, n]) => `${reason} (${n})`);
@@ -170,7 +174,10 @@ export function PortalProvider({ children }) {
     const reasons = groups.slice(0, 3).join('; ')
       + (extra > 0 ? `; +${extra} other reason${extra !== 1 ? 's' : ''}` : '');
 
-    if (successCount === 0) {
+    const fullCount = result.failed.filter((f) => f.error === 'JobFull').length;
+    if (fullCount === failCount && successCount === 0) {
+      addToast('warning', 'Job Full', `None of the ${total} ${plural(total)} could be set to ${getStatusLabel(status)} — ${reasons}.`);
+    } else if (successCount === 0) {
       addToast('error', 'Bulk Update Failed', `None of the ${total} ${plural(total)} could be set to ${getStatusLabel(status)} — ${reasons}.`);
     } else {
       addToast(
@@ -300,6 +307,7 @@ export function PortalProvider({ children }) {
     localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh);
     localStorage.removeItem(TOKEN_STORAGE_KEYS.user);
     sessionStorage.removeItem(SESSION_MARKER_KEY);
+    clearApprovalCaps();
     dispatch({ type: 'SET_AUTH', payload: null });
     dispatch({
       type: 'SET_INITIAL_DATA',
@@ -519,6 +527,18 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // Resolves to { ok, cap } or { ok: false, message }. The cap form shows the
+  // reason itself, so a failure gets no toast. The new cap reaches every screen
+  // through the approval-cap store (see jobService.setApprovalCap).
+  const setJobApprovalCap = async (jobId, maxApproved) => {
+    try {
+      const cap = await jobService.setApprovalCap(jobId, maxApproved);
+      return { ok: true, cap };
+    } catch (err) {
+      return { ok: false, message: err?.message || 'Could not update the approval cap.' };
+    }
+  };
+
   // Resolves to { ok, message } so a confirm dialog can stay open on failure
   // and show the same reason the toast gives.
   const removeJob = async (jobId) => {
@@ -615,7 +635,14 @@ export function PortalProvider({ children }) {
 
       return updated;
     } catch (err) {
-      addToast('error', 'Status Update Failed', err?.message || 'Could not update application status.');
+      // JobFull: the cap was reached after this screen loaded. Take the cap
+      // from the reply so Approve disables itself without a reload.
+      recordApprovalCapFromError(err, appId);
+      addToast(
+        err?.error === 'JobFull' ? 'warning' : 'error',
+        err?.error === 'JobFull' ? 'Job Full' : 'Status Update Failed',
+        err?.message || 'Could not update application status.',
+      );
       // A refusal may mean the user's permission changed; re-read it.
       refreshSessionFlags();
       return null;
@@ -677,7 +704,12 @@ export function PortalProvider({ children }) {
       }
       return updated;
     } catch (err) {
-      addToast('error', 'Resend Failed', err?.message || 'Could not resend to the EGI portal.');
+      recordApprovalCapFromError(err, appId);
+      addToast(
+        err?.error === 'JobFull' ? 'warning' : 'error',
+        err?.error === 'JobFull' ? 'Job Full' : 'Resend Failed',
+        err?.message || 'Could not resend to the EGI portal.',
+      );
       return null;
     }
   };
@@ -923,6 +955,7 @@ export function PortalProvider({ children }) {
         postJob,
         editJob,
         removeJob,
+        setJobApprovalCap,
         applyToJob,
         reviewApplication,
         updateApplication,

@@ -1,4 +1,7 @@
 import { apiClient } from './apiClient';
+import {
+  recordApprovalCap, recordApprovalCaps, registerApplicationJob,
+} from '../utils/approvalCap';
 
 // Bulk status updates run server-side four at a time (up to 100 ids), so a
 // large batch can outlast apiClient's ordinary 45s timeout.
@@ -25,7 +28,11 @@ function toNumberOrNull(value) {
 }
 
 function normalizeApplication(app) {
+  registerApplicationJob(app.id, app.job_id);
+  const approvalCap = recordApprovalCap(app.job_id, app.approvalCap ?? app.approval_cap);
   return {
+    // The approval cap of this application's job: { approved, max, full, overCap } or null.
+    approvalCap,
     id: app.id,
     jobId: app.job_id,
     referenceId: app.reference_id,
@@ -116,7 +123,10 @@ function normalizeScoreItem(item) {
 // today (null here), so the screen reads each row's own from the detail
 // endpoint until the list sends it.
 function normalizeScreenedItem(item) {
+  registerApplicationJob(item.id, item.job_id);
+  const approvalCap = recordApprovalCap(item.job_id, item.approvalCap ?? item.approval_cap);
   return {
+    approvalCap,
     id: item.id,
     referenceId: item.reference_id,
     applicantName: item.applicant_name || '',
@@ -151,6 +161,8 @@ function normalizeJobStat(stat) {
     approved: stat.approved,
     rejected: stat.rejected,
     archived: stat.archived,
+    maxApproved: stat.maxApproved ?? null,
+    approvalCap: recordApprovalCap(stat.jobId, stat.approvalCap),
   };
 }
 
@@ -181,6 +193,8 @@ export const applicationService = {
    */
   async getScreenedPage({ page, pageSize, ...filters } = {}) {
     const res = await apiClient.get('/api/admin/applications/screened', { ...filters, page, pageSize });
+    // Top-level map of every job on the page, keyed by job id.
+    recordApprovalCaps(res.data.approvalCaps);
     return {
       items: res.data.items.map(normalizeScreenedItem),
       total: res.data.total,
@@ -225,6 +239,7 @@ export const applicationService = {
       ...(rejection !== undefined ? { rejection } : {}),
       changedBy,
     });
+    recordApprovalCap(res.data?.job_id, res.data?.approvalCap ?? res.approvalCap);
     return normalizeApplication(res.data);
   },
 
@@ -326,7 +341,10 @@ export const applicationService = {
       ...(notes !== undefined ? { notes } : {}),
       changedBy,
     }, { timeoutMs: BULK_STATUS_TIMEOUT_MS });
-    return res.data; // { success: [...ids], failed: [{ id, reason }] }
+    // approvalCaps: { [jobId]: approvalCap } for the jobs the batch touched.
+    recordApprovalCaps(res.data?.approvalCaps ?? res.approvalCaps);
+    // { success: [...ids], failed: [{ id, reason, error? }] }; error is "JobFull" for items the cap refused.
+    return res.data;
   },
 
   async addVerificationDocument(id, formData) {
@@ -341,6 +359,7 @@ export const applicationService = {
 
   async resendToEgi(id, egiNote) {
     const res = await apiClient.post(`/api/admin/applications/${id}/resend-egi`, { egiNote });
+    recordApprovalCap(res.data?.job_id, res.approvalCap);
     return normalizeApplication(res.data);
   },
 

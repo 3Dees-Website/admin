@@ -14,6 +14,7 @@ export const PERM = Object.freeze({
   SAVE_DECLINED_APPLICATION: 'save_declined_application',
   EGI_SYNC_ACCESS: 'egi_sync_access',
   VIEW_APPROVED_CANDIDATES: 'view_approved_candidates',
+  MANAGE_APPROVAL_CAP: 'manage_approval_cap',
 });
 
 /**

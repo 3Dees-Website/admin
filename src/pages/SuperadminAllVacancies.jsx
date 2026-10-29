@@ -9,6 +9,7 @@ import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { useCategories } from '../hooks/useCategories';
 import { RequirementsSummary } from '../components/RequirementsSummary';
+import { ApprovalCapBadge } from '../components/ApprovalCapBadge';
 import { JobFormModal } from '../components/JobFormModal';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -291,6 +292,7 @@ export function SuperadminAllVacancies() {
                       <span className="sav-job-location">
                         <MapPin className="sav-loc-icon" /> {job.location}
                       </span>
+                      <ApprovalCapBadge jobId={job.id} cap={job.approvalCap} />
                     </div>
                   </td>
 
@@ -412,6 +414,10 @@ export function SuperadminAllVacancies() {
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Openings</span>
                   <span className="sav-detail-val">{activeJob.openings} slot(s)</span>
+                </div>
+                <div className="sav-detail-item">
+                  <span className="sav-detail-key">Approvals</span>
+                  <span className="sav-detail-val"><ApprovalCapBadge jobId={activeJob.id} cap={activeJob.approvalCap} /></span>
                 </div>
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Salary Range</span>

@@ -5,6 +5,9 @@ import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
+import { ApprovalCapBadge } from './ApprovalCapBadge';
+import { useApprovalCap } from '../hooks/useApprovalCap';
+import { approvalCapBlockReason } from '../utils/approvalCap';
 import { EgiNoteModal } from './EgiNoteModal';
 import { DeleteApplicationDialog } from './DeleteApplicationDialog';
 import { NotesTimelinePanel } from './NotesTimelinePanel';
@@ -129,6 +132,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
 
   // Covers Ctrl/Cmd+P as well as the Print button.
   const wrapperRef = useRef(null);
+  const approvalCap = useApprovalCap(app.jobId, app.approvalCap);
   useEffect(() => {
     const before = () => {
       setViewedAt(new Date());
@@ -193,6 +197,9 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   const canResend = egiLoaded && (egiFallback ? Boolean(lockInfo.canResend) : egiInfo.canResend);
   const resendKind = egiFallback ? (lockInfo.canResend ? 'resubmission' : null) : egiInfo?.resendKind;
   const isRedelivery = canResend && resendKind === 'redelivery';
+  // A resubmission puts the candidate back in line for approval, so it stops at
+  // the cap like Approve does. A redelivery re-sends someone already counted.
+  const resendCapBlock = canResend && !isRedelivery ? approvalCapBlockReason(approvalCap) : null;
 
   useEffect(() => {
     if (egiFallback) {
@@ -340,6 +347,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
 
       <div className="ad-view-meta">
         <span>Date submitted: {app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '—'}</span>
+        <ApprovalCapBadge jobId={app.jobId} cap={app.approvalCap} />
         <span className="ad-view-meta-viewed">Viewed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</span>
       </div>
 
@@ -390,7 +398,13 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
         {app.egiReferenceId && <span className="ad-egi-meta">EGI reference: {app.egiReferenceId}</span>}
 
         {canResend && (
-          <button type="button" className="ad-resend-btn" onClick={() => setResendModalOpen(true)}>
+          <button
+            type="button"
+            className="ad-resend-btn"
+            onClick={() => setResendModalOpen(true)}
+            disabled={Boolean(resendCapBlock)}
+            title={resendCapBlock || undefined}
+          >
             <Send size={14} /> {isRedelivery ? 'Redeliver to EGI' : 'Resend to EGI'}
           </button>
         )}

@@ -9,6 +9,7 @@ import { useJobs } from '../hooks/useJobs';
 import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { JobFormModal } from '../components/JobFormModal';
+import { ApprovalCapBadge } from '../components/ApprovalCapBadge';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
@@ -133,6 +134,7 @@ export function AdminJobs() {
                     <div className="aj-job-info">
                       <span className="aj-job-title">{j.title}</span>
                       <span className="aj-job-meta">{j.category} • {j.type}</span>
+                      <ApprovalCapBadge jobId={j.id} cap={j.approvalCap} />
                     </div>
                   </td>
                   <td className="aj-td aj-muted">{j.clientOrg}</td>
