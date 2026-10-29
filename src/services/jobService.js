@@ -17,7 +17,7 @@ function normalizeScreeningConfig(config) {
 }
 
 function normalizeJob(job) {
-  const approvalCap = recordApprovalCap(job.id, job.approvalCap ?? job.approval_cap);
+  const approvalCap = recordApprovalCap(job.id, job.approvalCap);
   return {
     id: job.id,
     title: job.title,

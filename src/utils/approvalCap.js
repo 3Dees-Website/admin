@@ -45,7 +45,7 @@ export function recordApprovalCap(jobId, cap) {
   return next;
 }
 
-/** Record a { [jobId]: approvalCap } map (screened list, bulk responses). */
+/** Record a { [jobId]: approvalCap } map (screened list, bulk responses). A job absent from the map is left as it was. */
 export function recordApprovalCaps(map) {
   if (!map || typeof map !== 'object') return;
   Object.entries(map).forEach(([jobId, cap]) => recordApprovalCap(jobId, cap));
@@ -59,15 +59,14 @@ export function registerApplicationJob(appId, jobId) {
 }
 
 /**
- * Pull the cap out of a failed request (the 409 JobFull body) and record it.
- * The body's exact shape isn't pinned down, so top level and `data` are both
- * read, and the job comes from the body or, failing that, the application.
+ * Record the cap from a 409 JobFull reply: flat { success, error, message,
+ * approvalCap }. The body never names the job, so it is always found through
+ * the application, which was registered when its row was loaded. If that row
+ * was never seen here, nothing is recorded.
  */
 export function recordApprovalCapFromError(err, appId) {
-  const cap = err?.approvalCap ?? err?.data?.approvalCap;
-  if (!cap) return;
-  const jobId = err?.jobId ?? err?.data?.jobId ?? state.jobByApp[String(appId)];
-  recordApprovalCap(jobId, cap);
+  if (!err?.approvalCap) return;
+  recordApprovalCap(state.jobByApp[String(appId)], err.approvalCap);
 }
 
 export function getApprovalCap(jobId) {

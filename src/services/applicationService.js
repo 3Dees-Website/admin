@@ -29,7 +29,7 @@ function toNumberOrNull(value) {
 
 function normalizeApplication(app) {
   registerApplicationJob(app.id, app.job_id);
-  const approvalCap = recordApprovalCap(app.job_id, app.approvalCap ?? app.approval_cap);
+  const approvalCap = recordApprovalCap(app.job_id, app.approvalCap);
   return {
     // The approval cap of this application's job: { approved, max, full, overCap } or null.
     approvalCap,
@@ -124,7 +124,7 @@ function normalizeScoreItem(item) {
 // endpoint until the list sends it.
 function normalizeScreenedItem(item) {
   registerApplicationJob(item.id, item.job_id);
-  const approvalCap = recordApprovalCap(item.job_id, item.approvalCap ?? item.approval_cap);
+  const approvalCap = recordApprovalCap(item.job_id, item.approvalCap);
   return {
     approvalCap,
     id: item.id,
@@ -193,7 +193,7 @@ export const applicationService = {
    */
   async getScreenedPage({ page, pageSize, ...filters } = {}) {
     const res = await apiClient.get('/api/admin/applications/screened', { ...filters, page, pageSize });
-    // Top-level map of every job on the page, keyed by job id.
+    // data.approvalCaps, beside items/page/total: { [job_id]: approvalCap } for the jobs on the page.
     recordApprovalCaps(res.data.approvalCaps);
     return {
       items: res.data.items.map(normalizeScreenedItem),
@@ -239,7 +239,6 @@ export const applicationService = {
       ...(rejection !== undefined ? { rejection } : {}),
       changedBy,
     });
-    recordApprovalCap(res.data?.job_id, res.data?.approvalCap ?? res.approvalCap);
     return normalizeApplication(res.data);
   },
 
@@ -341,8 +340,10 @@ export const applicationService = {
       ...(notes !== undefined ? { notes } : {}),
       changedBy,
     }, { timeoutMs: BULK_STATUS_TIMEOUT_MS });
-    // approvalCaps: { [jobId]: approvalCap } for the jobs the batch touched.
-    recordApprovalCaps(res.data?.approvalCaps ?? res.approvalCaps);
+    // data.approvalCaps, beside success/failed. A job appears only if one of its
+    // items succeeded or was refused JobFull; a job missing from the map is
+    // unknown, and recordApprovalCaps leaves its stored cap untouched.
+    recordApprovalCaps(res.data?.approvalCaps);
     // { success: [...ids], failed: [{ id, reason, error? }] }; error is "JobFull" for items the cap refused.
     return res.data;
   },
@@ -359,7 +360,6 @@ export const applicationService = {
 
   async resendToEgi(id, egiNote) {
     const res = await apiClient.post(`/api/admin/applications/${id}/resend-egi`, { egiNote });
-    recordApprovalCap(res.data?.job_id, res.approvalCap);
     return normalizeApplication(res.data);
   },
 
