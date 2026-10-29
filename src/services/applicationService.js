@@ -79,7 +79,8 @@ function normalizeApplication(app) {
 
 // One entry of the notes timeline. `stage` is the application's status right
 // after the action that wrote the note; kind 'egi' is the approval note that
-// also went to EGI (sentToEgi).
+// also went to EGI (sentToEgi); kind 'system' is a backend audit entry (author
+// name "System", no authorId).
 function normalizeNote(note) {
   return {
     id: note.id,

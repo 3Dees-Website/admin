@@ -55,6 +55,29 @@
   color: #92400e;
 }
 
+/* kind 'system': an audit entry written by the backend, not by an admin */
+.ntp-item--system {
+  background: #f3f4f6;
+  border-style: dashed;
+  border-color: #cbd5e1;
+}
+
+.ntp-item--system .ntp-author,
+.ntp-item--system .ntp-body {
+  color: #6b7280;
+}
+
+.ntp-system-chip {
+  font-size: 0.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .ntp-time {
   margin-left: auto;
   font-size: 0.6rem;

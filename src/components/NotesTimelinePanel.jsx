@@ -49,9 +49,12 @@ export function NotesTimelinePanel({ app }) {
       {status === 'ready' && notes.length > 0 && (
         <ol className="ntp-list">
           {notes.map((note) => (
-            <li key={note.id} className="ntp-item">
+            <li key={note.id} className={`ntp-item${note.kind === 'system' ? ' ntp-item--system' : ''}`}>
               <div className="ntp-meta">
                 <span className="ntp-author">{note.authorName}</span>
+                {note.kind === 'system' && (
+                  <span className="ntp-system-chip" title="Recorded automatically; not written by an admin">System record</span>
+                )}
                 <StatusBadge status={note.stage} className="ntp-stage" />
                 {(note.kind === 'egi' || note.sentToEgi) && (
                   <span className="ntp-egi-chip">Sent to EGI</span>
