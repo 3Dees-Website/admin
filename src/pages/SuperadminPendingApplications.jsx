@@ -407,6 +407,10 @@ export function SuperadminPendingApplications() {
           onClose={() => setEditingApp(null)}
           onStatusChange={handleStatusChange}
           onAppUpdated={setEditingApp}
+          onJobReassigned={() => {
+            refetch();
+            refetchStats();
+          }}
         />
       )}
 

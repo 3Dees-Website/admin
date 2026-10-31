@@ -372,6 +372,13 @@ export const applicationService = {
     return normalizeApplication(res.data);
   },
 
+  // Superadmin only. Moves the application to another job; screening scores
+  // and status are left as they are.
+  async reassignJob(id, jobId) {
+    const res = await apiClient.patch(`/api/admin/applications/${id}/job`, { jobId });
+    return normalizeApplication(res.data);
+  },
+
   async deleteApplication(id) {
     await apiClient.delete(`/api/admin/applications/${id}`);
   },

@@ -385,6 +385,7 @@ export function SuperadminViewAllApplications() {
                   refetch();
                 }}
                 onDeleteFailed={refetch}
+                onJobReassigned={refetch}
               />
             </div>
 

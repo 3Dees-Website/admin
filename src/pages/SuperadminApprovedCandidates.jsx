@@ -361,6 +361,7 @@ export function SuperadminApprovedCandidates() {
                   refetch();
                 }}
                 onDeleteFailed={refetch}
+                onJobReassigned={refetch}
               />
             </div>
 

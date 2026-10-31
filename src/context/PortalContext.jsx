@@ -11,7 +11,7 @@ import { TOKEN_STORAGE_KEYS, readStoredUser } from '../services/apiClient';
 import { mapLockError } from '../utils/applicationLock';
 import { getStatusLabel } from '../utils/applicationStatus';
 import { diffPermissions, samePermissions } from '../utils/permissions';
-import { recordApprovalCapFromError, clearApprovalCaps } from '../utils/approvalCap';
+import { recordApprovalCap, recordApprovalCapFromError, clearApprovalCaps } from '../utils/approvalCap';
 import { healRequirements } from '../utils/fieldCatalogHelpers';
 
 const SESSION_MARKER_KEY = '3dees_session_active';   // sessionStorage, per-tab
@@ -732,6 +732,28 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // Superadmin only. Resolves to { ok: true, app } or { ok: false, error,
+  // message }; every outcome is toasted here. A JobFull reply describes the
+  // target job's cap, not the application's current job, so it is recorded
+  // against the target.
+  const reassignApplicationJob = async (appId, jobId) => {
+    try {
+      const updated = await applicationService.reassignJob(appId, jobId);
+      const title = updated?.jobTitle || state.jobs.find((j) => j.id === jobId)?.title || 'the selected job';
+      addToast('success', 'Job Reassigned', `${updated?.applicantName || 'The applicant'} moved to ${title}.`);
+      return { ok: true, app: updated };
+    } catch (err) {
+      if (err?.approvalCap) recordApprovalCap(jobId, err.approvalCap);
+      const message = err?.message || 'Could not move this application to the selected job.';
+      addToast(
+        err?.error === 'JobFull' ? 'warning' : 'error',
+        err?.error === 'JobFull' ? 'Job Full' : 'Reassign Failed',
+        message,
+      );
+      return { ok: false, error: err?.error, message };
+    }
+  };
+
   // Resolves to { ok } or { ok: false, error, message, deletableAt }. The
   // delete dialog stays open and shows the reason, so a refusal about the
   // application's state (not deletable, not yet, delivery in flight) gets no
@@ -983,6 +1005,7 @@ export function PortalProvider({ children }) {
         deleteApplication,
         updateInvite,
         getDocumentUrl,
+        reassignApplicationJob,
         bulkReviewApplications,
         registerAdmin,
         toggleAdminSuspension,

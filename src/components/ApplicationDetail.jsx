@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Eye, Trash2, Edit2, Save, X as XIcon, Send, Printer } from 'lucide-react';
+import { Eye, Trash2, Edit2, Save, X as XIcon, Send, Printer, ArrowRightLeft } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
@@ -14,6 +14,7 @@ import { useApprovalCap } from '../hooks/useApprovalCap';
 import { approvalCapBlockReason } from '../utils/approvalCap';
 import { EgiNoteModal } from './EgiNoteModal';
 import { DeleteApplicationDialog } from './DeleteApplicationDialog';
+import { ReassignJobDialog } from './ReassignJobDialog';
 import { NotesTimelinePanel } from './NotesTimelinePanel';
 import { InvitePanel } from './InvitePanel';
 import { EgiSyncBadge, EgiDeliveryBadge, EgiDecisionBadge, EgiResendBadge } from './EgiBadges';
@@ -100,9 +101,9 @@ const renderFieldValue = (field, value) => {
  * viewing, editing form_data, applicant documents, verification documents,
  * and EGI resend.
  */
-export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, onDeleteFailed }) {
+export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, onDeleteFailed, onJobReassigned }) {
   const { catalog, isLoading } = useFieldCatalog();
-  const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi, deleteApplication } = useApplications();
+  const { updateApplication, uploadVerificationDocument, deleteVerificationDocument, resendToEgi, deleteApplication, reassignApplicationJob } = useApplications();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedFormData, setEditedFormData] = useState(app.formData);
@@ -113,6 +114,8 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // The server's last refusal to delete this application, if any. It is
   // forgotten when the application (or its status) changes.
@@ -316,6 +319,36 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
     }
   };
 
+  // The PATCH response goes straight to the parent: the fetch effect above
+  // does not compare jobId, so it would never pick the move up on its own.
+  const handleReassignConfirm = async (jobId) => {
+    if (reassigning || !jobId) return;
+    setReassigning(true);
+    const result = await reassignApplicationJob(app.id, jobId);
+    setReassigning(false);
+
+    if (result.ok) {
+      setReassignOpen(false);
+      publishUpdate(result.app);
+      setEgiInfoTick((t) => t + 1);
+      onJobReassigned?.();
+      return;
+    }
+
+    // The failure has already been toasted. A Conflict means the row changed
+    // since it was loaded, so show the current one and drop the stale choice.
+    if (result.error === 'Conflict') {
+      setReassignOpen(false);
+      try {
+        const fresh = await applicationService.getApplication(app.id);
+        onAppUpdated?.(fresh);
+        setEgiInfoTick((t) => t + 1);
+      } catch {
+        // Best-effort refresh; the drawer keeps the row it had.
+      }
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (deleting) return;
     setDeleting(true);
@@ -370,6 +403,13 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
               {[app.jobTitle, app.referenceId && `Ref: ${app.referenceId}`].filter(Boolean).join(' · ')}
             </p>
             <StatusBadge status={app.status} className="ad-identity-status" />
+            {currentUser?.role === 'superadmin' && (
+              <div className="ad-no-print ad-reassign-trigger">
+                <button type="button" className="ad-edit-btn" onClick={() => setReassignOpen(true)}>
+                  <ArrowRightLeft size={14} /> Change Job
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -632,6 +672,15 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
           description={`Resending ${app.applicantName} sends a new note to EGI and resets the decision to pending.`}
           onCancel={() => setResendModalOpen(false)}
           onConfirm={handleResendConfirm}
+        />
+      )}
+
+      {reassignOpen && (
+        <ReassignJobDialog
+          app={app}
+          busy={reassigning}
+          onCancel={() => setReassignOpen(false)}
+          onConfirm={handleReassignConfirm}
         />
       )}
 

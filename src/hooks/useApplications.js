@@ -15,6 +15,7 @@ export function useApplications() {
     deleteVerificationDocument: context.deleteVerificationDocument,
     resendToEgi: context.resendToEgi,
     deleteApplication: context.deleteApplication,
+    reassignApplicationJob: context.reassignApplicationJob,
     getDocumentUrl: context.getDocumentUrl,
     bulkReviewApplications: context.bulkReviewApplications,
   };
