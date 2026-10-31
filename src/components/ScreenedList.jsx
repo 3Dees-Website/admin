@@ -13,6 +13,7 @@ import { EgiDecisionBadge } from './EgiBadges';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
 import { DuplicateFlagBadges } from './DuplicateFlagBadges';
 import { PresenceBadge } from './PresenceBadge';
+import { EnteredByBadge } from './EnteredByBadge';
 import { CandidateAvatar } from './CandidateAvatar';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
@@ -212,6 +213,7 @@ export function ScreenedList() {
                         <span className="scr-name">{item.applicantName}</span>
                         <span className="scr-meta">{item.applicantEmail}</span>
                         <DuplicateFlagBadges flags={item.duplicateFlags} />
+                        <EnteredByBadge enteredBy={item.enteredBy} />
                         <PresenceBadge viewers={item.currentViewers} />
                         <span className="scr-meta">
                           {item.referenceId} · <Link className="scr-link" to={`${base}/applications?openApp=${item.id}`}>Open file</Link>
