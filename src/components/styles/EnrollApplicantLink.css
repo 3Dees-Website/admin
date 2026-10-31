@@ -1,0 +1,20 @@
+.eal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background-color: var(--color-brand-primary);
+  color: #fff;
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.eal-btn:hover { background-color: var(--color-brand-secondary); }
+.eal-icon { width: 1rem; height: 1rem; }
+
+/* Under a header card's subtitle, where there is no actions row. */
+.eal-btn--below { margin-top: 0.75rem; }

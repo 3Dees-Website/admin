@@ -298,6 +298,23 @@ const HANDLERS = [
     },
   },
   {
+    // Enrolling creates a real applicant and emails them, so nothing is sent.
+    // The id is not a real application: the page sees devFake and stops at its
+    // success card instead of opening the detail view.
+    method: 'POST',
+    path: /^\/api\/admin\/applications$/,
+    run: async ({ read }) => {
+      const me = await read('/api/auth/me').then((r) => r.data?.user).catch(() => null);
+      return ok({
+        id: 'dev-fake-enrolled',
+        referenceId: 'DEV-FAKE-0000',
+        status: 'Pending',
+        enteredBy: { id: me?.id ?? null, name: me?.name ?? '(dev fake)', email: me?.email ?? null },
+        devFake: true,
+      }, 'Applicant enrollment');
+    },
+  },
+  {
     method: 'POST',
     path: /^\/api\/admin\/applications\/([^/]+)\/notes$/,
     run: async ({ body, match, read }) => {

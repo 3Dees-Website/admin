@@ -15,6 +15,8 @@ import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
 import { PresenceBadge } from '../components/PresenceBadge';
+import { EnteredByBadge } from '../components/EnteredByBadge';
+import { EnrollApplicantLink } from '../components/EnrollApplicantLink';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import { statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
@@ -215,6 +217,7 @@ export function AdminApplications() {
           </p>
         </div>
         <div className="aa-header-actions">
+          <EnrollApplicantLink />
           <button
             onClick={handleManualRefresh}
             className="btn btn-ghost"
@@ -384,6 +387,7 @@ export function AdminApplications() {
                           <span className="candidate-name">{a.applicantName}</span>
                           <span className="candidate-meta">{a.applicantEmail}</span>
                           <DuplicateFlagBadges flags={a.duplicateFlags} />
+                          <EnteredByBadge enteredBy={a.enteredBy} />
                           <PresenceBadge viewers={a.currentViewers} />
                         </div>
                       </div>

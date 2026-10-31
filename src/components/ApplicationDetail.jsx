@@ -7,6 +7,7 @@ import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
 import { PresenceBadge } from './PresenceBadge';
+import { EnteredByBadge } from './EnteredByBadge';
 import { CandidateAvatar } from './CandidateAvatar';
 import { StatusBadge } from './StatusBadge';
 import { DuplicateFlagsPanel } from './DuplicateFlagsPanel';
@@ -420,6 +421,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
       <div className="ad-view-meta">
         <span>Date submitted: {app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '—'}</span>
         <ApprovalCapBadge jobId={app.jobId} cap={app.approvalCap} />
+        <EnteredByBadge enteredBy={app.enteredBy} />
         <PresenceBadge viewers={viewers} className="ad-no-print" />
         <span className="ad-view-meta-viewed">Viewed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</span>
       </div>

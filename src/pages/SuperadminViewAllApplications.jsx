@@ -18,6 +18,8 @@ import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
 import { PresenceBadge } from '../components/PresenceBadge';
+import { EnteredByBadge } from '../components/EnteredByBadge';
+import { EnrollApplicantLink } from '../components/EnrollApplicantLink';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import {
   statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions,
@@ -173,6 +175,7 @@ export function SuperadminViewAllApplications() {
           <p className="sva-subtitle">Universal overview targeting cross-departmental agronomy, engineering, finance and logistics slots.</p>
         </div>
         <div className="sva-header-actions">
+          <EnrollApplicantLink />
           <button
             onClick={handleManualRefresh}
             className="sva-refresh-btn"
@@ -296,6 +299,7 @@ export function SuperadminViewAllApplications() {
                         <span className="sva-applicant-name">{a.applicantName}</span>
                         <span className="sva-applicant-meta">{a.applicantEmail}</span>
                         <DuplicateFlagBadges flags={a.duplicateFlags} />
+                        <EnteredByBadge enteredBy={a.enteredBy} />
                         <PresenceBadge viewers={a.currentViewers} />
                       </div>
                     </div>

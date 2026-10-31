@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import { PresenceBadge } from '../components/PresenceBadge';
+import { EnteredByBadge } from '../components/EnteredByBadge';
+import { EnrollApplicantLink } from '../components/EnrollApplicantLink';
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
@@ -178,6 +180,7 @@ export function SuperadminPendingApplications() {
           <p className="spa-subtitle">
             Cross-sector pending applications awaiting vetting. Superadmin override enables direct approval, force-reject, and document injection without standard workflow gates.
           </p>
+          <EnrollApplicantLink className="eal-btn--below" />
         </div>
         <div className="spa-header-alert">
           <ShieldAlert className="spa-alert-icon" />
@@ -315,6 +318,7 @@ export function SuperadminPendingApplications() {
                           <span className="spa-candidate-name">{app.applicantName}</span>
                           <span className="spa-candidate-meta">{app.applicantEmail}</span>
                           <span className="spa-ref">{app.referenceId}</span>
+                          <EnteredByBadge enteredBy={app.enteredBy} />
                           <PresenceBadge viewers={app.currentViewers} />
                         </div>
                       </div>

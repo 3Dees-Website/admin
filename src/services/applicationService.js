@@ -36,6 +36,22 @@ function normalizeViewers(list) {
     .map((v) => ({ id: v.id, name: v.name || 'Another admin' }));
 }
 
+// The admin who keyed the application in on the applicant's behalf, as
+// { id, name, email }; null = self-submitted. undefined = the response didn't
+// carry the entered_by_* columns at all (e.g. /screened), which is distinct
+// from null so a missing field never reads as "self-submitted".
+function normalizeEnteredBy(app) {
+  if (app.entered_by_id === undefined && app.entered_by === undefined && app.entered_by_email === undefined) {
+    return undefined;
+  }
+  if (app.entered_by_id == null && !app.entered_by) return null;
+  return {
+    id: app.entered_by_id ?? null,
+    name: app.entered_by || 'Staff',
+    email: app.entered_by_email ?? null,
+  };
+}
+
 function normalizeApplication(app) {
   registerApplicationJob(app.id, app.job_id);
   const approvalCap = recordApprovalCap(app.job_id, app.approvalCap);
@@ -89,6 +105,7 @@ function normalizeApplication(app) {
     screeningMax: toNumberOrNull(app.screening_max),
     screeningPercentage: toNumberOrNull(app.screening_percentage),
     screenedAt: app.screened_at ?? null,
+    enteredBy: normalizeEnteredBy(app),
     applicantName: app.applicant_name || '',
     applicantEmail: app.applicant_email || '',
     stateOfOrigin: app.form_data?.stateOfOrigin || null,
@@ -147,6 +164,9 @@ function normalizeScreenedItem(item) {
     duplicateFlags: normalizeDuplicateFlags(item.duplicateFlags),
     currentViewers: normalizeViewers(item.currentViewers),
     photoUrl: item.photoUrl,
+    // GET /screened doesn't select entered_by_* yet, so this is undefined
+    // ("not loaded") until it does; no screen reads it from here yet.
+    enteredBy: normalizeEnteredBy(item),
     id: item.id,
     referenceId: item.reference_id,
     applicantName: item.applicant_name || '',
@@ -399,6 +419,14 @@ export const applicationService = {
   async reassignJob(id, jobId) {
     const res = await apiClient.patch(`/api/admin/applications/${id}/job`, { jobId });
     return normalizeApplication(res.data);
+  },
+
+  // Any admin. Same multipart shape as the public submit (jobId, one flat field
+  // per answer key, files by catalog key). Resolves { id, referenceId, status,
+  // enteredBy }; the full row comes from getApplication(id).
+  async enrollApplicant(formData) {
+    const res = await apiClient.postForm('/api/admin/applications', formData);
+    return res.data;
   },
 
   async deleteApplication(id) {

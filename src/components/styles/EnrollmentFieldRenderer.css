@@ -1,0 +1,192 @@
+/* ══════════════════════════════════════════
+   EnrollmentFieldRenderer.css  —  prefix: en-
+   ══════════════════════════════════════════ */
+
+.en-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.en-field--full { grid-column: 1 / -1; }
+
+.en-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.en-required { color: #ef4444; }
+.en-optional { color: var(--color-brand-text); font-weight: 600; }
+
+.en-input,
+.en-select,
+.en-textarea {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.65rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.en-input:focus,
+.en-select:focus,
+.en-textarea:focus { border-color: var(--color-brand-primary); }
+
+.en-input:disabled,
+.en-select:disabled,
+.en-textarea:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.en-textarea { resize: vertical; line-height: 1.5; }
+
+.en-input--err { border-color: #ef4444; }
+
+.en-error-msg {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.en-age-preview {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+}
+
+.en-yesno {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.en-yesno-btn {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  background: #fff;
+  color: var(--color-brand-text);
+  border: none;
+  cursor: pointer;
+}
+
+.en-yesno-btn + .en-yesno-btn { border-left: 1px solid #e5e7eb; }
+.en-yesno-btn--active { background-color: var(--color-brand-primary); color: #fff; }
+.en-yesno-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.en-experience {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--color-brand-primary);
+  background-color: var(--color-brand-light);
+  border-radius: 0.375rem;
+}
+
+@media (min-width: 640px) {
+  .en-experience { grid-template-columns: 1fr 1fr; }
+  .en-experience .en-doc-block { grid-column: 1 / -1; }
+}
+
+.en-declaration {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  grid-column: 1 / -1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.en-declaration--err { border-color: #ef4444; }
+
+.en-declaration-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  cursor: pointer;
+}
+
+.en-declaration-label input { margin-top: 0.15rem; accent-color: var(--color-brand-primary); }
+
+/* ── Documents ── */
+.en-doc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.en-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: fit-content;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  background-color: var(--color-brand-primary);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.en-upload-btn:hover { background-color: var(--color-brand-secondary); }
+.en-upload-icon { width: 0.875rem; height: 0.875rem; }
+.en-file-hidden { display: none; }
+
+.en-doc-list { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.en-doc-attached {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.375rem;
+  font-size: 0.65rem;
+  min-width: 0;
+}
+
+.en-doc-check { width: 0.875rem; height: 0.875rem; color: #16a34a; flex-shrink: 0; }
+
+.en-doc-name {
+  font-weight: 600;
+  color: var(--color-brand-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.en-doc-size { color: var(--color-brand-text); flex-shrink: 0; }
+
+.en-doc-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0.15rem;
+  cursor: pointer;
+  color: var(--color-brand-text);
+  display: flex;
+}
+
+.en-doc-remove:hover { color: #ef4444; }
+.en-doc-remove-icon { width: 0.875rem; height: 0.875rem; }
+.en-doc-hint { font-size: 0.6rem; color: var(--color-brand-text); font-weight: 600; }

@@ -1,0 +1,278 @@
+/* EnrollApplicant.css — prefix: ea- */
+
+.ea-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ea-state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+}
+
+.ea-state-card,
+.ea-header-card,
+.ea-form-card,
+.ea-success {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(243, 244, 246, 0.5);
+  box-shadow: var(--shadow-subtle);
+}
+
+.ea-page-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-brand-primary);
+  font-family: monospace;
+}
+
+.ea-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+  letter-spacing: -0.02em;
+  margin-top: 0.125rem;
+}
+
+.ea-subtitle {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+  margin-top: 0.25rem;
+}
+
+/* ── Steps ── */
+.ea-steps-bar {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.25rem 0.5rem;
+}
+
+.ea-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ea-step-circle {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background-color: #e5e7eb;
+  color: var(--color-brand-text);
+}
+
+.ea-step-circle--active { background-color: var(--color-brand-primary); color: #fff; }
+.ea-step-check { width: 0.8rem; height: 0.8rem; }
+
+.ea-step-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-brand-text);
+}
+
+.ea-step-label--active { color: var(--color-brand-dark); font-weight: 800; }
+
+/* ── Form ── */
+.ea-form { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.ea-step-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-brand-dark);
+}
+
+.ea-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.8rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  color: #b91c1c;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.ea-banner-icon { width: 1rem; height: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+
+.ea-fields-grid,
+.ea-file-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.ea-file-grid { margin-top: 1.25rem; }
+
+@media (min-width: 640px) {
+  .ea-fields-grid,
+  .ea-file-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.ea-job-step { display: flex; flex-direction: column; gap: 0.4rem; max-width: 32rem; }
+.ea-job-label { font-size: 0.65rem; font-weight: 700; color: var(--color-brand-dark); }
+.ea-required { color: #ef4444; }
+
+.ea-job-select {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-brand-dark);
+  background-color: var(--color-brand-light);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.65rem;
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+}
+
+.ea-job-select:focus { border-color: var(--color-brand-primary); }
+.ea-job-select--err { border-color: #ef4444; }
+
+.ea-error-msg { font-size: 0.6rem; font-weight: 600; color: #dc2626; }
+
+.ea-job-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--color-brand-light);
+  border-radius: 0.375rem;
+  font-size: 0.7rem;
+  color: var(--color-brand-text);
+}
+
+.ea-job-hint { font-size: 0.6rem; font-weight: 600; color: var(--color-brand-text); }
+
+/* ── Review ── */
+.ea-review-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ea-review-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.ea-review-card {
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.ea-review-card--full { grid-column: 1 / -1; }
+
+.ea-review-heading {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-primary);
+  margin-bottom: 0.4rem;
+}
+
+.ea-review-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--color-brand-text);
+  overflow-wrap: anywhere;
+}
+
+.ea-review-rows strong { color: var(--color-brand-dark); }
+
+.ea-attached-grid { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.7rem; color: var(--color-brand-text); }
+.ea-attached-item { display: flex; align-items: center; gap: 0.4rem; }
+.ea-attached-check { width: 0.8rem; height: 0.8rem; color: #16a34a; flex-shrink: 0; }
+.ea-attached-empty { font-size: 0.7rem; color: var(--color-brand-text); }
+
+/* ── Navigation ── */
+.ea-nav-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.ea-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.6rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.ea-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ea-btn--primary { background-color: var(--color-brand-primary); color: #fff; }
+.ea-btn--primary:hover:not(:disabled) { background-color: var(--color-brand-secondary); }
+.ea-btn--secondary { background-color: #fff; color: var(--color-brand-dark); border-color: #e5e7eb; }
+.ea-btn--secondary:hover:not(:disabled) { background-color: var(--color-brand-light); }
+.ea-nav-icon { width: 0.9rem; height: 0.9rem; }
+.ea-spin { animation: ea-spin 1s linear infinite; }
+
+@keyframes ea-spin { to { transform: rotate(360deg); } }
+
+/* ── Success ── */
+.ea-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 2rem 1.25rem;
+}
+
+.ea-success-icon-wrap {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  background-color: #dcfce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ea-success-icon { width: 1.5rem; height: 1.5rem; color: #16a34a; }
+.ea-success-title { font-size: 1.1rem; font-weight: 700; color: var(--color-brand-dark); }
+.ea-success-desc,
+.ea-success-note { font-size: 0.7rem; font-weight: 600; color: var(--color-brand-text); }
+
+.ea-ref-stamp {
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-brand-light);
+  border: 1px dashed #d1d5db;
+  border-radius: 0.375rem;
+  color: var(--color-brand-dark);
+}
+
+.ea-success-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; }

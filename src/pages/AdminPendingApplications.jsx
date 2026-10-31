@@ -19,6 +19,8 @@ import { describeLoadError } from '../utils/describeLoadError';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import { PresenceBadge } from '../components/PresenceBadge';
+import { EnteredByBadge } from '../components/EnteredByBadge';
+import { EnrollApplicantLink } from '../components/EnrollApplicantLink';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
@@ -175,6 +177,7 @@ export function AdminPendingApplications() {
           <p className="apa-subtitle">
             Applications awaiting first review. Shortlist, reject, or open a candidate file to update details and documents.
           </p>
+          <EnrollApplicantLink className="eal-btn--below" />
         </div>
       </div>
 
@@ -291,6 +294,7 @@ export function AdminPendingApplications() {
                         <span className="apa-candidate-name">{app.applicantName}</span>
                         <span className="apa-candidate-meta">{app.applicantEmail}</span>
                         <span className="apa-ref">{app.referenceId}</span>
+                        <EnteredByBadge enteredBy={app.enteredBy} />
                         <PresenceBadge viewers={app.currentViewers} />
                       </div>
                     </div>

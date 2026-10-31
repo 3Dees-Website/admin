@@ -175,6 +175,8 @@ export function AdminLayout({ children, role }) {
                 ? 'Candidate Scoring'
                 : location.pathname.includes('screened')
                 ? 'Screened Candidates'
+                : location.pathname.includes('enroll')
+                ? 'Enroll Applicant'
                 : 'Operations Ledger'}
             </h2>
           </div>

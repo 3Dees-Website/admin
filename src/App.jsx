@@ -21,6 +21,7 @@ import { AdminPendingApplications } from './pages/AdminPendingApplications';
 import { AdminScoring } from './pages/AdminScoring';
 import { AdminScreened } from './pages/AdminScreened';
 import { Profile } from './pages/Profile';
+import { EnrollApplicant } from './pages/EnrollApplicant';
 
 // Superadmin panel pages
 import { SuperadminDashboard } from './pages/SuperadminDashboard';
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="applications" element={<AdminApplications />} />
             <Route path="scoring"      element={<AdminScoring />} />
             <Route path="screened"     element={<AdminScreened />} />
+            <Route path="enroll"       element={<EnrollApplicant />} />
             {/* Open to an admin who has been granted the permission. */}
             <Route
               path="approved"
@@ -112,6 +114,7 @@ export default function App() {
             <Route path="approved"     element={<SuperadminApprovedCandidates />} />
             <Route path="scoring"      element={<SuperadminScoring />} />
             <Route path="screened"     element={<SuperadminScreened />} />
+            <Route path="enroll"       element={<EnrollApplicant />} />
             <Route path="jobs"         element={<SuperadminAllVacancies />} />
             <Route path="admins"       element={<SuperadminManageAdmins />} />
             <Route path="audit"        element={<SuperadminAuditTrail />} />
