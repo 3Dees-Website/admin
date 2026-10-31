@@ -6,11 +6,13 @@ import { useApplications } from '../hooks/useApplications';
 import { applicationService } from '../services/applicationService';
 import { FieldRenderer } from './FieldRenderer';
 import { ApprovalCapBadge } from './ApprovalCapBadge';
+import { PresenceBadge } from './PresenceBadge';
 import { CandidateAvatar } from './CandidateAvatar';
 import { StatusBadge } from './StatusBadge';
 import { DuplicateFlagsPanel } from './DuplicateFlagsPanel';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { useApprovalCap } from '../hooks/useApprovalCap';
+import { usePresence } from '../hooks/usePresence';
 import { approvalCapBlockReason } from '../utils/approvalCap';
 import { EgiNoteModal } from './EgiNoteModal';
 import { DeleteApplicationDialog } from './DeleteApplicationDialog';
@@ -140,6 +142,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   // Covers Ctrl/Cmd+P as well as the Print button.
   const wrapperRef = useRef(null);
   const approvalCap = useApprovalCap(app.jobId, app.approvalCap);
+  const viewers = usePresence(app.id);
   useEffect(() => {
     const before = () => {
       setViewedAt(new Date());
@@ -417,6 +420,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
       <div className="ad-view-meta">
         <span>Date submitted: {app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '—'}</span>
         <ApprovalCapBadge jobId={app.jobId} cap={app.approvalCap} />
+        <PresenceBadge viewers={viewers} className="ad-no-print" />
         <span className="ad-view-meta-viewed">Viewed by {currentUser?.name || 'unknown admin'}, on {viewedAt.toLocaleString()}</span>
       </div>
 

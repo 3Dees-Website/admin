@@ -1,0 +1,29 @@
+.pvb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background-color: #e0f2fe;
+  color: #075985;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.pvb-icon {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.pvb-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

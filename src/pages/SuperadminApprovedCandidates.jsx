@@ -15,6 +15,7 @@ import { Search, ShieldAlert, RefreshCw, X } from 'lucide-react';
 import { StatusActions } from '../components/StatusActions';
 import { EgiSyncBadge, EgiDecisionBadge, EgiResendBadge } from '../components/EgiBadges';
 import { ApplicationDetail } from '../components/ApplicationDetail';
+import { PresenceBadge } from '../components/PresenceBadge';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { egiDecisionFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
@@ -274,6 +275,7 @@ export function SuperadminApprovedCandidates() {
                     <div className="sac-applicant-info">
                       <span className="sac-applicant-name">{a.applicantName}</span>
                       <span className="sac-applicant-meta">{a.applicantEmail}</span>
+                      <PresenceBadge viewers={a.currentViewers} />
                     </div>
                   </td>
                   <td className="sac-td sac-job-title">{getJobTitle(a.jobId)}</td>

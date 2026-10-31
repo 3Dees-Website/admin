@@ -21,6 +21,7 @@ import {
   ShieldAlert, Zap
 } from 'lucide-react';
 import { CandidateAvatar } from '../components/CandidateAvatar';
+import { PresenceBadge } from '../components/PresenceBadge';
 import './styles/SuperadminPendingApplications.css';
 
 export function SuperadminPendingApplications() {
@@ -314,6 +315,7 @@ export function SuperadminPendingApplications() {
                           <span className="spa-candidate-name">{app.applicantName}</span>
                           <span className="spa-candidate-meta">{app.applicantEmail}</span>
                           <span className="spa-ref">{app.referenceId}</span>
+                          <PresenceBadge viewers={app.currentViewers} />
                         </div>
                       </div>
                     </td>

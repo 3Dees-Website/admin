@@ -14,6 +14,7 @@ import { ApplicationDetail } from '../components/ApplicationDetail';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
+import { PresenceBadge } from '../components/PresenceBadge';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import { statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions } from '../utils/applicationStatus';
 import { PaginationControls } from '../components/PaginationControls';
@@ -383,6 +384,7 @@ export function AdminApplications() {
                           <span className="candidate-name">{a.applicantName}</span>
                           <span className="candidate-meta">{a.applicantEmail}</span>
                           <DuplicateFlagBadges flags={a.duplicateFlags} />
+                          <PresenceBadge viewers={a.currentViewers} />
                         </div>
                       </div>
                     </td>

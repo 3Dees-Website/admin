@@ -17,6 +17,7 @@ import { ApplicationDetail } from '../components/ApplicationDetail';
 import { keepDuplicateFlags } from '../utils/duplicateFlags';
 import { StatusBadge } from '../components/StatusBadge';
 import { DuplicateFlagBadges } from '../components/DuplicateFlagBadges';
+import { PresenceBadge } from '../components/PresenceBadge';
 import { CandidateAvatar } from '../components/CandidateAvatar';
 import {
   statusFilterOptions, egiDecisionFilterOptions, egiSyncFilterOptions,
@@ -295,6 +296,7 @@ export function SuperadminViewAllApplications() {
                         <span className="sva-applicant-name">{a.applicantName}</span>
                         <span className="sva-applicant-meta">{a.applicantEmail}</span>
                         <DuplicateFlagBadges flags={a.duplicateFlags} />
+                        <PresenceBadge viewers={a.currentViewers} />
                       </div>
                     </div>
                   </td>

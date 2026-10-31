@@ -28,6 +28,14 @@ function toNumberOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+// [{ id, name }] of the other admins viewing. undefined = the response didn't carry it.
+function normalizeViewers(list) {
+  if (!Array.isArray(list)) return undefined;
+  return list
+    .filter((v) => v && v.id != null)
+    .map((v) => ({ id: v.id, name: v.name || 'Another admin' }));
+}
+
 function normalizeApplication(app) {
   registerApplicationJob(app.id, app.job_id);
   const approvalCap = recordApprovalCap(app.job_id, app.approvalCap);
@@ -36,6 +44,8 @@ function normalizeApplication(app) {
     approvalCap,
     // Only the GET endpoints send this; undefined = the response didn't carry it.
     duplicateFlags: normalizeDuplicateFlags(app.duplicateFlags),
+    // The other admins viewing it now; only the GET endpoints send this.
+    currentViewers: normalizeViewers(app.currentViewers),
     // 1-hour signed URL of the passport photo, or null; undefined = the response
     // didn't carry it. The list endpoints send it; the detail one carries it on
     // documents.passportPhotoUpload.url.
@@ -135,6 +145,7 @@ function normalizeScreenedItem(item) {
   return {
     approvalCap,
     duplicateFlags: normalizeDuplicateFlags(item.duplicateFlags),
+    currentViewers: normalizeViewers(item.currentViewers),
     photoUrl: item.photoUrl,
     id: item.id,
     referenceId: item.reference_id,
@@ -370,6 +381,17 @@ export const applicationService = {
   async resendToEgi(id, egiNote) {
     const res = await apiClient.post(`/api/admin/applications/${id}/resend-egi`, { egiNote });
     return normalizeApplication(res.data);
+  },
+
+  // Heartbeat: any admin. Returns the other admins viewing this application now.
+  async heartbeatPresence(id) {
+    const res = await apiClient.post(`/api/admin/applications/${id}/presence`);
+    return normalizeViewers(res.data?.currentViewers) ?? [];
+  },
+
+  // Idempotent "I've stopped viewing".
+  async clearPresence(id) {
+    await apiClient.delete(`/api/admin/applications/${id}/presence`);
   },
 
   // Superadmin only. Moves the application to another job; screening scores

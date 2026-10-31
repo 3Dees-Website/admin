@@ -18,6 +18,7 @@ import { TableErrorRow } from '../components/TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
 import { Search, Inbox, Clock, UserCheck, UserX } from 'lucide-react';
 import { CandidateAvatar } from '../components/CandidateAvatar';
+import { PresenceBadge } from '../components/PresenceBadge';
 import './styles/AdminPendingApplications.css';
 
 export function AdminPendingApplications() {
@@ -290,6 +291,7 @@ export function AdminPendingApplications() {
                         <span className="apa-candidate-name">{app.applicantName}</span>
                         <span className="apa-candidate-meta">{app.applicantEmail}</span>
                         <span className="apa-ref">{app.referenceId}</span>
+                        <PresenceBadge viewers={app.currentViewers} />
                       </div>
                     </div>
                   </td>

@@ -359,6 +359,17 @@ const HANDLERS = [
     run: async ({ match, read }) => ok(await readApp(read, match[1]), 'EGI resend'),
   },
   {
+    // A 25s heartbeat must never reach the shared production DB.
+    method: 'POST',
+    path: /^\/api\/admin\/applications\/([^/]+)\/presence$/,
+    run: async () => ok({ currentViewers: [] }, 'Presence heartbeat'),
+  },
+  {
+    method: 'DELETE',
+    path: /^\/api\/admin\/applications\/([^/]+)\/presence$/,
+    run: async () => ok(null, 'Presence clear'),
+  },
+  {
     method: 'DELETE',
     path: /^\/api\/admin\/applications\/[^/]+$/,
     run: async ({ match, read }) => {
