@@ -34,8 +34,10 @@ export function getSubfieldsForParent(fields, parentKey) {
  * backend's InvalidRequirements check: every catalog mandatory key is
  * "required", and a non-mandatory declaration field stored as "optional" is
  * "required" (the backend allows only Off or Required for those). Everything
- * else, including keys the catalog no longer lists, is left as it is. A
- * missing or non-object input is treated as {}.
+ * else is left as it is, except keys the catalog doesn't list, which are
+ * dropped because the backend rejects unknown keys on save. If the catalog
+ * has no fields (not loaded properly) nothing is dropped. A missing or
+ * non-object input is treated as {}.
  *
  * Shared by the requirements builder and PortalContext.editJob, so a job
  * saved without opening the form (e.g. a status toggle) is healed the same way.
@@ -45,6 +47,12 @@ export function healRequirements(requirements, catalog) {
     ? { ...requirements }
     : {};
   const mandatory = new Set(catalog?.mandatoryKeys || []);
+  if (catalog?.fields?.length) {
+    const known = new Set(catalog.fields.map((f) => f.key));
+    Object.keys(next).forEach((key) => {
+      if (!known.has(key) && !mandatory.has(key)) delete next[key];
+    });
+  }
   mandatory.forEach((key) => { next[key] = 'required'; });
   (catalog?.fields || []).forEach((f) => {
     if (f.type === 'declaration' && !mandatory.has(f.key) && next[f.key] === 'optional') {

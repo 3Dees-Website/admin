@@ -62,7 +62,8 @@ export function RequirementsBuilder({ value, onChange }) {
   useEffect(() => {
     if (!catalog) return;
     const next = healRequirements(value, catalog);
-    const changed = Object.keys(next).some((key) => next[key] !== value[key]);
+    const changed = Object.keys(next).length !== Object.keys(value).length
+      || Object.keys(next).some((key) => next[key] !== value[key]);
     if (changed) onChange(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog]);
