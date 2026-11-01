@@ -398,7 +398,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
           <CandidateAvatar
             className="ad-identity-avatar"
             name={app.applicantName}
-            photoUrl={photo?.url}
+            photoUrl={photo?.url || app.photoUrl}
             onRefreshUrl={photo?.key ? () => applicationService.getDocumentUrl(app.id, photo.key) : undefined}
           />
           <div className="ad-identity-text">
