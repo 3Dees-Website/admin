@@ -391,6 +391,12 @@ export function AdminPendingApplications() {
           onClose={() => setEditingApp(null)}
           onStatusChange={handleStatusChange}
           onAppUpdated={setEditingApp}
+          onDeleted={() => {
+            setEditingApp(null);
+            refetch();
+            refetchStats();
+          }}
+          onDeleteFailed={refetch}
         />
       )}
 

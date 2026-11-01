@@ -302,6 +302,7 @@ export function EnrollApplicant() {
             currentUser={currentUser}
             onClose={() => setOpenApp(null)}
             onAppUpdated={setOpenApp}
+            onDeleted={handleEnrollAnother}
           />
         )}
       </div>

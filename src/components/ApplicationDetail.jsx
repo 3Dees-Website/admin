@@ -356,7 +356,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   const handleDeleteConfirm = async () => {
     if (deleting) return;
     setDeleting(true);
-    const result = await deleteApplication(app.id);
+    const result = await deleteApplication(app.id, app.applicantName);
     setDeleting(false);
 
     if (result.ok) {

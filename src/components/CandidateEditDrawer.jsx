@@ -24,6 +24,8 @@ export function CandidateEditDrawer({
   onStatusChange,
   onAppUpdated,
   onJobReassigned,
+  onDeleted,
+  onDeleteFailed,
 }) {
   return (
     <div className="ced-overlay">
@@ -63,6 +65,8 @@ export function CandidateEditDrawer({
             currentUser={currentUser}
             onAppUpdated={onAppUpdated}
             onJobReassigned={onJobReassigned}
+            onDeleted={onDeleted}
+            onDeleteFailed={onDeleteFailed}
           />
         </div>
 

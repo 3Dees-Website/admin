@@ -758,10 +758,16 @@ export function PortalProvider({ children }) {
   // delete dialog stays open and shows the reason, so a refusal about the
   // application's state (not deletable, not yet, delivery in flight) gets no
   // toast; any other failure does.
-  const deleteApplication = async (appId) => {
+  const deleteApplication = async (appId, applicantName) => {
     try {
       await applicationService.deleteApplication(appId);
-      addToast('success', 'Application Deleted', 'The application and its documents were permanently removed.');
+      addToast(
+        'success',
+        'Application Deleted',
+        applicantName
+          ? `${applicantName} was permanently deleted.`
+          : 'The application and its documents were permanently removed.',
+      );
       return { ok: true };
     } catch (err) {
       const message = err?.message || 'Could not delete this application.';
