@@ -36,6 +36,9 @@ const formatCountdown = (total) => {
  *   until it ends. Then the countdown goes and Delete works again — a click
  *   asks the server, which is the real check.
  * - NotDeletable / DeliveryInFlight: Delete stays disabled with the reason.
+ *
+ * Delete also stays disabled until the exact phrase "Delete {applicantName}"
+ * is typed (case-sensitive, untrimmed).
  */
 export function DeleteApplicationDialog({ app, busy, refusal, onCancel, onConfirm }) {
   const seconds = useSecondsUntil(refusal?.error === 'NotDeletableYet' ? refusal.deletableAt : null);
@@ -43,6 +46,10 @@ export function DeleteApplicationDialog({ app, busy, refusal, onCancel, onConfir
   const blocked = counting || refusal?.error === 'NotDeletable' || refusal?.error === 'DeliveryInFlight';
   // Once the wait is over the old message no longer applies.
   const showReason = refusal && !(refusal.error === 'NotDeletableYet' && !counting);
+  // The dialog is mounted only while open, so this starts empty on every open.
+  const [typed, setTyped] = useState('');
+  const phrase = `Delete ${app.applicantName}`;
+  const confirmed = typed === phrase;
 
   return (
     <div className="ad-delete-overlay">
@@ -54,6 +61,21 @@ export function DeleteApplicationDialog({ app, busy, refusal, onCancel, onConfir
           This permanently deletes <strong>{app.applicantName}</strong>&apos;s application, all uploaded
           documents, and verification records. This cannot be undone.
         </p>
+        <label className="ad-delete-confirm-label" htmlFor="ad-delete-confirm-input">
+          To confirm, type <strong>{phrase}</strong> below.
+        </label>
+        <input
+          id="ad-delete-confirm-input"
+          type="text"
+          className="ad-delete-confirm-input"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          disabled={busy}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+        />
         {showReason && <p className="ad-delete-error" role="alert">{refusal.message}</p>}
         {counting && (
           <p className="ad-delete-countdown" aria-live="off">
@@ -68,7 +90,7 @@ export function DeleteApplicationDialog({ app, busy, refusal, onCancel, onConfir
             type="button"
             onClick={onConfirm}
             className="ad-delete-confirm-btn"
-            disabled={busy || blocked}
+            disabled={busy || blocked || !confirmed}
             title={blocked ? refusal.message : undefined}
           >
             {busy ? 'Deleting…' : 'Delete Permanently'}
