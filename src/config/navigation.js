@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Briefcase, FileUser, Users,
-  History, Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck, ListChecks,
+  History, Inbox, RefreshCw, UserCircle, UserCheck, UserCog, ClipboardCheck, ListChecks, ListTodo, Bookmark,
 } from 'lucide-react';
 import { can, PERM } from '../utils/permissions';
 import { routeBaseFor } from '../utils/routeBase';
@@ -18,9 +18,11 @@ import { routeBaseFor } from '../utils/routeBase';
 const NAV_ITEMS = {
   dashboard:          { icon: LayoutDashboard, labels: { admin: 'Console Home', superadmin: 'Dashboard' } },
   pending:            { icon: Inbox,           labels: { admin: 'Pending Queue', superadmin: 'Pending Queue' } },
+  shortlisted:        { icon: ListTodo,        labels: { admin: 'Shortlisted', superadmin: 'Shortlisted' } },
   applications:       { icon: FileUser,        labels: { admin: 'Applications', superadmin: 'All Applications' } },
   scoring:            { icon: ClipboardCheck,  labels: { admin: 'Scoring', superadmin: 'Scoring' } },
   screened:           { icon: ListChecks,      labels: { admin: 'Screened', superadmin: 'Screened' } },
+  saved:              { icon: Bookmark,        labels: { admin: 'Saved', superadmin: 'Saved' } },
   approved:           { icon: UserCheck,       labels: { admin: 'Approved Candidates', superadmin: 'Approved Candidates' }, permission: PERM.VIEW_APPROVED_CANDIDATES },
   jobs:               { icon: Briefcase,       labels: { admin: 'Manage Jobs', superadmin: 'Manage Jobs' } },
   admins:             { icon: Users,           labels: { superadmin: 'Manage Admins' } },
@@ -31,9 +33,9 @@ const NAV_ITEMS = {
 };
 
 const NAV_ORDER = {
-  admin: ['dashboard', 'jobs', 'pending', 'applications', 'scoring', 'screened', 'approved', 'egi-sync', 'profile'],
+  admin: ['dashboard', 'jobs', 'pending', 'shortlisted', 'applications', 'scoring', 'screened', 'saved', 'approved', 'egi-sync', 'profile'],
   superadmin: [
-    'dashboard', 'pending', 'applications', 'scoring', 'screened', 'approved', 'jobs',
+    'dashboard', 'pending', 'shortlisted', 'applications', 'scoring', 'screened', 'saved', 'approved', 'jobs',
     'admins', 'audit', 'account-activity', 'egi-sync', 'profile',
   ],
 };

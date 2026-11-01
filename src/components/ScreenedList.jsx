@@ -58,8 +58,12 @@ function SortHeader({ sortKey, sort, order, onSort, className = '' }) {
   );
 }
 
-/** The Screened list. */
-export function ScreenedList() {
+/**
+ * The Screened list. `fixedView` ('Screened' | 'Archived' | 'both') pins the
+ * view and hides the "Show" dropdown; the page copy follows it (the Saved
+ * pages pass 'Archived').
+ */
+export function ScreenedList({ fixedView }) {
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
   const { reviewApplication } = useApplications();
@@ -68,7 +72,9 @@ export function ScreenedList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedJobId, setSelectedJobId] = useState('All');
   const [selectedState, setSelectedState] = useState('All');
-  const [view, setView] = useState('Screened');
+  const [chosenView, setView] = useState('Screened');
+  const view = fixedView ?? chosenView;
+  const saved = view === 'Archived';
   const [sort, setSort] = useState('score');
   const [order, setOrder] = useState(SORTS.score.defaultOrder);
 
@@ -89,7 +95,7 @@ export function ScreenedList() {
   // On a failed load the hook still holds the last good rows (possibly from a
   // different filter); drop them so nothing treats them as the current list.
   const items = error ? [] : loadedItems;
-  const loadError = error ? describeLoadError(error, 'the screened candidates') : null;
+  const loadError = error ? describeLoadError(error, saved ? 'the saved candidates' : 'the screened candidates') : null;
 
   const { details, setDetail, reset } = useScreenedRowDetails(items);
 
@@ -138,10 +144,12 @@ export function ScreenedList() {
     <div className="scr-wrapper">
       <div className="scr-header-card">
         <div>
-          <span className="scr-eyebrow">SCREENING</span>
-          <h1 className="scr-title">Screened Candidates</h1>
+          <span className="scr-eyebrow">{saved ? 'SAVED' : 'SCREENING'}</span>
+          <h1 className="scr-title">{saved ? 'Saved Candidates' : 'Screened Candidates'}</h1>
           <p className="scr-subtitle">
-            Candidates who have been scored, ranked for comparison. Save one for the future, or approve them to send to EGI.
+            {saved
+              ? 'Candidates saved for the future, ranked for comparison. Open a file to review them, or approve them to send to EGI.'
+              : 'Candidates who have been scored, ranked for comparison. Save one for the future, or approve them to send to EGI.'}
           </p>
         </div>
         <button type="button" className="scr-btn" onClick={handleRefresh} disabled={isLoading}>
@@ -164,12 +172,14 @@ export function ScreenedList() {
             />
           </div>
         </div>
-        <div className="scr-filter">
-          <label className="scr-filter-label" htmlFor="scr-view">Show</label>
-          <select id="scr-view" className="scr-input" value={view} onChange={(e) => setView(e.target.value)}>
-            {VIEWS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
-          </select>
-        </div>
+        {!fixedView && (
+          <div className="scr-filter">
+            <label className="scr-filter-label" htmlFor="scr-view">Show</label>
+            <select id="scr-view" className="scr-input" value={view} onChange={(e) => setView(e.target.value)}>
+              {VIEWS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+            </select>
+          </div>
+        )}
         <div className="scr-filter">
           <label className="scr-filter-label" htmlFor="scr-job">Vacancy</label>
           <select id="scr-job" className="scr-input" value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)}>

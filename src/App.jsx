@@ -21,6 +21,8 @@ import { AdminApplications } from './pages/AdminApplications';
 import { AdminPendingApplications } from './pages/AdminPendingApplications';
 import { AdminScoring } from './pages/AdminScoring';
 import { AdminScreened } from './pages/AdminScreened';
+import { AdminShortlisted } from './pages/AdminShortlisted';
+import { AdminSaved } from './pages/AdminSaved';
 import { Profile } from './pages/Profile';
 import { EnrollApplicant } from './pages/EnrollApplicant';
 
@@ -35,6 +37,8 @@ import { SuperadminAuditTrail } from './pages/SuperadminAuditTrail';
 import { SuperadminEgiSync } from './pages/SuperadminEgiSync';
 import { SuperadminScoring } from './pages/SuperadminScoring';
 import { SuperadminScreened } from './pages/SuperadminScreened';
+import { SuperadminShortlisted } from './pages/SuperadminShortlisted';
+import { SuperadminSaved } from './pages/SuperadminSaved';
 import { SuperadminAccountActivity } from './pages/SuperadminAccountActivity';
 
 function PanelLoaderPlaceholder() {
@@ -75,9 +79,11 @@ export default function App() {
             <Route path="dashboard"    element={<AdminDashboard />} />
             <Route path="jobs"         element={<AdminJobs />} />
             <Route path="pending"      element={<AdminPendingApplications />} />
+            <Route path="shortlisted"  element={<AdminShortlisted />} />
             <Route path="applications" element={<AdminApplications />} />
             <Route path="scoring"      element={<AdminScoring />} />
             <Route path="screened"     element={<AdminScreened />} />
+            <Route path="saved"        element={<AdminSaved />} />
             <Route path="enroll"       element={<EnrollApplicant />} />
             {/* Open to an admin who has been granted the permission. */}
             <Route
@@ -107,10 +113,12 @@ export default function App() {
             <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
             <Route path="dashboard"    element={<SuperadminDashboard />} />
             <Route path="pending"      element={<SuperadminPendingApplications />} />
+            <Route path="shortlisted"  element={<SuperadminShortlisted />} />
             <Route path="applications" element={<SuperadminViewAllApplications />} />
             <Route path="approved"     element={<SuperadminApprovedCandidates />} />
             <Route path="scoring"      element={<SuperadminScoring />} />
             <Route path="screened"     element={<SuperadminScreened />} />
+            <Route path="saved"        element={<SuperadminSaved />} />
             <Route path="enroll"       element={<EnrollApplicant />} />
             <Route path="jobs"         element={<SuperadminAllVacancies />} />
             <Route path="admins"       element={<SuperadminManageAdmins />} />
