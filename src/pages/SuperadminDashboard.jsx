@@ -4,6 +4,7 @@
  */
 
 import { useMemo, useState, useEffect } from 'react';
+import { Loading } from '../components/Loading';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useJobs } from '../hooks/useJobs';
@@ -200,7 +201,7 @@ export function SuperadminDashboard() {
 
           <div className="sd-audit-body">
             {recentAuditsStatus === 'loading' && (
-              <div className="sd-audit-empty">Loading…</div>
+              <div className="sd-audit-empty"><Loading isLoading size="sm" label="Loading…" showLabel /></div>
             )}
             {recentAuditsStatus === 'error' && (
               <div className="sd-audit-empty">
@@ -257,7 +258,7 @@ export function SuperadminDashboard() {
               <div className="sd-health-row">
                 <span>Queue status</span>
                 {egiStatsLoading ? (
-                  <span className="sd-health-count">Loading…</span>
+                  <span className="sd-health-count"><Loading isLoading size="sm" label="Loading queue status" /></span>
                 ) : egiStatsFailed ? (
                   // Never HEALTHY when the stats couldn't be read.
                   <span className="sd-health-failed">UNAVAILABLE</span>
@@ -308,7 +309,7 @@ export function SuperadminDashboard() {
 
         <div className="sd-state-body">
           {stateStatsLoading && (
-            <div className="sd-state-empty">Loading…</div>
+            <div className="sd-state-empty"><Loading isLoading size="sm" label="Loading…" showLabel /></div>
           )}
 
           {!stateStatsLoading && stateStatsError && (

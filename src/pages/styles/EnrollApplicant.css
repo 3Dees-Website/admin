@@ -7,6 +7,9 @@
 }
 
 .ea-state {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-brand-text);
@@ -234,9 +237,7 @@
 .ea-btn--secondary { background-color: #fff; color: var(--color-brand-dark); border-color: #e5e7eb; }
 .ea-btn--secondary:hover:not(:disabled) { background-color: var(--color-brand-light); }
 .ea-nav-icon { width: 0.9rem; height: 0.9rem; }
-.ea-spin { animation: ea-spin 1s linear infinite; }
 
-@keyframes ea-spin { to { transform: rotate(360deg); } }
 
 /* ── Success ── */
 .ea-success {

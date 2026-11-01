@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { Loading } from '../components/Loading';
 import { egiService } from '../services/egiService';
 import { useToast } from '../hooks/useToast';
 import { EgiDeliveryBadge } from '../components/EgiBadges';
@@ -342,7 +343,7 @@ export function SuperadminEgiSync() {
               {loading && (
                 <tr>
                   <td colSpan={7} className="ses-empty">
-                    <span>Loading queue items…</span>
+                    <Loading isLoading size="sm" label="Loading queue items…" showLabel />
                   </td>
                 </tr>
               )}

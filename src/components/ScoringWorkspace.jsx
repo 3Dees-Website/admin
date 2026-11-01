@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Loading } from './Loading';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Lock, RefreshCw, Save, CheckCheck } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
@@ -306,7 +307,7 @@ export function ScoringWorkspace() {
 
   let body;
   if (jobsStatus === 'loading') {
-    body = <p className="scw-message">Loading vacancies…</p>;
+    body = <p className="scw-message"><Loading isLoading size="sm" label="Loading vacancies…" showLabel /></p>;
   } else if (jobsStatus === 'error') {
     const err = describeLoadError(jobsError, 'the vacancies');
     body = (

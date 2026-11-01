@@ -1,4 +1,5 @@
 import { Send } from 'lucide-react';
+import { Loading } from './Loading';
 import { useNotesTimeline, NOTE_MAX_LENGTH } from '../hooks/useNotesTimeline';
 import { StatusBadge } from './StatusBadge';
 import { describeLoadError } from '../utils/describeLoadError';
@@ -31,7 +32,7 @@ export function NotesTimelinePanel({ app }) {
     <section className="ad-section">
       <h3 className="ad-section-title">Administrative Notes</h3>
 
-      {status === 'loading' && <p className="ad-empty-hint">Loading notes…</p>}
+      {status === 'loading' && <p className="ad-empty-hint"><Loading isLoading size="sm" label="Loading notes…" showLabel /></p>}
 
       {loadError && (
         <div className="ntp-error" role="alert">

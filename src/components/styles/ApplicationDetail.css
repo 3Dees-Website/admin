@@ -9,6 +9,8 @@
 }
 
 .ad-loading {
+  display: flex;
+  justify-content: center;
   font-size: 0.7rem;
   color: #9ca3af;
   padding: 1rem;

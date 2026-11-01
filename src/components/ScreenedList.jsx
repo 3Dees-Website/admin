@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Loading } from './Loading';
 import { Link } from 'react-router-dom';
 import { Search, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
@@ -118,7 +119,7 @@ export function ScreenedList() {
 
   const renderActions = (item) => {
     const app = item.allowedTransitions ? item : details[detailKey(item)];
-    if (!app) return <span className="scr-muted">Loading…</span>;
+    if (!app) return <span className="scr-muted"><Loading isLoading size="sm" label="Loading actions" /></span>;
     if (app === 'error') return <span className="scr-muted">Couldn&apos;t load actions</span>;
     return (
       <StatusActions

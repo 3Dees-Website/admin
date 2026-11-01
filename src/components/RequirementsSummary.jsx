@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Loading } from './Loading';
 import { ChevronDown } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { groupFieldsBySection } from '../utils/fieldCatalogHelpers';
@@ -21,7 +22,7 @@ export function RequirementsSummary({ applicationRequirements }) {
   );
 
   if (isLoading || !catalog) {
-    return <div className="rqs-loading">Loading requirements…</div>;
+    return <div className="rqs-loading"><Loading isLoading size="sm" label="Loading requirements…" showLabel /></div>;
   }
 
   const summaries = sectionGroups

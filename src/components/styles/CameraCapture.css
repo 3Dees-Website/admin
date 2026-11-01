@@ -161,7 +161,6 @@
   opacity: 0.75;
 }
 
-.cc-spinner { animation: applySpin 1s linear infinite; }
 .cc-error-icon { color: #ef4444; flex-shrink: 0; }
 
 .cc-error-title {

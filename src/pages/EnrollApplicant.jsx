@@ -4,8 +4,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loading } from '../components/Loading';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Check, ChevronLeft, ChevronRight, Loader2, UserPlus } from 'lucide-react';
+import { AlertCircle, Check, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -244,7 +245,7 @@ export function EnrollApplicant() {
   };
 
   if (isLoadingCatalog || (jobsStatus === 'loading' && jobs.length === 0)) {
-    return <div className="ea-wrapper"><p className="ea-state">Loading the application form…</p></div>;
+    return <div className="ea-wrapper"><p className="ea-state"><Loading isLoading label="Loading the application form…" showLabel reserveSpace /></p></div>;
   }
 
   if (!catalog) {
@@ -463,7 +464,7 @@ export function EnrollApplicant() {
             ) : (
               <button type="submit" className="ea-btn ea-btn--primary" disabled={isSubmitting}>
                 {isSubmitting ? (
-                  <><Loader2 className="ea-nav-icon ea-spin" /><span>Enrolling…</span></>
+                  <><Loading isLoading={isSubmitting} size="sm" color="currentColor" label="Enrolling" reserveSpace minDuration={0} /><span>Enrolling…</span></>
                 ) : (
                   <><UserPlus className="ea-nav-icon" /><span>Enroll Applicant</span></>
                 )}

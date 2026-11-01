@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { Loading } from './Loading';
 import { flushSync } from 'react-dom';
 import { Eye, Trash2, Edit2, Save, X as XIcon, Send, Printer, ArrowRightLeft } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
@@ -237,7 +238,7 @@ export function ApplicationDetail({ app, currentUser, onAppUpdated, onDeleted, o
   );
 
   if (isLoading || !catalog) {
-    return <div className="ad-loading">Loading application…</div>;
+    return <div className="ad-loading"><Loading isLoading label="Loading application…" showLabel reserveSpace /></div>;
   }
 
   const formSource = isEditing ? editedFormData : app.formData;

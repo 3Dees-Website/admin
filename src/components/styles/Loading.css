@@ -1,0 +1,37 @@
+.ld {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  vertical-align: middle;
+}
+
+/* A large circle with a caption stacks, so it reads as a page-level state. */
+.ld--lg.ld--labelled {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ld-dot {
+  display: block;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ld--sm .ld-dot { width: 1rem; height: 1rem; }
+.ld--lg .ld-dot { width: 3rem; height: 3rem; }
+
+.ld-dot--reserved { visibility: hidden; }
+
+.ld-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Loading } from './Loading';
 import { ChevronDown, Lock } from 'lucide-react';
 import { useFieldCatalog } from '../hooks/useFieldCatalog';
 import { groupFieldsBySection, getExperienceParentKeys, healRequirements } from '../utils/fieldCatalogHelpers';
@@ -67,7 +68,7 @@ export function RequirementsBuilder({ value, onChange }) {
   }, [catalog]);
 
   if (isLoading || !catalog) {
-    return <div className="rqb-loading">Loading field catalog…</div>;
+    return <div className="rqb-loading"><Loading isLoading size="sm" label="Loading field catalog…" showLabel /></div>;
   }
 
   const setField = (key, state) => {

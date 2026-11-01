@@ -12,18 +12,7 @@
   font-weight: 600;
 }
 
-.panel-loader-spinner {
-  width: 2rem;
-  height: 2rem;
-  color: var(--color-brand-primary);
-  margin-bottom: 1rem;
-  animation: spin 1s linear infinite;
-}
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
 
 /* PublicBaseLayout */
 .public-base-layout {

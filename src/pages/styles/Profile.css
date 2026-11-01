@@ -68,6 +68,11 @@
   padding: 1.25rem;
 }
 
+.pf-loading-state {
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
 .pf-error-state {
   color: #dc2626;
 }
@@ -82,17 +87,7 @@
   cursor: pointer;
 }
 
-.pf-spinner {
-  width: 1rem;
-  height: 1rem;
-  color: var(--color-brand-primary);
-  animation: pfSpin 1s linear infinite;
-}
 
-@keyframes pfSpin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
 
 /* ── Card ── */
 .pf-card {

@@ -225,17 +225,7 @@
   cursor: not-allowed;
 }
 
-.al-spinner {
-  width: 1rem;
-  height: 1rem;
-  color: #fff;
-  animation: alSpin 1s linear infinite;
-}
 
-@keyframes alSpin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
 
 /* ── Footer ── */
 .al-footer {
