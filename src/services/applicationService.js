@@ -153,9 +153,9 @@ function normalizeScoreItem(item) {
 }
 
 // One row of GET /screened: explicit columns only (no documents or form
-// answers), with real numbers for the totals. It carries no allowedTransitions
-// today (null here), so the screen reads each row's own from the detail
-// endpoint until the list sends it.
+// answers), with real numbers for the totals. It carries allowedTransitions;
+// null here means the server left it off, and the screen then reads that
+// row's own from the detail endpoint.
 function normalizeScreenedItem(item) {
   registerApplicationJob(item.id, item.job_id);
   const approvalCap = recordApprovalCap(item.job_id, item.approvalCap);

@@ -6,13 +6,13 @@ const DETAIL_CONCURRENCY = 5;
 export const detailKey = (item) => `${item.id}|${item.status}`;
 
 /**
- * GET /screened rows don't carry `allowedTransitions`, which is what decides
- * the Save and Approve buttons. Until the list sends it, this reads each
- * visible row's own application (GET /:id, a few at a time) and keeps it by
- * id + status, so a row is read once and again only if its status changes.
+ * GET /screened rows carry `allowedTransitions` (which decides the Save and
+ * Approve buttons), so normally nothing is fetched here. This is the fallback
+ * for a row where the list left it null: it reads that row's own application
+ * (GET /:id, a few at a time) and keeps it by id + status, so a row is read
+ * once and again only if its status changes.
  *
- * Rows that already carry the list are never fetched, so this goes quiet by
- * itself once the backend adds it.
+ * Rows that already carry the list are never fetched.
  *
  * details[key] is the application, or 'error'. `setDetail(app)` stores a fresh
  * one (the reply to a status change); `reset()` forgets everything, e.g. on a

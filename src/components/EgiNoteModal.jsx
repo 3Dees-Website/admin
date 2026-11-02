@@ -12,6 +12,10 @@ import './styles/EgiNoteModal.css';
  * ValidationError. It measures String(egiNote).length on the value it
  * receives, and this modal sends `trimmed`, so the counter measures
  * `trimmed.length` — the exact string that goes over the wire.
+ *
+ * More than one recipient (bulk Approve) adds a review step that shows the
+ * typed note and the number of candidates, since a send to EGI can't be
+ * recalled. One recipient keeps the single click.
  */
 const EGI_NOTE_MAX_LENGTH = 5000;
 
@@ -21,6 +25,7 @@ export function EgiNoteModal({
   description,
   confirmLabel = 'Approve & Sync',
   busy = false,
+  recipientCount = 1,
   // A redelivery's note is optional (blank resends the original note); every
   // other use keeps the defaults, so the Approve flow is unchanged.
   noteRequired = true,
@@ -32,6 +37,7 @@ export function EgiNoteModal({
 }) {
   const [note, setNote] = useState('');
   const [touched, setTouched] = useState(false);
+  const [stage, setStage] = useState('edit');
 
   // Clear the note whenever the parent opens or closes the modal, so a note
   // can never carry over to the next applicant (some parents share one
@@ -42,6 +48,7 @@ export function EgiNoteModal({
     setPrevOpen(open);
     setNote('');
     setTouched(false);
+    setStage('edit');
   }
 
   if (!open) return null;
@@ -50,6 +57,9 @@ export function EgiNoteModal({
   const isEmpty = trimmed.length === 0;
   const overBy = trimmed.length - EGI_NOTE_MAX_LENGTH;
   const isTooLong = overBy > 0;
+  const needsReview = recipientCount > 1;
+  const reviewing = needsReview && stage === 'confirm';
+  const plural = recipientCount !== 1 ? 's' : '';
 
   const handleConfirm = () => {
     if (noteRequired && isEmpty) {
@@ -57,12 +67,17 @@ export function EgiNoteModal({
       return;
     }
     if (isTooLong) return;
+    if (needsReview && stage === 'edit') {
+      setStage('confirm');
+      return;
+    }
     onConfirm(trimmed);
   };
 
   const handleClose = () => {
     setNote('');
     setTouched(false);
+    setStage('edit');
     onCancel();
   };
 
@@ -80,6 +95,18 @@ export function EgiNoteModal({
           </button>
         </div>
 
+        {reviewing ? (
+          <div className="enm-body">
+            <p className="enm-review-count">
+              {recipientCount} candidate{plural} will be approved and sent to EGI as soon as you send.
+            </p>
+            <p className="enm-hint">Deliveries to EGI can&apos;t be recalled once they are queued.</p>
+            <span className="enm-label">Note to EGI</span>
+            <div className="enm-review-card">
+              <p className="enm-review-text">{trimmed || 'No note.'}</p>
+            </div>
+          </div>
+        ) : (
         <div className="enm-body">
           <label className="enm-label">
             Note to EGI {noteRequired
@@ -117,14 +144,27 @@ export function EgiNoteModal({
             </p>
           )}
         </div>
+        )}
 
         <div className="enm-footer">
-          <button type="button" onClick={handleClose} className="enm-cancel-btn" disabled={busy}>
-            Cancel
-          </button>
+          {reviewing ? (
+            <button type="button" onClick={() => setStage('edit')} className="enm-cancel-btn" disabled={busy}>
+              Back
+            </button>
+          ) : (
+            <button type="button" onClick={handleClose} className="enm-cancel-btn" disabled={busy}>
+              Cancel
+            </button>
+          )}
           <button type="button" onClick={handleConfirm} className="enm-confirm-btn" disabled={busy}>
             <Send className="enm-btn-icon" />
-            <span>{busy ? 'Sending…' : confirmLabel}</span>
+            <span>
+              {busy
+                ? 'Sending…'
+                : reviewing
+                  ? `Approve ${recipientCount} candidate${plural}`
+                  : needsReview ? 'Review & send…' : confirmLabel}
+            </span>
           </button>
         </div>
       </div>

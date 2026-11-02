@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Loading } from './Loading';
 import { Link } from 'react-router-dom';
-import { Search, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, RefreshCw, ArrowUp, ArrowDown, Check, UserX, Bookmark } from 'lucide-react';
 import { useJobs } from '../hooks/useJobs';
 import { useAuth } from '../hooks/useAuth';
 import { useApplications } from '../hooks/useApplications';
@@ -16,11 +16,15 @@ import { DuplicateFlagBadges } from './DuplicateFlagBadges';
 import { PresenceBadge } from './PresenceBadge';
 import { EnteredByBadge } from './EnteredByBadge';
 import { CandidateAvatar } from './CandidateAvatar';
+import { EgiNoteModal } from './EgiNoteModal';
+import { RejectModal } from './RejectModal';
+import { BulkConfirmDialog } from './BulkConfirmDialog';
 import { PaginationControls } from './PaginationControls';
 import { TableLoadingRows } from './TableLoadingRows';
 import { TableErrorRow } from './TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
 import { routeBaseFor } from '../utils/routeBase';
+import { can, PERM } from '../utils/permissions';
 import './styles/ScreenedList.css';
 
 // The endpoint's sort keys, and the order each starts in (its own defaults).
@@ -66,7 +70,7 @@ function SortHeader({ sortKey, sort, order, onSort, className = '' }) {
 export function ScreenedList({ fixedView }) {
   const { jobs } = useJobs();
   const { currentUser } = useAuth();
-  const { reviewApplication } = useApplications();
+  const { reviewApplication, bulkReviewApplications } = useApplications();
   const { catalog } = useFieldCatalog();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +81,10 @@ export function ScreenedList({ fixedView }) {
   const saved = view === 'Archived';
   const [sort, setSort] = useState('score');
   const [order, setOrder] = useState(SORTS.score.defaultOrder);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  // Which bulk modal is open: 'approve' | 'reject' | 'save' | null.
+  const [bulkModal, setBulkModal] = useState(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const base = routeBaseFor(currentUser);
   const stateOptions = catalog?.fields.find((f) => f.key === 'stateOfOrigin')?.options || [];
@@ -94,10 +102,59 @@ export function ScreenedList({ fixedView }) {
 
   // On a failed load the hook still holds the last good rows (possibly from a
   // different filter); drop them so nothing treats them as the current list.
-  const items = error ? [] : loadedItems;
+  const items = useMemo(() => (error ? [] : loadedItems), [error, loadedItems]);
   const loadError = error ? describeLoadError(error, saved ? 'the saved candidates' : 'the screened candidates') : null;
 
   const { details, setDetail, reset } = useScreenedRowDetails(items);
+
+  // Selection only ever applies to the current page's rows: reset it during
+  // render (rather than an effect) when the page, the view or any filter or
+  // sort changes.
+  const pageKey = `${page}|${pageSize}|${view}|${sort}|${order}|${selectedJobId}|${selectedState}|${searchTerm}`;
+  const [prevPageKey, setPrevPageKey] = useState(pageKey);
+  if (pageKey !== prevPageKey) {
+    setPrevPageKey(pageKey);
+    setSelectedIds(new Set());
+  }
+
+  // Only rows still on the page count: after a refetch a row that moved on
+  // (one action, or another admin) is gone, and must not stay in the count or
+  // in the request.
+  const selected = useMemo(() => items.filter((i) => selectedIds.has(i.id)), [items, selectedIds]);
+  const selectedCount = selected.length;
+  const canApprove = can(currentUser, PERM.APPROVE_CANDIDATES);
+  // Saved rows can't be saved again, so the Saved view has no bulk Save.
+  const canBulkSave = view !== 'Archived';
+  const allSelected = items.length > 0 && selectedCount === items.length;
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(items.map((i) => i.id)));
+  };
+
+  /* Bulk Approve / Reject / Save — one bulk request for the rows selected on
+     the current page; only failures stay selected. `input` is the batch's one
+     shared payload. null = the whole request was refused: selection and the
+     open modal are kept. */
+  const runBulk = async (status, input) => {
+    if (selectedCount === 0) return null;
+    setBulkBusy(true);
+    const result = await bulkReviewApplications(selected.map((i) => i.id), status, input);
+    setBulkBusy(false);
+    if (!result) return null;
+    setSelectedIds(new Set(result.failed.map((f) => f.id)));
+    setBulkModal(null);
+    refetch();
+    return result;
+  };
 
   const handleSort = (key) => {
     if (key === sort) {
@@ -138,7 +195,8 @@ export function ScreenedList({ fixedView }) {
     );
   };
 
-  const colSpan = 7;
+  const colSpan = 8;
+  const plural = selectedCount !== 1 ? 's' : '';
 
   return (
     <div className="scr-wrapper">
@@ -196,11 +254,40 @@ export function ScreenedList({ fixedView }) {
         </div>
       </div>
 
+      {selectedCount > 0 && (
+        <div className="scr-bulk-bar">
+          <span className="scr-bulk-count">{selectedCount} selected</span>
+          {canApprove && (
+            <button type="button" className="sta-btn sta-btn--approve scr-bulk-btn" onClick={() => setBulkModal('approve')} disabled={bulkBusy}>
+              <Check className="scr-bulk-icon" /> Approve
+            </button>
+          )}
+          <button type="button" className="sta-btn sta-btn--reject scr-bulk-btn" onClick={() => setBulkModal('reject')} disabled={bulkBusy}>
+            <UserX className="scr-bulk-icon" /> Reject
+          </button>
+          {canBulkSave && (
+            <button type="button" className="sta-btn sta-btn--save scr-bulk-btn" onClick={() => setBulkModal('save')} disabled={bulkBusy}>
+              <Bookmark className="scr-bulk-icon" /> Save
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="scr-table-card">
         <div className="scr-table-scroll">
           <table className="scr-table">
             <thead>
               <tr>
+                <th className="scr-th scr-th-check">
+                  <input
+                    type="checkbox"
+                    className="scr-checkbox"
+                    aria-label="Select all on this page"
+                    checked={allSelected}
+                    disabled={items.length === 0}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <SortHeader sortKey="name" sort={sort} order={order} onSort={handleSort} />
                 <SortHeader sortKey="job" sort={sort} order={order} onSort={handleSort} />
                 <SortHeader sortKey="state" sort={sort} order={order} onSort={handleSort} />
@@ -216,7 +303,16 @@ export function ScreenedList({ fixedView }) {
                 <TableErrorRow colSpan={colSpan} message={loadError.message} onRetry={loadError.canRetry ? refetch : undefined} />
               )}
               {!isLoading && items.map((item) => (
-                <tr key={item.id} className="scr-row">
+                <tr key={item.id} className={`scr-row${selectedIds.has(item.id) ? ' scr-row--selected' : ''}`}>
+                  <td className="scr-td scr-td-check">
+                    <input
+                      type="checkbox"
+                      className="scr-checkbox"
+                      aria-label={`Select ${item.applicantName}`}
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelect(item.id)}
+                    />
+                  </td>
                   <td className="scr-td">
                     <div className="scr-candidate">
                       <CandidateAvatar name={item.applicantName} photoUrl={item.photoUrl} />
@@ -278,6 +374,38 @@ export function ScreenedList({ fixedView }) {
           onPageSizeChange={setPageSize}
         />
       </div>
+
+      <EgiNoteModal
+        open={bulkModal === 'approve'}
+        busy={bulkBusy}
+        title="Approve & Notify EGI"
+        confirmLabel={`Approve ${selectedCount} & Sync`}
+        recipientCount={selectedCount}
+        description={`Approving ${selectedCount} candidate${plural} — add a note for EGI. This one note is sent with each record.`}
+        onCancel={() => setBulkModal(null)}
+        onConfirm={(egiNote) => runBulk('Approved', { egiNote })}
+      />
+
+      <RejectModal
+        open={bulkModal === 'reject'}
+        busy={bulkBusy}
+        title="Reject & Notify Applicants"
+        confirmLabel="Reject & Send Messages"
+        recipientCount={selectedCount}
+        description={`${selectedCount} applicant${plural} will each be emailed this message as soon as you send.`}
+        onCancel={() => setBulkModal(null)}
+        onConfirm={(input) => runBulk('Rejected', input)}
+      />
+
+      <BulkConfirmDialog
+        open={bulkModal === 'save'}
+        busy={bulkBusy}
+        title={`Save ${selectedCount} candidate${plural}?`}
+        message="They move out of active review into Saved. From there they can still be approved or rejected, but not moved back to Screened."
+        confirmLabel={`Save ${selectedCount}`}
+        onCancel={() => setBulkModal(null)}
+        onConfirm={() => runBulk('Archived', {})}
+      />
     </div>
   );
 }

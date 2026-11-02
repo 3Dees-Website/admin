@@ -37,3 +37,6 @@
 .ucd-btn:hover { border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
 .ucd-btn--danger { background: #b91c1c; border-color: #b91c1c; color: #fff; }
 .ucd-btn--danger:hover { background: #991b1b; border-color: #991b1b; color: #fff; }
+.ucd-btn--primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: #fff; }
+.ucd-btn--primary:hover:not(:disabled) { background: var(--color-brand-secondary); border-color: var(--color-brand-secondary); color: #fff; }
+.ucd-btn:disabled { opacity: 0.6; cursor: not-allowed; }
