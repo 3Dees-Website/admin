@@ -14,7 +14,7 @@ in the 3DEES backend.
 - `declaration` — a checkbox that, when the field is *required*, MUST be ticked
   to submit (an unticked required declaration blocks submission — different
   from yesno, where "No" is a valid answer)
-- `file` — upload, PDF/JPG/PNG, 5MB max (same rules as today)
+- `file` — upload, PDF/JPG/PNG, 10MB max (same rules as today)
 
 ---
 
@@ -112,7 +112,7 @@ in the 3DEES backend.
 | `medicalCertUpload` | Medical Certificate |
 | `otherDocsUpload` | Other Supporting Documents — allows **multiple** files (up to 5) |
 
-File rules (all): PDF, JPG, PNG; 5MB per file. Passport photo: JPG/PNG only.
+File rules (all): PDF, JPG, PNG; 10MB per file. Passport photo: JPG/PNG only.
 
 ## 6. PROFESSIONAL INFORMATION — section key `professional`
 
