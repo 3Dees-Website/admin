@@ -557,6 +557,20 @@ export function PortalProvider({ children }) {
     }
   };
 
+  // Resolves to { ok, ages } or { ok: false, message }. The age form shows the
+  // reason itself, so a failure gets no toast. The job rows on screen take the
+  // stored ages straight away; nothing else shows them, so no shared store.
+  const setJobAgeRequirement = async (jobId, ages) => {
+    try {
+      const stored = await jobService.setAgeRequirement(jobId, ages);
+      const current = state.jobs.find((j) => j.id === jobId);
+      if (current) dispatch({ type: 'UPDATE_JOB', payload: { ...current, ...stored } });
+      return { ok: true, ages: stored };
+    } catch (err) {
+      return { ok: false, message: err?.message || 'Could not update the age requirement.' };
+    }
+  };
+
   // Resolves to { ok, message } so a confirm dialog can stay open on failure
   // and show the same reason the toast gives.
   const removeJob = async (jobId) => {
@@ -1002,6 +1016,7 @@ export function PortalProvider({ children }) {
         editJob,
         removeJob,
         setJobApprovalCap,
+        setJobAgeRequirement,
         applyToJob,
         reviewApplication,
         updateApplication,

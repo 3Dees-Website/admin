@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { STATUS_META, statusFilterOptions } from '../utils/applicationStatus';
 import { describeLoadError } from '../utils/describeLoadError';
 import { auditService } from '../services/auditService';
+import { formatAgeRequirement } from '../utils/ageRequirement';
 import { downloadBlob } from '../utils/downloadBlob';
 import './styles/SuperadminAuditTrail.css';
 
@@ -46,6 +47,17 @@ function describeJobEdit(details) {
   if (!fields) return 'Changed fields not recorded';
   if (fields.length === 0) return 'No fields changed';
   return `Changed: ${fields.map((f) => JOB_FIELD_LABELS[f] || humanizeField(f)).join(', ')}`;
+}
+
+// "Age: none → 21–35". Recorded as details.minAge / maxAge = { from, to }.
+function describeAgeChange(details) {
+  const side = (key) => {
+    const min = details?.minAge?.[key];
+    const max = details?.maxAge?.[key];
+    return formatAgeRequirement(min, max) ?? 'none';
+  };
+  if (!details?.minAge || !details?.maxAge) return 'Age requirement changed';
+  return `Age: ${side('from')} → ${side('to')}`;
 }
 
 export function SuperadminAuditTrail() {
@@ -224,6 +236,9 @@ export function SuperadminAuditTrail() {
                         <span className="sat-applicant-job">Job record · No application</span>
                         {log.newStatus === 'Job edited' && (
                           <span className="sat-applicant-changes">{describeJobEdit(log.details)}</span>
+                        )}
+                        {log.newStatus === 'Age requirement changed' && (
+                          <span className="sat-applicant-changes">{describeAgeChange(log.details)}</span>
                         )}
                       </div>
                     ) : (

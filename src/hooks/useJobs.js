@@ -15,5 +15,6 @@ export function useJobs() {
     editJob: context.editJob,
     removeJob: context.removeJob,
     setJobApprovalCap: context.setJobApprovalCap,
+    setJobAgeRequirement: context.setJobAgeRequirement,
   };
 }

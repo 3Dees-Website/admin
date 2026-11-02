@@ -11,6 +11,8 @@ import { useAuth } from '../hooks/useAuth';
 import { RequirementsBuilder } from './RequirementsBuilder';
 import { ScreeningConfigEditor } from './ScreeningConfigEditor';
 import { ApprovalCapControl } from './ApprovalCapControl';
+import { AgeRequirementControl } from './AgeRequirementControl';
+import { parseAgeInputs } from '../utils/ageRequirement';
 import { jobService } from '../services/jobService';
 import { can, PERM } from '../utils/permissions';
 import { draftFromConfig, validateDraft, payloadFromDraft } from '../utils/screeningConfig';
@@ -58,6 +60,12 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
         }
       : { ...DEFAULT_FIELDS, category: categories[0]?.name || DEFAULT_FIELDS.category }
   );
+  // Create mode only. Kept out of formFields on purpose so an edit save can never
+  // carry them: editing goes through AgeRequirementControl and its own endpoint.
+  const [minAgeText, setMinAgeText] = useState('');
+  const [maxAgeText, setMaxAgeText] = useState('');
+  const ageCheck = editingJob ? null : parseAgeInputs(minAgeText, maxAgeText);
+
   const [requirementsBuilder, setRequirementsBuilder] = useState(() =>
     editingJob ? { ...(editingJob.applicationRequirements || {}) } : {}
   );
@@ -134,6 +142,11 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
       return;
     }
 
+    if (ageCheck?.error) {
+      addToast('error', 'Invalid Age Requirement', ageCheck.error);
+      return;
+    }
+
     // Sent only with the screening permission, only when set up, and never for a locked job
     // (the server would refuse any change to it).
     let screeningConfig;
@@ -152,6 +165,9 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
           ...formFields,
           applicationRequirements: requirementsBuilder,
           ...(screeningConfig ? { screeningConfig } : {}),
+          // Left out entirely when empty; the server reads a missing key as none.
+          ...(ageCheck.value.minAge !== null ? { minAge: ageCheck.value.minAge } : {}),
+          ...(ageCheck.value.maxAge !== null ? { maxAge: ageCheck.value.maxAge } : {}),
         });
 
     if (saved) {
@@ -298,6 +314,32 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
                 className="jfm-input" />
             </div>
 
+            {!editingJob && (
+              <>
+                <div className="jfm-field">
+                  <label className="jfm-label">Minimum Age (Optional)</label>
+                  <input type="number" min={18} step={1} inputMode="numeric" placeholder="No minimum"
+                    value={minAgeText}
+                    onChange={(e) => {
+                      setMinAgeText(e.target.value);
+                      if (e.target.value.trim() === '') setMaxAgeText(''); // a maximum can't stand alone
+                    }}
+                    className="jfm-input" />
+                </div>
+
+                <div className="jfm-field">
+                  <label className="jfm-label">Maximum Age (Optional)</label>
+                  <input type="number" min={18} step={1} inputMode="numeric"
+                    placeholder={minAgeText.trim() === '' ? 'Set a minimum first' : 'No maximum'}
+                    disabled={minAgeText.trim() === ''}
+                    value={maxAgeText}
+                    onChange={(e) => setMaxAgeText(e.target.value)}
+                    className="jfm-input" />
+                  {ageCheck?.error && <span className="jfm-field-error">{ageCheck.error}</span>}
+                </div>
+              </>
+            )}
+
             <div className="jfm-field">
               <label className="jfm-label">Salary Range (Optional)</label>
               <input type="text" placeholder="e.g. ₦300k - ₦400k / Month"
@@ -368,6 +410,9 @@ export function JobFormModal({ editingJob, onClose, onSaved }) {
               />
             </div>
           )}
+
+          {/* Age requirement: its own endpoint and button, existing jobs only */}
+          {editingJob && <AgeRequirementControl job={editingJob} />}
 
           {/* Approval cap: its own endpoint and button, existing jobs only (needs manage_approval_cap) */}
           {editingJob && <ApprovalCapControl job={editingJob} />}

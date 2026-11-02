@@ -10,6 +10,7 @@ import { useToast } from '../hooks/useToast';
 import { useCategories } from '../hooks/useCategories';
 import { RequirementsSummary } from '../components/RequirementsSummary';
 import { ApprovalCapBadge } from '../components/ApprovalCapBadge';
+import { formatAgeRequirement } from '../utils/ageRequirement';
 import { JobFormModal } from '../components/JobFormModal';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
@@ -132,7 +133,7 @@ export function SuperadminAllVacancies() {
   const handleExport = () => {
     if (filteredJobs.length === 0) return;
     try {
-      const header = 'Title,ClientOrg,Category,Type,Location,Openings,SalaryRange,Status,ClosingDate,PostedBy,TotalApplicants,Approved';
+      const header = 'Title,ClientOrg,Category,Type,Location,Openings,SalaryRange,Status,ClosingDate,PostedBy,TotalApplicants,Approved,MinAge,MaxAge';
       const rows = filteredJobs.map((j) => [
         j.title, j.clientOrg, j.category,
         j.type,  j.location,  j.openings,
@@ -140,6 +141,8 @@ export function SuperadminAllVacancies() {
         j.postedBy,
         appCountFor(j.id),
         approvedCountFor(j.id),
+        j.minAge ?? '',
+        j.maxAge ?? '',
       ].map(csvEscape));
       const csv  = [header, ...rows.map((r) => r.join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -292,6 +295,9 @@ export function SuperadminAllVacancies() {
                       <span className="sav-job-location">
                         <MapPin className="sav-loc-icon" /> {job.location}
                       </span>
+                      {formatAgeRequirement(job.minAge, job.maxAge) && (
+                        <span className="sav-job-location">Age: {formatAgeRequirement(job.minAge, job.maxAge)}</span>
+                      )}
                       <ApprovalCapBadge jobId={job.id} cap={job.approvalCap} />
                     </div>
                   </td>
@@ -418,6 +424,10 @@ export function SuperadminAllVacancies() {
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Approvals</span>
                   <span className="sav-detail-val"><ApprovalCapBadge jobId={activeJob.id} cap={activeJob.approvalCap} /></span>
+                </div>
+                <div className="sav-detail-item">
+                  <span className="sav-detail-key">Age Requirement</span>
+                  <span className="sav-detail-val">{formatAgeRequirement(activeJob.minAge, activeJob.maxAge, { long: true }) ?? 'None'}</span>
                 </div>
                 <div className="sav-detail-item">
                   <span className="sav-detail-key">Salary Range</span>

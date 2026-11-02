@@ -10,6 +10,7 @@ import { useJobStats } from '../hooks/useJobStats';
 import { useToast } from '../hooks/useToast';
 import { JobFormModal } from '../components/JobFormModal';
 import { ApprovalCapBadge } from '../components/ApprovalCapBadge';
+import { formatAgeRequirement } from '../utils/ageRequirement';
 import { TableLoadingRows } from '../components/TableLoadingRows';
 import { TableErrorRow } from '../components/TableErrorRow';
 import { describeLoadError } from '../utils/describeLoadError';
@@ -134,6 +135,9 @@ export function AdminJobs() {
                     <div className="aj-job-info">
                       <span className="aj-job-title">{j.title}</span>
                       <span className="aj-job-meta">{j.category} • {j.type}</span>
+                      {formatAgeRequirement(j.minAge, j.maxAge) && (
+                        <span className="aj-job-meta">Age: {formatAgeRequirement(j.minAge, j.maxAge)}</span>
+                      )}
                       <ApprovalCapBadge jobId={j.id} cap={j.approvalCap} />
                     </div>
                   </td>
